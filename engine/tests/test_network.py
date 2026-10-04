@@ -3,7 +3,8 @@
 import pytest
 
 from mcplain.analyze import analyze_input
-from mcplain.models import AnalysisStatus, SourceKind, SourceOrigin
+from mcplain.capabilities import Capability
+from mcplain.models import AnalysisStatus, SourceKind, SourceOrigin, UrlKind
 
 pytestmark = pytest.mark.network
 
@@ -36,3 +37,26 @@ def test_pypi_fetch_server() -> None:
     assert result.source is not None
     assert result.source.artifact == "wheel"
     assert result.source.integrity is not None
+
+
+def test_real_fetch_tool_reaches_the_network_through_fetch_url() -> None:
+    """The fetch tool shows network via fetch_url with a dynamic URL"""
+
+    result = analyze_input("uvx mcp-server-fetch")
+    [fetch] = result.servers[0].tools
+    network = [finding for finding in fetch.findings if finding.capability is Capability.NETWORK]
+    assert any(
+        [step.function for step in finding.call_chain] == ["fetch_url"] and finding.url_kind is UrlKind.DYNAMIC
+        for finding in network
+    )
+
+
+def test_real_filesystem_tools_all_show_capabilities() -> None:
+    """write_file writes via writeFileContent and every tool but list_allowed_directories has a capability"""
+
+    result = analyze_input("npx -y @modelcontextprotocol/server-filesystem@latest")
+    tools = {tool.name: tool for tool in result.servers[0].tools}
+    write = [finding for finding in tools["write_file"].findings if finding.capability is Capability.FS_WRITE]
+    assert [step.function for step in write[0].call_chain] == ["writeFileContent"]
+    empty = sorted(name for name, tool in tools.items() if not tool.findings)
+    assert empty == ["list_allowed_directories"]
