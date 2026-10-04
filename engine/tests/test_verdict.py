@@ -14,7 +14,10 @@ from mcplain.models import (
     Verdict,
     VerdictColor,
 )
-from mcplain.verdict import DEFAULT_REGISTRY, PowerfulCapabilityRule, Rule, RuleRegistry, compute_verdict
+from mcplain.models import Alert
+from mcplain.rules.base import Rule, RuleContext, RuleRegistry
+from mcplain.rules.orange import PowerfulCapability
+from mcplain.verdict import DEFAULT_REGISTRY, compute_verdict
 
 
 def finding(capability: Capability, location: LocationKind = LocationKind.SERVER_CODE) -> Finding:
@@ -53,15 +56,13 @@ def result(findings: list[Finding], status: AnalysisStatus = AnalysisStatus.OK) 
 class RedRule(Rule):
     """Class for a test rule that is always red"""
 
-    identifier = "test.red"
+    identifier = "T01"
     color = VerdictColor.RED
-    source = "test"
-    description = "test"
 
-    def evaluate(self, server: ServerAnalysis) -> list[str]:
-        """Always raise one reason"""
+    def evaluate(self, context: RuleContext) -> list[Alert]:
+        """Always raise one alert"""
 
-        return ["test.red"]
+        return [self.alert(detail="test")]
 
 
 def test_default_registry_has_no_red_rule() -> None:
@@ -95,7 +96,7 @@ def test_orange_for_each_powerful_capability(capability: Capability) -> None:
 
     verdict = compute_verdict(result([finding(capability)]))
     assert verdict.color is VerdictColor.ORANGE
-    assert f"capability.{capability.value}" in verdict.reasons
+    assert [(alert.rule, alert.tool, alert.detail) for alert in verdict.alerts] == [("O08", "t", capability.value)]
 
 
 def test_tests_and_build_scripts_do_not_count() -> None:
@@ -138,12 +139,12 @@ def test_red_rule_makes_the_verdict_final() -> None:
     """Once a red rule exists, verdicts are no longer provisional"""
 
     registry = RuleRegistry()
-    registry.register(PowerfulCapabilityRule())
+    registry.register(PowerfulCapability())
     registry.register(RedRule())
     verdict = compute_verdict(result([finding(Capability.FS_WRITE)]), registry)
     assert verdict.color is VerdictColor.RED
     assert not verdict.provisional
-    assert verdict.reasons[:2] == ["capability.fs_write", "test.red"]
+    assert [alert.rule for alert in verdict.alerts] == ["T01", "O08"]
 
 
 def test_duplicate_rule_is_refused() -> None:

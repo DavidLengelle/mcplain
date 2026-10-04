@@ -38,16 +38,16 @@ def test_fixture_outcomes(fixtures: Path, folder: str, status: AnalysisStatus, c
 def test_poisoned_verdict_reasons(fixtures: Path) -> None:
     """The poisoned server is orange because of the sensitive path, with an invisible character caveat"""
 
-    reasons = analyze_directory(fixtures / "python_fastmcp_poisoned").verdict.reasons
-    assert "capability.sensitive_path" in reasons
-    assert "caveat.invisible_unicode" in reasons
+    verdict = analyze_directory(fixtures / "python_fastmcp_poisoned").verdict
+    assert ("O08", "sensitive_path") in [(alert.rule, alert.detail) for alert in verdict.alerts]
+    assert "caveat.invisible_unicode" in verdict.reasons
 
 
 def test_env_verdict_comes_from_the_secret_only(fixtures: Path) -> None:
     """PORT alone would be green: only API_KEY makes the server orange"""
 
-    reasons = analyze_directory(fixtures / "python_env").verdict.reasons
-    assert reasons == ["capability.env_read_secret"]
+    alerts = analyze_directory(fixtures / "python_env").verdict.alerts
+    assert [(alert.rule, alert.detail) for alert in alerts] == [("O08", "env_read_secret")]
 
 
 def test_tests_folder_is_reported_but_not_counted(fixtures: Path) -> None:

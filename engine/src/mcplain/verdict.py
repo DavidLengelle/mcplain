@@ -1,8 +1,5 @@
-"""Extensible rule engine that turns an analysis into a verdict"""
+"""Verdict: the rule registry decides the color from the alerts of every registered rule"""
 
-from abc import ABC, abstractmethod
-
-from mcplain.capabilities import POWERFUL_CAPABILITIES
 from mcplain.models import (
     AnalysisResult,
     AnalysisStatus,
@@ -12,6 +9,8 @@ from mcplain.models import (
     Verdict,
     VerdictColor,
 )
+from mcplain.rules.base import RuleContext, RuleRegistry
+from mcplain.rules.orange import PowerfulCapability
 
 SEVERITY: dict[VerdictColor, int] = {
     VerdictColor.GREEN: 0,
@@ -19,45 +18,8 @@ SEVERITY: dict[VerdictColor, int] = {
     VerdictColor.RED: 2,
 }
 
-
-class Rule(ABC):
-    """Class that describes one verdict rule and where it comes from"""
-
-    identifier: str = ""
-    color: VerdictColor = VerdictColor.GREEN
-    source: str = ""
-    description: str = ""
-
-    @abstractmethod
-    def evaluate(self, server: ServerAnalysis) -> list[str]:
-        """Return the reason codes this rule raises for a server"""
-
-
-class RuleRegistry:
-    """Class that keeps the rules used to compute verdicts"""
-
-    def __init__(self) -> None:
-        """Start with no rule"""
-
-        self._rules: dict[str, Rule] = {}
-
-    def register(self, rule: Rule) -> None:
-        """Add a rule, refusing duplicate identifiers"""
-
-        if rule.identifier in self._rules:
-            raise ValueError(rule.identifier)
-        self._rules[rule.identifier] = rule
-
-    def rules(self) -> list[Rule]:
-        """Return the registered rules in registration order"""
-
-        return list(self._rules.values())
-
-    def has_red_rules(self) -> bool:
-        """Tell whether at least one red rule is registered"""
-
-        return any(rule.color is VerdictColor.RED for rule in self._rules.values())
-
+DEFAULT_REGISTRY = RuleRegistry()
+DEFAULT_REGISTRY.register(PowerfulCapability())
 
 def counted_findings(server: ServerAnalysis) -> list[Finding]:
     """Return the findings that count for the verdict: server code only"""
@@ -66,25 +28,6 @@ def counted_findings(server: ServerAnalysis) -> list[Finding]:
     for tool in server.tools:
         findings.extend(tool.findings)
     return [finding for finding in findings if finding.location_kind is LocationKind.SERVER_CODE]
-
-
-class PowerfulCapabilityRule(Rule):
-    """Class for the provisional rule that flags powerful capabilities in server code"""
-
-    identifier = "provisional.powerful_capability"
-    color = VerdictColor.ORANGE
-    source = "mcplain:provisional"
-    description = "rule.provisional.powerful_capability"
-
-    def evaluate(self, server: ServerAnalysis) -> list[str]:
-        """Return one reason per powerful capability found in server code"""
-
-        found = {finding.capability for finding in counted_findings(server)}
-        return [f"capability.{capability.value}" for capability in sorted(found & POWERFUL_CAPABILITIES)]
-
-
-DEFAULT_REGISTRY = RuleRegistry()
-DEFAULT_REGISTRY.register(PowerfulCapabilityRule())
 
 
 def caveats(result: AnalysisResult) -> list[str]:
@@ -120,18 +63,17 @@ def compute_verdict(result: AnalysisResult, registry: RuleRegistry = DEFAULT_REG
     if not result.servers or all(server.files_analyzed == 0 for server in result.servers):
         return Verdict(color=VerdictColor.GRAY, reasons=["nothing_analyzable"], provisional=provisional)
     color = VerdictColor.GREEN
-    reasons: list[str] = []
+    alerts = []
     for server in result.servers:
+        context = RuleContext(result, server)
         for rule in registry.rules():
-            codes = rule.evaluate(server)
-            if not codes:
-                continue
-            for code in codes:
-                if code not in reasons:
-                    reasons.append(code)
-            if SEVERITY[rule.color] > SEVERITY[color]:
+            found = rule.evaluate(context)
+            alerts.extend(found)
+            if found and SEVERITY[rule.color] > SEVERITY[color]:
                 color = rule.color
-    if not reasons:
+    alerts.sort(key=lambda alert: -SEVERITY[alert.color])
+    reasons: list[str] = []
+    if not alerts:
         reasons.append("no_powerful_capability")
     reasons.extend(caveats(result))
-    return Verdict(color=color, reasons=reasons, provisional=provisional)
+    return Verdict(color=color, alerts=alerts, reasons=reasons, provisional=provisional)

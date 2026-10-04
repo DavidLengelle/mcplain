@@ -64,7 +64,6 @@ def test_enumerations_are_translated(language: str) -> None:
 
     keys = set(catalog(language))
     expected = [f"capability.{item.value}" for item in Capability]
-    expected += [f"reason.capability.{item.value}" for item in Capability]
     expected += [f"status.{item.value}" for item in AnalysisStatus]
     expected += [f"reason.status.{item.value}" for item in AnalysisStatus if item is not AnalysisStatus.OK]
     expected += [f"declaration.{item.value}" for item in DeclarationKind]

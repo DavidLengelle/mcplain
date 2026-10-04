@@ -311,10 +311,36 @@ class VerdictColor(StrEnum):
     GRAY = "gray"
 
 
+class AlertKind(StrEnum):
+    """Class that tells whether an alert points to a suspicious use or to a serious flaw of an honest author"""
+
+    SUSPICIOUS_USE = "suspicious_use"
+    SERIOUS_FLAW = "serious_flaw"
+
+
+class Alert(BaseModel):
+    """Class that describes one place where a rule fires"""
+
+    rule: str
+    color: VerdictColor
+    kind: AlertKind
+    tool: str | None = None
+    shared_by_tools: bool = False
+    outside: OutsideKind | None = None
+    file: str | None = None
+    line: int | None = None
+    function: str | None = None
+    source: FlowPoint | None = None
+    steps: list[CallStep] = Field(default_factory=list)
+    quote: str | None = None
+    detail: str | None = None
+
+
 class Verdict(BaseModel):
-    """Class that holds the verdict color and the codes that explain it"""
+    """Class that holds the verdict color, the alerts and the codes that explain it"""
 
     color: VerdictColor
+    alerts: list[Alert] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
     provisional: bool
 

@@ -568,6 +568,12 @@ def _render_verdict(result: AnalysisResult, t: Translator, lines: list[str]) -> 
     if verdict.provisional:
         color = f"{color} ({t('cli.verdict.provisional')})"
     lines.append(f"{INDENT}{color}")
+    for alert in verdict.alerts:
+        title = t("cli.verdict.alert", rule=alert.rule, title=t(f"rule.{alert.rule}.title"))
+        where = t("cli.outside.heading")
+        if alert.tool is not None:
+            where = t("cli.in_tool", name=_safe(alert.tool))
+        lines.append(f"{INDENT}- {title}{t('cli.separator')}{_safe(alert.detail)} ({where})")
     for reason in verdict.reasons:
         lines.append(f"{INDENT}- {t('reason.' + reason)}")
     if verdict.provisional:
