@@ -14,6 +14,14 @@ def _refuse_network(*args: object, **kwargs: object) -> None:
     raise RuntimeError("network access is not allowed in offline tests")
 
 
+def pytest_ignore_collect(collection_path: Path) -> bool | None:
+    """Never collect or import anything from the fixture servers, whatever the working directory"""
+
+    if collection_path.resolve().is_relative_to(FIXTURES.resolve()):
+        return True
+    return None
+
+
 @pytest.fixture(autouse=True)
 def block_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Block sockets in every test that is not marked network"""

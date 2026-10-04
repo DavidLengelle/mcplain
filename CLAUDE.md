@@ -44,6 +44,9 @@ uv run pytest -m network
 ```
 
 The first command runs offline (sockets are blocked). The second reaches the real registries.
+Files under `engine/tests/fixtures/` are analyzed code: they are never imported or run, and a
+`pytest_ignore_collect` hook keeps pytest away from them whatever the working directory.
+Do not name fixture files `test_*.py`, `*_test.py` or `conftest.py`.
 
 ## Code style
 

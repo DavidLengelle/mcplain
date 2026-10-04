@@ -55,7 +55,7 @@ def test_tests_folder_is_reported_but_not_counted(fixtures: Path) -> None:
 
     result = analyze_directory(fixtures / "python_tests_subprocess")
     assert result.verdict.reasons == ["no_powerful_capability"]
-    assert result.servers[0].findings[0].file == "tests/test_server.py"
+    assert result.servers[0].findings[0].file == "tests/check_server.py"
 
 
 def test_select_inside_monorepo(fixtures: Path) -> None:
