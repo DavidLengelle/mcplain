@@ -296,6 +296,7 @@ class ParseError(BaseModel):
     file: str
     line: int
     column: int
+    location_kind: LocationKind = LocationKind.SERVER_CODE
 
 
 class SkippedFile(BaseModel):
@@ -304,6 +305,7 @@ class SkippedFile(BaseModel):
     file: str
     reason: str
     size: int
+    location_kind: LocationKind = LocationKind.SERVER_CODE
 
 
 class ServerAnalysis(BaseModel):
@@ -379,7 +381,9 @@ class Verdict(BaseModel):
     color: VerdictColor
     alerts: list[Alert] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
-    provisional: bool
+    rules_version: str = ""
+    rules_count: int = 0
+    contacted_domains: list[str] = Field(default_factory=list)
 
 
 class ReputationStatus(StrEnum):

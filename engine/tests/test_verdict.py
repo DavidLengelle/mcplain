@@ -4,6 +4,7 @@ import pytest
 
 from mcplain.capabilities import Capability
 from mcplain.models import (
+    Alert,
     AnalysisResult,
     AnalysisStatus,
     DeclarationKind,
@@ -11,10 +12,10 @@ from mcplain.models import (
     LocationKind,
     ServerAnalysis,
     Tool,
+    TrackingGap,
     Verdict,
     VerdictColor,
 )
-from mcplain.models import Alert
 from mcplain.rules.base import Rule, RuleContext, RuleRegistry
 from mcplain.rules.orange import PowerfulCapability
 from mcplain.verdict import DEFAULT_REGISTRY, compute_verdict
@@ -49,7 +50,7 @@ def result(findings: list[Finding], status: AnalysisStatus = AnalysisStatus.OK) 
     return AnalysisResult(
         status=status,
         servers=[server],
-        verdict=Verdict(color=VerdictColor.GRAY, provisional=True),
+        verdict=Verdict(color=VerdictColor.GRAY),
     )
 
 
@@ -65,19 +66,50 @@ class RedRule(Rule):
         return [self.alert(detail="test")]
 
 
-def test_default_registry_has_red_rules() -> None:
-    """Red rules exist, so verdicts are final"""
+def test_default_registry_has_the_twenty_rules() -> None:
+    """The verdict says which version of the rules it used and how many rules there are"""
 
     assert DEFAULT_REGISTRY.has_red_rules()
-    assert not compute_verdict(result([])).provisional
+    verdict = compute_verdict(result([]))
+    assert (verdict.rules_version, verdict.rules_count) == ("1", 20)
 
 
 def test_green_without_powerful_capability() -> None:
-    """Network and file reads alone stay green"""
+    """Network and file reads alone stay green; the network part is described"""
 
     verdict = compute_verdict(result([finding(Capability.NETWORK), finding(Capability.FS_READ)]))
     assert verdict.color is VerdictColor.GREEN
-    assert verdict.reasons == ["no_powerful_capability"]
+    assert verdict.reasons == ["no_alert", "green.network_partly"]
+
+
+def test_green_lists_the_fixed_addresses_contacted() -> None:
+    """A green verdict with network calls to fixed hosts lists those domains"""
+
+    network = finding(Capability.NETWORK).model_copy(update={"url_host": "api.example.com"})
+    verdict = compute_verdict(result([network]))
+    assert verdict.color is VerdictColor.GREEN
+    assert verdict.reasons == ["no_alert", "green.network"]
+    assert verdict.contacted_domains == ["api.example.com"]
+
+
+def test_gray_when_a_tool_is_not_fully_followed() -> None:
+    """Green requires everything to be read and followed: a tracking gap gives gray"""
+
+    gapped = result([])
+    gapped.servers[0].tools[0].gaps = [TrackingGap.DICT_CALL]
+    verdict = compute_verdict(gapped)
+    assert verdict.color is VerdictColor.GRAY
+    assert verdict.reasons == ["caveat.incomplete_tracking"]
+
+
+def test_orange_wins_over_gray() -> None:
+    """A rule that fires decides the color even when the reading is incomplete"""
+
+    gapped = result([finding(Capability.FS_WRITE)])
+    gapped.servers[0].tools[0].gaps = [TrackingGap.DICT_CALL]
+    verdict = compute_verdict(gapped)
+    assert verdict.color is VerdictColor.ORANGE
+    assert "caveat.incomplete_tracking" in verdict.reasons
 
 
 @pytest.mark.parametrize(
@@ -120,9 +152,9 @@ def test_tests_and_build_scripts_do_not_count() -> None:
     ],
 )
 def test_gray_when_status_is_not_ok(status: AnalysisStatus) -> None:
-    """Any status other than ok gives gray"""
+    """Any status other than ok gives gray when no rule fires"""
 
-    verdict = compute_verdict(result([finding(Capability.PROCESS_EXEC)], status))
+    verdict = compute_verdict(result([], status))
     assert verdict.color is VerdictColor.GRAY
     assert verdict.reasons == [f"status.{status.value}"]
 
@@ -135,15 +167,14 @@ def test_gray_when_nothing_was_analyzed() -> None:
     assert compute_verdict(empty).reasons == ["nothing_analyzable"]
 
 
-def test_red_rule_makes_the_verdict_final() -> None:
-    """Once a red rule exists, verdicts are no longer provisional"""
+def test_red_rule_wins_and_red_alerts_come_first() -> None:
+    """A red alert makes the verdict red, and red alerts are listed before orange ones"""
 
     registry = RuleRegistry()
     registry.register(PowerfulCapability())
     registry.register(RedRule())
     verdict = compute_verdict(result([finding(Capability.FS_WRITE)]), registry)
     assert verdict.color is VerdictColor.RED
-    assert not verdict.provisional
     assert [alert.rule for alert in verdict.alerts] == ["T01", "O08"]
 
 

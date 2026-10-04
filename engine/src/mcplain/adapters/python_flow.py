@@ -219,7 +219,9 @@ class PythonLowering:
         stack = list(scope.named_children)
         if scope.type == "function_definition":
             body = scope.child_by_field_name("body")
-            stack = list(body.named_children) if body is not None else []
+            stack = []
+            if body is not None:
+                stack = list(body.named_children)
         while stack:
             node = stack.pop()
             if node.type in ("function_definition", "class_definition", "lambda"):
@@ -269,6 +271,11 @@ class PythonLowering:
         mode = keywords.get("mode")
         if mode is None and len(positional) > 1:
             mode = positional[1]
+        return self._mode_writes(mode)
+
+    def _mode_writes(self, mode: Node | None) -> bool:
+        """Tell whether a file mode argument allows writing; a computed mode may write"""
+
         if mode is None:
             return False
         text = self.file.static_text(mode)
@@ -430,8 +437,11 @@ class PythonLowering:
         tail: list[Stmt] = []
         for child in node.named_children:
             if child.type in ("except_clause", "except_group_clause"):
-                blocks = [item for item in child.named_children if item.type == "block"]
-                handlers.append(self._body(blocks[0]) if blocks else ())
+                handler: Node | None = None
+                for item in child.named_children:
+                    if item.type == "block":
+                        handler = item
+                handlers.append(self._body(handler))
             elif child.type == "else_clause":
                 statements.extend(self._body(child.child_by_field_name("body")))
             elif child.type == "finally_clause":
@@ -472,7 +482,10 @@ class PythonLowering:
         statements: list[Stmt] = [Evaluate(self.expr(node.child_by_field_name("subject")))]
         body = node.child_by_field_name("body")
         arms = []
-        for clause in body.named_children if body is not None else []:
+        clauses: list[Node] = []
+        if body is not None:
+            clauses = list(body.named_children)
+        for clause in clauses:
             if clause.type == "case_clause":
                 arms.append(self._body(clause.child_by_field_name("consequence")))
         statements.append(Branch(tuple(arms), False))
@@ -525,7 +538,9 @@ class PythonLowering:
             left = node.child_by_field_name("left")
             right = node.child_by_field_name("right")
             operator = node.child_by_field_name("operator")
-            symbol = operator.type if operator is not None else ""
+            symbol = ""
+            if operator is not None:
+                symbol = operator.type
             if symbol == "+" or (symbol == "%" and left is not None and left.type in STRING_NODES):
                 return Compose((self.expr(left), self.expr(right)))
             return Union((self.expr(left), self.expr(right)))
@@ -574,7 +589,9 @@ class PythonLowering:
                 return EMPTY
             return Union((Name(".".join(parts)), Member(self.expr(node.child_by_field_name("object")), parts[-1])))
         attribute = node.child_by_field_name("attribute")
-        name = node_text(attribute) if attribute is not None else None
+        name = None
+        if attribute is not None:
+            name = node_text(attribute)
         return Member(self.expr(node.child_by_field_name("object")), name)
 
     def _string(self, node: Node) -> Expr:
@@ -598,7 +615,9 @@ class PythonLowering:
         for clause in node.named_children:
             if clause.type == "for_in_clause":
                 left = clause.child_by_field_name("left")
-                targets = tuple(name for name, _ in self._targets(left)) if left is not None else ()
+                targets: tuple[str, ...] = ()
+                if left is not None:
+                    targets = tuple(name for name, _ in self._targets(left))
                 bindings.append((targets, Member(self.expr(clause.child_by_field_name("right")), None)))
         body = node.child_by_field_name("body")
         if body is not None and body.type == "pair":
@@ -622,7 +641,9 @@ class PythonLowering:
         targets, _ = self.file.dispatch(node, callee)
         if targets is None:
             target = self.file.call_target(callee, offset)
-            targets = [target] if target is not None else []
+            targets = []
+            if target is not None:
+                targets = [target]
         if targets:
             return self._package_call(callee, targets, positional, keywords, splats, offset)
         parts = dotted_parts(callee)
@@ -649,7 +670,9 @@ class PythonLowering:
                 return known
         if receiver is not None:
             attribute = callee.child_by_field_name("attribute")
-            method = node_text(attribute) if attribute is not None else ""
+            method = ""
+            if attribute is not None:
+                method = node_text(attribute)
             return self._method(method, receiver, positional, keywords, inputs, offset)
         if parts and parts[-1][:1].isupper():
             return Operation(tuple(inputs.items), offset, result=Result("union", inputs.arguments()))
@@ -702,7 +725,9 @@ class PythonLowering:
             position = 0
         if position is None:
             return None
-        command_node = positional[position] if position < len(positional) else keywords.get(PYTHON_COMMAND_KEYWORDS[0])
+        command_node = keywords.get(PYTHON_COMMAND_KEYWORDS[0])
+        if position < len(positional):
+            command_node = positional[position]
         return self._process(command_node, inputs, position, qualified, offset)
 
     def _process(self, command: Node | None, inputs: _Inputs, position: int, detail: str, offset: int) -> Expr:
@@ -753,9 +778,10 @@ class PythonLowering:
         if imported and qualified in PYTHON_RUN_FILE_CALLS:
             return self._sinks(inputs, offset, [(FlowSinkKind.RUN_FILE, ROLE_PATH, first, qualified)])
         if self._is_open(qualified, imported):
-            call_mode = keywords.get("mode") or (positional[1] if len(positional) > 1 else None)
-            text = self.file.static_text(call_mode) if call_mode is not None else None
-            if text is not None and (text.dynamic or any(character in text.value for character in PYTHON_WRITE_MODE_CHARS)):
+            call_mode = keywords.get("mode")
+            if call_mode is None and len(positional) > 1:
+                call_mode = positional[1]
+            if self._mode_writes(call_mode):
                 return self._sinks(inputs, offset, [(FlowSinkKind.FILE_WRITE, ROLE_PATH, first, qualified)])
             return Operation(tuple(inputs.items), offset, result=Result("read", first))
         if imported and qualified in PYTHON_COPY_CALLS:
@@ -802,11 +828,11 @@ class PythonLowering:
             ]
             return self._sinks(inputs, offset, sinks, target=target)
         if method in PYTHON_PATH_READ_METHODS:
-            mode = keywords.get("mode") or (positional[0] if positional else None)
-            if method == "open" and mode is not None:
-                text = self.file.static_text(mode)
-                if text.dynamic or any(character in text.value for character in PYTHON_WRITE_MODE_CHARS):
-                    return self._sinks(inputs, offset, [(FlowSinkKind.FILE_WRITE, ROLE_PATH, (0,), ".open")])
+            mode = keywords.get("mode")
+            if mode is None and positional:
+                mode = positional[0]
+            if method == "open" and self._mode_writes(mode):
+                return self._sinks(inputs, offset, [(FlowSinkKind.FILE_WRITE, ROLE_PATH, (0,), ".open")])
             return Operation(tuple(inputs.items), offset, result=Result("read", (0,)))
         if method in PYTHON_RUN_FILE_METHODS:
             return self._sinks(inputs, offset, [(FlowSinkKind.RUN_FILE, ROLE_PATH, (0,), f".{method}")])

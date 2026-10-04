@@ -279,7 +279,9 @@ class JavaScriptLowering:
         stack = list(scope.named_children)
         if scope.type in FUNCTION_NODES:
             body = scope.child_by_field_name("body")
-            stack = [body] if body is not None else []
+            stack = []
+            if body is not None:
+                stack = [body]
         while stack:
             node = stack.pop()
             if node.type in FUNCTION_NODES or node.type in ("class_declaration", "class"):
@@ -378,7 +380,10 @@ class JavaScriptLowering:
         if kind == "switch_statement":
             arms = []
             body = node.child_by_field_name("body")
-            for case in body.named_children if body is not None else []:
+            cases: list[Node] = []
+            if body is not None:
+                cases = list(body.named_children)
+            for case in cases:
                 arms.append(self._block(case.children_by_field_name("body")))
             return [Evaluate(self.expr(node.child_by_field_name("value"))), Branch(tuple(arms), False)]
         if kind == "statement_block":
@@ -407,7 +412,7 @@ class JavaScriptLowering:
             value = declarator.child_by_field_name("value")
             if name is None:
                 continue
-            expr = self.expr(value) if value is not None else EMPTY
+            expr = self.expr(value)
             if name.type == "identifier":
                 statements.append(Assign(((node_text(name), False),), expr))
                 continue
@@ -669,7 +674,9 @@ class JavaScriptLowering:
         left = self.expr(node.child_by_field_name("left"))
         right = self.expr(node.child_by_field_name("right"))
         operator = node.child_by_field_name("operator")
-        symbol = operator.type if operator is not None else ""
+        symbol = ""
+        if operator is not None:
+            symbol = operator.type
         if symbol == "+":
             return Compose((left, right))
         if symbol in UNION_OPERATORS:
@@ -711,7 +718,9 @@ class JavaScriptLowering:
             targets, _ = self.file.dispatch(node, callee)
         if targets is None:
             target = self.file.call_target(callee, offset)
-            targets = [target] if target is not None else []
+            targets = []
+            if target is not None:
+                targets = [target]
         if node.type == "new_expression" and is_promise(node) and arguments:
             executor = unwrap(arguments[0])
             if executor is not None and executor.type in INLINE_FUNCTIONS:
@@ -721,7 +730,9 @@ class JavaScriptLowering:
         if targets:
             argument_exprs = tuple(self.expr(argument) for argument in arguments)
             calls = tuple(Call(target, argument_exprs, (), None, offset) for target in targets)
-            call: Expr = calls[0] if len(calls) == 1 else Union(calls)
+            call: Expr = Union(calls)
+            if len(calls) == 1:
+                call = calls[0]
             if callbacks:
                 return Operation((call,), offset, result=Result("union", (0,)), callbacks=callbacks)
             return call
@@ -743,7 +754,7 @@ class JavaScriptLowering:
                 return known
         if receiver is not None and method is not None and not imported:
             return self._method(method, receiver, arguments, inputs, offset)
-        name = qualified.rsplit(".", 1)[-1] if qualified else ""
+        name = qualified.rsplit(".", 1)[-1]
         result = Result("none")
         if node.type == "new_expression" or name[:1].isupper():
             result = Result("union", inputs.arguments())
@@ -817,7 +828,9 @@ class JavaScriptLowering:
                 if current.type != "identifier" or node_text(current) not in self.file.function_names:
                     return self._sinks(inputs, offset, [(FlowSinkKind.CODE, ROLE_CODE, first, qualified)])
         if qualified in JAVASCRIPT_LOADERS and not imported:
-            current = unwrap(arguments[0]) if arguments else None
+            current = None
+            if arguments:
+                current = unwrap(arguments[0])
             if current is not None and current.type != "string":
                 return self._sinks(inputs, offset, [(FlowSinkKind.CODE, ROLE_CODE, first, qualified)])
             return Operation(tuple(inputs.items), offset)
@@ -825,7 +838,9 @@ class JavaScriptLowering:
             return self._sinks(inputs, offset, [(FlowSinkKind.RUN_FILE, ROLE_PATH, first, qualified)])
         if qualified in JAVASCRIPT_WRITE_CALLS:
             path_index, content_index = JAVASCRIPT_WRITE_CALLS[qualified]
-            target = _names(arguments[path_index]) if path_index < len(arguments) else ()
+            target: tuple[str, ...] = ()
+            if path_index < len(arguments):
+                target = _names(arguments[path_index])
             sinks = [
                 (FlowSinkKind.FILE_WRITE, ROLE_PATH, inputs.argument(path_index), qualified),
                 (FlowSinkKind.FILE_WRITE, ROLE_CONTENT, inputs.argument(content_index), qualified),
@@ -863,7 +878,9 @@ class JavaScriptLowering:
         if qualified == JAVASCRIPT_BUFFER_FROM and arguments:
             if self._is_code_array(arguments[0]):
                 return self._source(inputs, offset, qualified)
-            encoding = self.file.static_text(arguments[1]).value if len(arguments) > 1 else ""
+            encoding = ""
+            if len(arguments) > 1:
+                encoding = self.file.static_text(arguments[1]).value
             if encoding in JAVASCRIPT_DECODING_ENCODINGS:
                 if self._is_literal(arguments[0]):
                     return self._source(inputs, offset, qualified)
@@ -888,7 +905,9 @@ class JavaScriptLowering:
             if len(arguments) > 1 and self.file._as_object(arguments[1]) is None:
                 command = command + inputs.argument(1)
             return self._sinks(inputs, offset, [(FlowSinkKind.SHELL, ROLE_COMMAND, command, qualified)])
-        program = unwrap(arguments[0]) if arguments else None
+        program = None
+        if arguments:
+            program = unwrap(arguments[0])
         if program is not None and program.type == "array" and program.named_children:
             elements = [self.expr(child) for child in program.named_children]
             first = inputs.add(elements[0])
@@ -940,7 +959,9 @@ class JavaScriptLowering:
                 result = Result("none")
             return Operation(tuple(inputs.items), offset, result=result, callbacks=callbacks)
         if method == "join":
-            separator = self.file.static_text(arguments[0]).value if arguments else ","
+            separator = ","
+            if arguments:
+                separator = self.file.static_text(arguments[0]).value
             if receiver.type == "array" and receiver.named_children:
                 parts: list[int] = []
                 for index, element in enumerate(receiver.named_children):
@@ -974,7 +995,9 @@ class JavaScriptLowering:
             if method in JAVASCRIPT_ELEMENT_CALLBACKS or method in JAVASCRIPT_VALUE_CALLBACKS:
                 callbacks.append(self._callback(current, (0,), returns))
             elif method in JAVASCRIPT_REDUCERS and position == 0:
-                initial = 2 if len(arguments) > 1 else None
+                initial = None
+                if len(arguments) > 1:
+                    initial = 2
                 callbacks.append(self._callback(current, (initial, 0), True))
             else:
                 callbacks.append(self._callback(current, ()))

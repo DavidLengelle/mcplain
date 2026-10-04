@@ -273,7 +273,7 @@ def _finish(result: AnalysisResult) -> AnalysisResult:
 def _placeholder_verdict() -> Verdict:
     """Return the verdict used before the real one is computed"""
 
-    return Verdict(color=VerdictColor.GRAY, provisional=True)
+    return Verdict(color=VerdictColor.GRAY)
 
 
 def error_result(error: McplainError, source: AnalyzedSource | None = None) -> AnalysisResult:

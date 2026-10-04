@@ -544,7 +544,9 @@ class FlowEngine:
     def _sink(self, sink: SinkSpec, labels: Labels, env: dict[str, Labels], frame: _Frame) -> None:
         """Record the hits of labels that reach a sink, and mark files written from tracked content"""
 
-        root = frame.root if frame.root is not None else sink.offset
+        root = sink.offset
+        if frame.root is not None:
+            root = frame.root
         for label in labels:
             if label.written:
                 if sink.kind in (FlowSinkKind.RUN_FILE, FlowSinkKind.CODE) or (

@@ -127,7 +127,8 @@ class Adapter(ABC):
             relative = path.relative_to(server_dir).as_posix()
             size = path.stat().st_size
             if size > self.limits.max_source_file_bytes:
-                analysis.skipped_files.append(SkippedFile(file=relative, reason=TOO_LARGE_REASON, size=size))
+                skipped = SkippedFile(file=relative, reason=TOO_LARGE_REASON, size=size, location_kind=location_kind(relative))
+                analysis.skipped_files.append(skipped)
                 continue
             sources.append((relative, path))
         paths = [relative for relative, _ in sources]
@@ -218,7 +219,9 @@ class Adapter(ABC):
         for path, report in reports.items():
             if report.error_offset is not None:
                 line, column = report.source.position(report.error_offset)
-                analysis.parse_errors.append(ParseError(file=path, line=line, column=column))
+                analysis.parse_errors.append(
+                    ParseError(file=path, line=line, column=column, location_kind=locations[path])
+                )
             for raw in report.tools:
                 line, _ = report.source.position(raw.offset)
                 model = Tool(

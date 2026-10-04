@@ -23,6 +23,7 @@ from mcplain.models import (
     SourceKind,
     Tool,
     UrlKind,
+    VerdictColor,
 )
 
 UNSAFE_CATEGORIES: frozenset[str] = frozenset({"Cc", "Cf", "Co", "Cs", "Zl", "Zp"})
@@ -35,6 +36,7 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_INPUT_ERROR = 2
 INPUT_ERROR_PREFIX = "input."
+CAVEAT_PREFIX = "caveat."
 INDENT = "  "
 
 
@@ -560,24 +562,23 @@ def _render_reputation(result: AnalysisResult, t: Translator, lines: list[str]) 
 
 
 def _render_verdict(result: AnalysisResult, t: Translator, lines: list[str]) -> None:
-    """Show the verdict, its reasons and its limits"""
+    """Show the verdict, the rules version, the alerts, its reasons and its limits"""
 
     verdict = result.verdict
     _heading(lines, t("cli.verdict.heading"))
-    color = t("color." + verdict.color.value)
-    if verdict.provisional:
-        color = f"{color} ({t('cli.verdict.provisional')})"
-    lines.append(f"{INDENT}{color}")
+    lines.append(f"{INDENT}{t('color.' + verdict.color.value)}")
+    lines.append(f"{INDENT}{t('cli.verdict.rules', version=verdict.rules_version, count=verdict.rules_count)}")
+    if verdict.color is VerdictColor.GRAY and any(reason.startswith(CAVEAT_PREFIX) for reason in verdict.reasons):
+        lines.append(f"{INDENT}{t('cli.verdict.gray_reading')}")
     for alert in verdict.alerts:
         title = t("cli.verdict.alert", rule=alert.rule, title=t(f"rule.{alert.rule}.title"))
         where = t("cli.outside.heading")
         if alert.tool is not None:
             where = t("cli.in_tool", name=_safe(alert.tool))
         lines.append(f"{INDENT}- {title}{t('cli.separator')}{_safe(alert.detail)} ({where})")
+    domains = ", ".join(_safe(domain) for domain in verdict.contacted_domains)
     for reason in verdict.reasons:
-        lines.append(f"{INDENT}- {t('reason.' + reason)}")
-    if verdict.provisional:
-        lines.append(f"{INDENT}{t('cli.verdict.provisional_note')}")
+        lines.append(f"{INDENT}- {t('reason.' + reason, domains=domains)}")
     lines.append(f"{INDENT}{t('cli.verdict.disclaimer')}")
 
 

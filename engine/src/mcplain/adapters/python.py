@@ -1554,7 +1554,9 @@ class _PythonFile:
             if callee is None or callee.type != "attribute":
                 continue
             attribute = callee.child_by_field_name("attribute")
-            method = node_text(attribute).lower() if attribute is not None else ""
+            method = ""
+            if attribute is not None:
+                method = node_text(attribute).lower()
             receiver = dotted_parts(callee.child_by_field_name("object")) or [""]
             if method in COPY_METHODS:
                 for item in positional:

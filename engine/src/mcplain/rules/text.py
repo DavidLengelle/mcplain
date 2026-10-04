@@ -80,8 +80,8 @@ def _justified(text: str, index: int) -> bool:
     """Tell whether a single zero-width character is normal where it stands"""
 
     codepoint = ord(text[index])
-    before = text[index - 1] if index > 0 else ""
-    after = text[index + 1] if index + 1 < len(text) else ""
+    before = text[index - 1 : index]
+    after = text[index + 1 : index + 2]
     if codepoint == BYTE_ORDER_MARK and index == 0:
         return True
     if codepoint == ZERO_WIDTH_JOINER and before and after and _in(EMOJI_RANGES, before) and _in(EMOJI_RANGES, after):

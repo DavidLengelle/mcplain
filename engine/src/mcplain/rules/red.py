@@ -24,8 +24,10 @@ TAMPERING_KINDS: frozenset[PathKind] = frozenset({PathKind.AUTOSTART, PathKind.T
 def text_alert(rule: Rule, item: ToolText, quote: str, detail: str | None = None) -> Alert:
     """Build an alert on a text of a tool"""
 
-    if item.parameter is not None:
-        detail = f"{detail} ({item.parameter})" if detail else item.parameter
+    if item.parameter is not None and detail:
+        detail = f"{detail} ({item.parameter})"
+    elif item.parameter is not None:
+        detail = item.parameter
     return rule.alert(tool=item.tool.name, file=item.tool.file, line=item.tool.line, quote=quote, detail=detail)
 
 
@@ -288,7 +290,9 @@ class KnownMalicious(Rule):
         for package in reputation.packages:
             for report in package.malicious:
                 if not package.dependency or report.all_versions:
-                    name = package.name if package.version is None else f"{package.name} {package.version}"
+                    name = package.name
+                    if package.version is not None:
+                        name = f"{package.name} {package.version}"
                     alerts.append(self.alert(detail=f"{report.id} {name}"))
         return alerts
 

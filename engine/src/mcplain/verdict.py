@@ -1,6 +1,8 @@
 """Verdict: the rule registry decides the color from the alerts of every registered rule"""
 
+from mcplain.capabilities import Capability
 from mcplain.models import (
+    Alert,
     AnalysisResult,
     AnalysisStatus,
     Finding,
@@ -13,8 +15,10 @@ from mcplain.rules.base import RuleContext, RuleRegistry
 from mcplain.rules.orange import ORANGE_RULES
 from mcplain.rules.red import RED_RULES
 
+RULES_VERSION = "1"
 SEVERITY: dict[VerdictColor, int] = {
     VerdictColor.GREEN: 0,
+    VerdictColor.GRAY: 0,
     VerdictColor.ORANGE: 1,
     VerdictColor.RED: 2,
 }
@@ -22,6 +26,7 @@ SEVERITY: dict[VerdictColor, int] = {
 DEFAULT_REGISTRY = RuleRegistry()
 for rule_class in RED_RULES + ORANGE_RULES:
     DEFAULT_REGISTRY.register(rule_class())
+
 
 def counted_findings(server: ServerAnalysis) -> list[Finding]:
     """Return the findings that count for the verdict: server code only"""
@@ -32,50 +37,84 @@ def counted_findings(server: ServerAnalysis) -> list[Finding]:
     return [finding for finding in findings if finding.location_kind is LocationKind.SERVER_CODE]
 
 
-def caveats(result: AnalysisResult) -> list[str]:
-    """Return the reason codes that limit how much the verdict can be trusted"""
+def incomplete_reading(result: AnalysisResult) -> list[str]:
+    """Return why the code could not be fully read and followed; any of them keeps the verdict from green"""
 
     codes = []
     servers = result.servers
     if "note.partially_compiled" in result.notes or any(server.compiled_files for server in servers):
         codes.append("caveat.partially_compiled")
-    if any(server.minified_files for server in servers):
-        codes.append("caveat.minified_files")
-    if any(server.parse_errors for server in servers):
+    if any(error.location_kind is LocationKind.SERVER_CODE for server in servers for error in server.parse_errors):
         codes.append("caveat.parse_errors")
-    if any(server.skipped_files for server in servers):
+    if any(item.location_kind is LocationKind.SERVER_CODE for server in servers for item in server.skipped_files):
         codes.append("caveat.skipped_files")
+    tools = [tool for server in servers for tool in server.tools if tool.location_kind is LocationKind.SERVER_CODE]
     if any(not server.tools for server in servers):
         codes.append("caveat.no_tools_found")
-    if any(tool.description_is_dynamic for server in servers for tool in server.tools):
+    if any(tool.gaps for tool in tools):
+        codes.append("caveat.incomplete_tracking")
+    if any(tool.description_is_dynamic for tool in tools):
         codes.append("caveat.dynamic_descriptions")
-    if any(
-        item.location_kind is LocationKind.SERVER_CODE for server in servers for item in server.invisible_unicode
-    ):
-        codes.append("caveat.invisible_unicode")
     return codes
 
 
-def compute_verdict(result: AnalysisResult, registry: RuleRegistry = DEFAULT_REGISTRY) -> Verdict:
-    """Compute the verdict of an analysis with the registered rules"""
+def caveats(result: AnalysisResult) -> list[str]:
+    """Return the warnings that do not change the color"""
 
-    provisional = not registry.has_red_rules()
-    if result.status is not AnalysisStatus.OK:
-        return Verdict(color=VerdictColor.GRAY, reasons=[f"status.{result.status.value}"], provisional=provisional)
-    if not result.servers or all(server.files_analyzed == 0 for server in result.servers):
-        return Verdict(color=VerdictColor.GRAY, reasons=["nothing_analyzable"], provisional=provisional)
-    color = VerdictColor.GREEN
-    alerts = []
+    if any(server.minified_files for server in result.servers):
+        return ["caveat.minified_files"]
+    return []
+
+
+def network_domains(result: AnalysisResult) -> tuple[list[str], bool]:
+    """Return the fixed hosts of network calls in server code, and whether some call has no fixed host"""
+
+    hosts: set[str] = set()
+    unknown = False
     for server in result.servers:
-        context = RuleContext(result, server)
+        for finding in counted_findings(server):
+            if finding.capability is not Capability.NETWORK:
+                continue
+            if finding.url_host is None:
+                unknown = True
+            else:
+                hosts.add(finding.url_host)
+    return sorted(hosts), unknown
+
+
+def compute_verdict(result: AnalysisResult, registry: RuleRegistry = DEFAULT_REGISTRY) -> Verdict:
+    """Red if a red rule fires, else orange if an orange rule fires, else gray if the reading is not complete, else green"""
+
+    alerts: list[Alert] = []
+    contexts = [RuleContext(result, server) for server in result.servers] or [RuleContext(result, None)]
+    for context in contexts:
         for rule in registry.rules():
-            found = rule.evaluate(context)
-            alerts.extend(found)
-            if found and SEVERITY[rule.color] > SEVERITY[color]:
-                color = rule.color
+            alerts.extend(rule.evaluate(context))
     alerts.sort(key=lambda alert: -SEVERITY[alert.color])
+    verdict = Verdict(
+        color=VerdictColor.GREEN,
+        alerts=alerts,
+        rules_version=RULES_VERSION,
+        rules_count=len(registry.rules()),
+    )
+    if alerts:
+        verdict.color = alerts[0].color
     reasons: list[str] = []
-    if not alerts:
-        reasons.append("no_powerful_capability")
+    if result.status is not AnalysisStatus.OK:
+        reasons.append(f"status.{result.status.value}")
+    elif not result.servers or all(server.files_analyzed == 0 for server in result.servers):
+        reasons.append("nothing_analyzable")
+    reasons.extend(incomplete_reading(result))
+    if not alerts and reasons:
+        verdict.color = VerdictColor.GRAY
+    if verdict.color is VerdictColor.GREEN:
+        domains, unknown = network_domains(result)
+        verdict.contacted_domains = domains
+        reasons.append("no_alert")
+        if unknown:
+            reasons.append("green.network_partly")
+        elif domains:
+            reasons.append("green.network")
     reasons.extend(caveats(result))
-    return Verdict(color=color, alerts=alerts, reasons=reasons, provisional=provisional)
+    verdict.reasons = reasons
+    return verdict

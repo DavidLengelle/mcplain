@@ -116,7 +116,9 @@ QUOTE_AFTER = 140
 def excerpt(text: str, start: int, end: int | None = None) -> str:
     """Return the passage of a text around a match, at most 200 characters"""
 
-    stop = end if end is not None else start
+    stop = start
+    if end is not None:
+        stop = end
     first = max(0, start - QUOTE_BEFORE)
     last = min(len(text), max(stop, start) + QUOTE_AFTER)
     return text[first:last].strip()
@@ -137,7 +139,9 @@ def transmit_request(text: str, parameters: list[str]) -> str | None:
     """Return the sentence that asks to pass the content of something into an argument or a parameter"""
 
     names = [re.escape(name) for name in parameters if len(name) > 2]
-    named = re.compile(r"\b(?:" + "|".join(names) + r")\b", re.IGNORECASE) if names else None
+    named = None
+    if names:
+        named = re.compile(r"\b(?:" + "|".join(names) + r")\b", re.IGNORECASE)
     for sentence in SENTENCE_SPLIT.split(text):
         if not CONTENT_WORDS.search(sentence) or not TRANSMIT_VERBS.search(sentence):
             continue

@@ -16,7 +16,7 @@ from mcplain.models import AnalysisStatus, VerdictColor
         ("python_lowlevel", AnalysisStatus.OK, VerdictColor.ORANGE),
         ("python_alias", AnalysisStatus.OK, VerdictColor.ORANGE),
         ("python_env", AnalysisStatus.OK, VerdictColor.ORANGE),
-        ("python_syntax_error", AnalysisStatus.OK, VerdictColor.GREEN),
+        ("python_syntax_error", AnalysisStatus.OK, VerdictColor.GRAY),
         ("python_tests_subprocess", AnalysisStatus.OK, VerdictColor.GREEN),
         ("ts_registertool", AnalysisStatus.OK, VerdictColor.ORANGE),
         ("js_lowlevel", AnalysisStatus.OK, VerdictColor.ORANGE),
@@ -41,7 +41,7 @@ def test_poisoned_verdict_reasons(fixtures: Path) -> None:
     rules = {alert.rule for alert in verdict.alerts}
     assert {"R02", "R03", "R04"} <= rules
     assert ("O08", "sensitive_path") in [(alert.rule, alert.detail) for alert in verdict.alerts]
-    assert "caveat.invisible_unicode" in verdict.reasons
+    assert "O07" in rules
 
 
 def test_postmark_like_is_red_by_hidden_copy(fixtures: Path) -> None:
@@ -64,7 +64,7 @@ def test_tests_folder_is_reported_but_not_counted(fixtures: Path) -> None:
     """The subprocess call in tests/ is in the report and the verdict stays green"""
 
     result = analyze_directory(fixtures / "python_tests_subprocess")
-    assert result.verdict.reasons == ["no_powerful_capability"]
+    assert result.verdict.reasons == ["no_alert"]
     assert result.servers[0].findings[0].file == "tests/check_server.py"
 
 

@@ -874,7 +874,10 @@ class _JavaScriptFile:
             arguments = call_arguments(node)
             if constructor is not None and node_text(constructor) == MAP_CONSTRUCTOR and arguments:
                 array = unwrap(arguments[0])
-                for item in array.named_children if array is not None and array.type == "array" else []:
+                items: list[Node] = []
+                if array is not None and array.type == "array":
+                    items = list(array.named_children)
+                for item in items:
                     if item.type == "array" and len(item.named_children) == 2:
                         pairs.append((item.named_children[0], item.named_children[1]))
         entries: list[tuple[str, Node]] = []
