@@ -46,6 +46,24 @@ class RawFunction:
     module_level: bool
 
 
+@dataclass(frozen=True)
+class RawHandler:
+    """Class that holds a low-level tools/call handler, inline or given by name"""
+
+    start: int = 0
+    end: int = 0
+    reference: RawCall | None = None
+
+
+@dataclass(frozen=True)
+class RawBlock:
+    """Class that holds a branch that runs when the tool name equals a literal"""
+
+    literal: str
+    start: int
+    end: int
+
+
 @dataclass
 class RawTool:
     """Class that holds a tool declaration before positions are resolved"""
@@ -82,6 +100,8 @@ class FileReport:
     strings: list[RawString] = field(default_factory=list)
     functions: list[RawFunction] = field(default_factory=list)
     calls: list[RawCall] = field(default_factory=list)
+    call_handlers: list[RawHandler] = field(default_factory=list)
+    dispatch_blocks: list[RawBlock] = field(default_factory=list)
     imported_files: list[str] = field(default_factory=list)
     reexports: dict[str, tuple[str, str]] = field(default_factory=dict)
     star_exports: list[str] = field(default_factory=list)

@@ -91,6 +91,7 @@ class Finding(BaseModel):
     location_kind: LocationKind
     detail: str | None = None
     call_chain: list[CallStep] = Field(default_factory=list)
+    shared_by_tools: bool = False
 
 
 class DeclarationKind(StrEnum):

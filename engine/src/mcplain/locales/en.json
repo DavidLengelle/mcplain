@@ -235,5 +235,6 @@
   "cli.source.version_requested": "{version} (asked: {requested})",
   "cli.directly": "directly ({place})",
   "cli.via": "via {chain} ({place})",
-  "cli.others": "+{count} other place(s)"
+  "cli.others": "+{count} other place(s)",
+  "cli.shared.heading": "Shared by all tools (call handler code outside the tool branches)"
 }

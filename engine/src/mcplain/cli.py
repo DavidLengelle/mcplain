@@ -228,8 +228,12 @@ def _render_server(server: ServerAnalysis, t: Translator, lines: list[str]) -> N
     for tool in server.tools:
         if tool.location_kind is not LocationKind.SERVER_CODE:
             others.extend(tool.findings)
+    shared = [finding for finding in counted if finding.shared_by_tools]
+    if shared:
+        _heading(lines, t("cli.shared.heading"))
+        _render_findings(shared, t, lines)
     _heading(lines, t("cli.server_caps.heading"))
-    _render_findings(counted, t, lines)
+    _render_findings([finding for finding in counted if not finding.shared_by_tools], t, lines)
     if others:
         _heading(lines, t("cli.not_counted.heading"))
         _render_findings(others, t, lines)

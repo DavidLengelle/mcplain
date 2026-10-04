@@ -24,9 +24,11 @@ from mcplain.adapters.common import (
 from mcplain.adapters.report import (
     FileReport,
     PackageContext,
+    RawBlock,
     RawCall,
     RawFinding,
     RawFunction,
+    RawHandler,
     RawString,
     RawTool,
 )
@@ -237,9 +239,8 @@ class _PythonFile:
         self.functions: dict[str, Node] = {}
         self.classes: dict[str, Node] = {}
         self.function_names: set[str] = set()
+        self.class_constants: dict[str, Node] = {}
         self.tool_definitions: set[int] = set()
-        self.low_level: list[RawTool] = []
-        self.call_handlers: list[Node] = []
 
     def run(self) -> FileReport:
         """Run every analysis step and return the file report"""
@@ -249,7 +250,7 @@ class _PythonFile:
         self._find_decorated_tools()
         self._find_call_tools()
         self._find_low_level_tools()
-        self._attach_dispatch()
+        self._find_dispatch_blocks()
         self._find_capabilities()
         self._find_calls()
         self._find_strings()
@@ -358,6 +359,22 @@ class _PythonFile:
             name = definition.child_by_field_name("name")
             if name is not None:
                 self.classes.setdefault(node_text(name), definition)
+                self._index_class_constants(node_text(name), definition)
+
+    def _index_class_constants(self, class_name: str, definition: Node) -> None:
+        """Record NAME = value assignments of a class body, such as enum members"""
+
+        body = definition.child_by_field_name("body")
+        if body is None:
+            return
+        for statement in body.named_children:
+            if statement.type != "expression_statement" or not statement.named_children:
+                continue
+            assignment = statement.named_children[0]
+            left = assignment.child_by_field_name("left")
+            right = assignment.child_by_field_name("right")
+            if assignment.type == "assignment" and left is not None and right is not None and left.type == "identifier":
+                self.class_constants[f"{class_name}.{node_text(left)}"] = right
 
     def _add_function(self, definition: Node, name: str) -> None:
         """Index a function for the call graph, as Class.method inside a class body"""
@@ -455,6 +472,8 @@ class _PythonFile:
             if constant is not None:
                 return self.static_text(constant, depth + 1)
             return dynamic_text()
+        if kind in ("attribute", "dotted_name"):
+            return self._member_text(node_text(node), depth)
         if kind == "call":
             parts = dotted_parts(node.child_by_field_name("function"))
             positional, _ = split_arguments(node.child_by_field_name("arguments"))
@@ -463,6 +482,17 @@ class _PythonFile:
                 if imported and qualified in PYTHON_TEXT_HELPERS:
                     return mark_dynamic(self.static_text(positional[0], depth + 1))
         return dynamic_text()
+
+    def _member_text(self, dotted: str, depth: int) -> TextValue:
+        """Read Class.MEMBER or Class.MEMBER.value from a class constant of this file"""
+
+        parts = dotted.split(".")
+        if len(parts) == 3 and parts[2] == "value":
+            parts = parts[:2]
+        constant = self.class_constants.get(".".join(parts))
+        if len(parts) != 2 or constant is None:
+            return dynamic_text()
+        return self.static_text(constant, depth + 1)
 
     def _concatenation_operands(self, node: Node) -> list[Node] | None:
         """Flatten a chain of + operations into its operands, left to right"""
@@ -671,7 +701,7 @@ class _PythonFile:
                 if role == TOOL_ATTRIBUTE:
                     self._function_tool(definition, arguments, DeclarationKind.DECORATOR, decorated.start_byte)
                 elif role == CALL_TOOL_ATTRIBUTE:
-                    self.call_handlers.append(definition)
+                    self.report.call_handlers.append(RawHandler(definition.start_byte, definition.end_byte))
 
     def _decorator_role(self, callee: Node | None) -> str | None:
         """Tell whether a decorator declares a tool or a low-level call handler"""
@@ -708,9 +738,7 @@ class _PythonFile:
             arguments = call.child_by_field_name("arguments")
             positional, keywords = split_arguments(arguments)
             if CALL_TOOL_KEYWORD in keywords:
-                handler = self._definition_for(keywords[CALL_TOOL_KEYWORD])
-                if handler is not None:
-                    self.call_handlers.append(handler)
+                self._register_call_handler(keywords[CALL_TOOL_KEYWORD])
             callee = call.child_by_field_name("function")
             if callee is None or callee.type != "attribute":
                 continue
@@ -734,6 +762,18 @@ class _PythonFile:
         if method != TOOL_ATTRIBUTE or call.parent is None or call.parent.type == "decorator":
             return False
         return bool(positional) and positional[0].type in ("identifier", "attribute")
+
+    def _register_call_handler(self, node: Node) -> None:
+        """Remember a handler given to on_call_tool=, defined here or imported from the package"""
+
+        handler = self._definition_for(node)
+        if handler is not None:
+            self.report.call_handlers.append(RawHandler(handler.start_byte, handler.end_byte))
+            return
+        if node.type in REFERENCE_TYPES:
+            reference = self.call_target(node, node.start_byte)
+            if reference is not None:
+                self.report.call_handlers.append(RawHandler(reference=reference))
 
     def _register_function(
         self,
@@ -814,7 +854,6 @@ class _PythonFile:
                 text_ranges=description.ranges + ranges,
             )
             self.report.tools.append(tool)
-            self.low_level.append(tool)
 
     def _schema_parameters(
         self, node: Node | None, depth: int
@@ -905,42 +944,18 @@ class _PythonFile:
                 parameters.append(parameter)
         return parameters, False, ranges
 
-    def _attach_dispatch(self) -> None:
-        """Attach the branches of low-level call handlers to the tools they serve"""
+    def _find_dispatch_blocks(self) -> None:
+        """Record every branch that runs when a tool name equals a known literal"""
 
-        if not self.low_level:
-            return
-        by_name = {tool.name: tool for tool in self.low_level}
-        for handler in self.call_handlers:
-            matched = False
-            for literal, start, end in self._dispatch_blocks(handler):
-                tool = by_name.get(literal)
-                if tool is not None:
-                    tool.bodies.append((start, end))
-                    matched = True
-            if not matched and len(self.low_level) == 1:
-                self.low_level[0].bodies.append((handler.start_byte, handler.end_byte))
-
-    def _dispatch_blocks(self, handler: Node) -> list[tuple[str, int, int]]:
-        """Return the branches of a handler that compare the tool name to a literal"""
-
-        blocks = []
-        inside = [
-            node
-            for node in self.nodes["if_statement"] + self.nodes["elif_clause"]
-            if handler.start_byte <= node.start_byte < handler.end_byte
-        ]
-        for node in inside:
+        for node in self.nodes["if_statement"] + self.nodes["elif_clause"]:
             condition = node.child_by_field_name("condition")
             consequence = node.child_by_field_name("consequence")
             if condition is None or consequence is None or condition.type != "comparison_operator":
                 continue
             literal = self._compared_literal(condition)
             if literal is not None:
-                blocks.append((literal, consequence.start_byte, consequence.end_byte))
+                self.report.dispatch_blocks.append(RawBlock(literal, consequence.start_byte, consequence.end_byte))
         for match in self.nodes["match_statement"]:
-            if not handler.start_byte <= match.start_byte < handler.end_byte:
-                continue
             subject = match.child_by_field_name("subject")
             body = match.child_by_field_name("body")
             if subject is None or body is None or not NAME_REFERENCE_PATTERN.search(node_text(subject)):
@@ -949,24 +964,28 @@ class _PythonFile:
                 if clause.type != "case_clause":
                     continue
                 for pattern in clause.named_children:
-                    if pattern.type == "case_pattern" and pattern.named_children:
-                        value = pattern.named_children[0]
-                        if value.type == "string":
-                            blocks.append((self._decode_string(value).value, clause.start_byte, clause.end_byte))
-        return blocks
+                    if pattern.type != "case_pattern" or not pattern.named_children:
+                        continue
+                    value = pattern.named_children[0]
+                    if value.type not in ("string", "dotted_name"):
+                        continue
+                    text = self.static_text(value)
+                    if not text.dynamic:
+                        self.report.dispatch_blocks.append(RawBlock(text.value, clause.start_byte, clause.end_byte))
 
     def _compared_literal(self, condition: Node) -> str | None:
-        """Return the literal of a name == "literal" comparison"""
+        """Return the known value compared to a tool name, like name == "x" or name == Tools.X.value"""
 
         operands = condition.named_children
         operators = [child.type for child in condition.children if not child.is_named]
         if len(operands) != 2 or operators != ["=="]:
             return None
-        left, right = operands
-        if left.type == "string" and NAME_REFERENCE_PATTERN.search(node_text(right)):
-            return self._decode_string(left).value
-        if right.type == "string" and NAME_REFERENCE_PATTERN.search(node_text(left)):
-            return self._decode_string(right).value
+        for literal, other in (operands, tuple(reversed(operands))):
+            if not NAME_REFERENCE_PATTERN.search(node_text(other)):
+                continue
+            text = self.static_text(literal)
+            if not text.dynamic:
+                return text.value
         return None
 
     def _add(self, capability: Capability, node: Node, detail: str | None) -> None:

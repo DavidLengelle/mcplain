@@ -235,5 +235,6 @@
   "cli.source.version_requested": "{version} (demandée : {requested})",
   "cli.directly": "directement ({place})",
   "cli.via": "via {chain} ({place})",
-  "cli.others": "+{count} autre(s) endroit(s)"
+  "cli.others": "+{count} autre(s) endroit(s)",
+  "cli.shared.heading": "Partagé par tous les outils (code du gestionnaire d'appels hors des branches des outils)"
 }

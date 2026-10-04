@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from mcplain.adapters.callgraph import CallGraph, Region
+from mcplain.adapters.callgraph import CallGraph, Region, Step
 from mcplain.adapters.common import (
     SourceText,
     codepoint_label,
@@ -14,11 +14,12 @@ from mcplain.adapters.common import (
     scan_invisible,
     source_offset,
 )
-from mcplain.adapters.report import FileReport, PackageContext, RawString, RawTool
+from mcplain.adapters.report import FileReport, PackageContext, RawHandler, RawString, RawTool
 from mcplain.capabilities import Capability
 from mcplain.config import DEFAULT_LIMITS, Limits
 from mcplain.models import (
     CallStep,
+    DeclarationKind,
     DomainRef,
     Finding,
     InstallScript,
@@ -43,6 +44,7 @@ class _ToolSlot:
     file: str
     raw: RawTool
     model: Tool
+    regions: list[Region] = field(default_factory=list)
     seen: set[tuple[Capability, str, int]] = field(default_factory=set)
 
 
@@ -168,9 +170,10 @@ class Adapter(ABC):
                 )
                 slots.append(_ToolSlot(path, raw, model))
                 analysis.tools.append(model)
+        shared = self._attach_handlers(graph, reports, slots)
         reached: set[tuple[str, int]] = set()
         for slot in slots:
-            roots = [Region(slot.file, start, end) for start, end in slot.raw.bodies]
+            roots = [Region(slot.file, start, end) for start, end in slot.raw.bodies] + slot.regions
             for entry in slot.raw.entries:
                 target = graph.resolve(slot.file, entry)
                 if target is not None:
@@ -183,24 +186,60 @@ class Adapter(ABC):
                 if key in slot.seen:
                     continue
                 slot.seen.add(key)
-                chain = [
-                    CallStep(function=step.function, file=step.file, line=reports[step.file].source.position(step.offset)[0])
-                    for step in reach.chain
-                ]
+                chain = _call_steps(reports, reach.chain)
                 slot.model.findings.append(finding.model_copy(update={"call_chain": chain}))
         server_seen: set[tuple[Capability, str, int]] = set()
         for path, report in reports.items():
             for index in range(len(report.findings)):
-                if (path, index) in reached:
+                update: dict[str, object] = {}
+                if (path, index) in shared:
+                    update = {"shared_by_tools": True, "call_chain": shared[(path, index)]}
+                elif (path, index) in reached:
                     continue
                 finding = self._finding(reports, locations, built, path, index)
                 key = (finding.capability, finding.file, finding.line)
                 if key not in server_seen:
                     server_seen.add(key)
-                    analysis.findings.append(finding)
+                    analysis.findings.append(finding.model_copy(update=update))
             file_slots = [slot for slot in slots if slot.file == path]
             for raw_string in report.strings:
                 self._merge_string(analysis, report, raw_string, file_slots, locations[path])
+
+    def _attach_handlers(
+        self,
+        graph: CallGraph,
+        reports: dict[str, FileReport],
+        slots: list[_ToolSlot],
+    ) -> dict[tuple[str, int], list[CallStep]]:
+        """Give low-level tools.call handlers to their tools and return the findings shared by all"""
+
+        low_level = [slot for slot in slots if slot.raw.declaration is DeclarationKind.LOW_LEVEL]
+        shared: dict[tuple[str, int], list[CallStep]] = {}
+        if not low_level:
+            return shared
+        for path, report in reports.items():
+            for handler in report.call_handlers:
+                region = _handler_region(graph, path, handler)
+                if region is None:
+                    continue
+                candidates = [slot for slot in low_level if slot.file == region.file] or low_level
+                if len(candidates) == 1:
+                    candidates[0].regions.append(region)
+                    continue
+                by_name: dict[str, _ToolSlot] = {}
+                for slot in candidates:
+                    by_name.setdefault(slot.model.name, slot)
+                branches = []
+                for block in reports[region.file].dispatch_blocks:
+                    owner = by_name.get(block.literal)
+                    if owner is None or not region.start <= block.start < region.end:
+                        continue
+                    branch = Region(region.file, block.start, block.end)
+                    owner.regions.append(branch)
+                    branches.append(branch)
+                for reach in graph.walk([region], branches):
+                    shared.setdefault((reach.file, reach.index), _call_steps(reports, reach.chain))
+        return shared
 
     def _finding(
         self,
@@ -284,13 +323,35 @@ class Adapter(ABC):
             )
 
 
+def _handler_region(graph: CallGraph, path: str, handler: RawHandler) -> Region | None:
+    """Return the source range of a handler, following a reference through the call graph"""
+
+    if handler.reference is None:
+        return Region(path, handler.start, handler.end)
+    target = graph.resolve(path, handler.reference)
+    if target is None:
+        return None
+    function = graph.function(*target)
+    return Region(target[0], function.start, function.end)
+
+
+def _call_steps(reports: dict[str, FileReport], chain: tuple[Step, ...]) -> list[CallStep]:
+    """Turn graph steps into call steps with line numbers"""
+
+    return [
+        CallStep(function=step.function, file=step.file, line=reports[step.file].source.position(step.offset)[0])
+        for step in chain
+    ]
+
+
 def _owner(slots: list[_ToolSlot], offset: int) -> _ToolSlot | None:
     """Return the tool whose body or description most tightly contains an offset"""
 
     best = None
     best_size = 0
     for slot in slots:
-        for start, end in slot.raw.bodies + slot.raw.text_ranges:
+        own_regions = [(region.start, region.end) for region in slot.regions if region.file == slot.file]
+        for start, end in slot.raw.bodies + own_regions + slot.raw.text_ranges:
             if start <= offset < end:
                 size = end - start
                 if best is None or size < best_size:

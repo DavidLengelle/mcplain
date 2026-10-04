@@ -1,0 +1,4 @@
+[project]
+name = "single-fetch"
+version = "0.1.0"
+dependencies = ["mcp", "httpx"]

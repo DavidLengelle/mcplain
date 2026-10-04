@@ -25,9 +25,11 @@ from mcplain.adapters.common import (
 from mcplain.adapters.report import (
     FileReport,
     PackageContext,
+    RawBlock,
     RawCall,
     RawFinding,
     RawFunction,
+    RawHandler,
     RawString,
     RawTool,
 )
@@ -89,6 +91,7 @@ NODE_TYPES: tuple[str, ...] = (
     "assignment_expression",
     "export_statement",
 )
+TYPESCRIPT_NODE_TYPES: tuple[str, ...] = (*NODE_TYPES, "enum_declaration")
 SIMPLE_ESCAPES: dict[str, str] = {
     "n": "\n",
     "r": "\r",
@@ -270,16 +273,18 @@ class _JavaScriptFile:
         error = first_error(self.root)
         if error is not None:
             self.report.error_offset = error.start_byte
-        self.nodes = collect_nodes(language, self.root, NODE_TYPES)
+        node_types = TYPESCRIPT_NODE_TYPES
+        if language is JAVASCRIPT_LANGUAGE:
+            node_types = NODE_TYPES
+        self.nodes = collect_nodes(language, self.root, node_types)
         self.aliases: dict[str, str] = {}
         self.constants: dict[str, Node] = {}
         self.functions: dict[str, Node] = {}
         self.internal: dict[str, tuple[str, str | None]] = {}
         self.function_names: set[str] = set()
         self.class_names: set[str] = set()
-        self.low_level: list[RawTool] = []
+        self.enum_members: dict[str, Node] = {}
         self.list_handlers: list[Node] = []
-        self.call_handlers: list[Node] = []
         self.seen_objects: set[int] = set()
 
     def run(self) -> FileReport:
@@ -534,6 +539,16 @@ class _JavaScriptFile:
         for key, count in counts.items():
             if count > 1:
                 self.constants.pop(key, None)
+        for declaration in self.nodes.get("enum_declaration", []):
+            name = declaration.child_by_field_name("name")
+            body = declaration.child_by_field_name("body")
+            if name is None or body is None:
+                continue
+            for member in body.named_children:
+                member_name = property_name(member.child_by_field_name("name"))
+                value = member.child_by_field_name("value")
+                if member.type == "enum_assignment" and member_name is not None and value is not None:
+                    self.enum_members[f"{node_text(name)}.{member_name}"] = value
 
     def _index_functions(self) -> None:
         """Index every named function for the call graph"""
@@ -774,7 +789,27 @@ class _JavaScriptFile:
             return dynamic_text()
         if kind == "call_expression":
             return self._computed_text(current, depth)
+        if kind == "member_expression":
+            return self._member_text(current, depth)
         return dynamic_text()
+
+    def _member_text(self, member: Node, depth: int) -> TextValue:
+        """Read Enum.MEMBER or CONSTANT_OBJECT.key when it holds a literal of this file"""
+
+        target = unwrap(member.child_by_field_name("object"))
+        key = property_name(member.child_by_field_name("property"))
+        if target is None or key is None or target.type != "identifier":
+            return dynamic_text()
+        enum_value = self.enum_members.get(f"{node_text(target)}.{key}")
+        if enum_value is not None:
+            return self.static_text(enum_value, depth + 1)
+        container = self._as_object(target, depth + 1)
+        if container is None:
+            return dynamic_text()
+        value = self._object_value(container, key)
+        if value is None:
+            return dynamic_text()
+        return self.static_text(value, depth + 1)
 
     def _concatenation_operands(self, node: Node) -> list[Node] | None:
         """Flatten a chain of + operations into its operands, left to right"""
@@ -1025,7 +1060,7 @@ class _JavaScriptFile:
         for definition in self.nodes["class_declaration"] + self.nodes["class"]:
             self._tool_class(definition)
         self._find_low_level_tools()
-        self._attach_dispatch()
+        self._find_dispatch_blocks()
 
     def _server_tool(self, call: Node, arguments: list[Node]) -> None:
         """Read server.tool(name, description?, schema?, annotations?, handler)"""
@@ -1103,7 +1138,11 @@ class _JavaScriptFile:
         if method == LIST_TOOLS_METHOD or method.endswith(LIST_TOOLS_SCHEMAS):
             self.list_handlers.append(arguments[1])
         elif method == CALL_TOOL_METHOD or method.endswith(CALL_TOOL_SCHEMAS):
-            self.call_handlers.append(arguments[1])
+            bodies, entries = self._handler(arguments[1])
+            for start, end in bodies:
+                self.report.call_handlers.append(RawHandler(start, end))
+            for entry in entries:
+                self.report.call_handlers.append(RawHandler(reference=entry))
 
     def _tool_class(self, definition: Node) -> None:
         """Read a class that extends MCPTool with name and description fields"""
@@ -1170,48 +1209,34 @@ class _JavaScriptFile:
                 continue
             if self._object_value(obj, "description") is None and self._object_value(obj, "inputSchema") is None:
                 continue
-            tool = self._object_tool(obj, obj.start_byte, DeclarationKind.LOW_LEVEL, "inputSchema")
-            if tool is not None:
-                self.low_level.append(tool)
+            self._object_tool(obj, obj.start_byte, DeclarationKind.LOW_LEVEL, "inputSchema")
 
-    def _attach_dispatch(self) -> None:
-        """Attach the branches of tools/call handlers to the tools they serve"""
+    def _find_dispatch_blocks(self) -> None:
+        """Record switch cases and if branches that run when a tool name equals a known value"""
 
-        if not self.low_level:
-            return
-        by_name = {tool.name: tool for tool in self.low_level}
-        for handler in self.call_handlers:
-            handler_range = self._function_range(handler)
-            if handler_range is None:
-                continue
-            matched = False
-            for literal, start, end in self._dispatch_blocks(handler_range):
-                tool = by_name.get(literal)
-                if tool is not None:
-                    tool.bodies.append((start, end))
-                    matched = True
-            if not matched and len(self.low_level) == 1:
-                self.low_level[0].bodies.append(handler_range)
-
-    def _dispatch_blocks(self, handler_range: tuple[int, int]) -> list[tuple[str, int, int]]:
-        """Return switch cases and if branches that compare the tool name to a literal"""
-
-        start, end = handler_range
-        blocks = []
         for switch in self.nodes["switch_statement"]:
-            if not start <= switch.start_byte < end:
-                continue
             value = switch.child_by_field_name("value")
             body = switch.child_by_field_name("body")
             if value is None or body is None or not NAME_REFERENCE_PATTERN.search(node_text(value)):
                 continue
+            pending: list[str] = []
             for case in body.named_children:
-                literal = unwrap(case.child_by_field_name("value"))
-                if case.type == "switch_case" and literal is not None and literal.type == "string":
-                    blocks.append((self._decode_string(literal).value, case.start_byte, case.end_byte))
+                if case.type != "switch_case":
+                    pending = []
+                    continue
+                label = case.child_by_field_name("value")
+                text = self.static_text(label)
+                if label is not None and not text.dynamic:
+                    pending.append(text.value)
+                statements = [
+                    child for child in case.named_children if label is None or child.id != label.id
+                ]
+                if not statements:
+                    continue
+                for literal in pending:
+                    self.report.dispatch_blocks.append(RawBlock(literal, case.start_byte, case.end_byte))
+                pending = []
         for statement in self.nodes["if_statement"]:
-            if not start <= statement.start_byte < end:
-                continue
             condition = unwrap(statement.child_by_field_name("condition"))
             consequence = statement.child_by_field_name("consequence")
             if condition is None or consequence is None or condition.type != "binary_expression":
@@ -1219,15 +1244,24 @@ class _JavaScriptFile:
             operator = condition.child_by_field_name("operator")
             if operator is None or operator.type not in EQUALITY_OPERATORS:
                 continue
-            left = unwrap(condition.child_by_field_name("left"))
-            right = unwrap(condition.child_by_field_name("right"))
-            if left is None or right is None:
+            literal = self._compared_literal(condition)
+            if literal is not None:
+                self.report.dispatch_blocks.append(RawBlock(literal, consequence.start_byte, consequence.end_byte))
+
+    def _compared_literal(self, condition: Node) -> str | None:
+        """Return the known value compared to a tool name in name === value"""
+
+        left = unwrap(condition.child_by_field_name("left"))
+        right = unwrap(condition.child_by_field_name("right"))
+        if left is None or right is None:
+            return None
+        for literal, other in ((left, right), (right, left)):
+            if not NAME_REFERENCE_PATTERN.search(node_text(other)):
                 continue
-            if left.type == "string" and NAME_REFERENCE_PATTERN.search(node_text(right)):
-                blocks.append((self._decode_string(left).value, consequence.start_byte, consequence.end_byte))
-            elif right.type == "string" and NAME_REFERENCE_PATTERN.search(node_text(left)):
-                blocks.append((self._decode_string(right).value, consequence.start_byte, consequence.end_byte))
-        return blocks
+            text = self.static_text(literal)
+            if not text.dynamic:
+                return text.value
+        return None
 
     def _add(self, capability: Capability, node: Node, detail: str | None) -> None:
         """Record one capability finding"""

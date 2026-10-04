@@ -1,0 +1,4 @@
+[project]
+name = "multi-tools"
+version = "0.1.0"
+dependencies = ["mcp"]
