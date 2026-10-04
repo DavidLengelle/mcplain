@@ -248,6 +248,20 @@ server.registerTool("d", { description: ["one", "two"].join(" ") }, async () => 
     assert tool(analysis, "d").description_is_dynamic
 
 
+def test_zod_option_description(tmp_path: Path) -> None:
+    """A description given in the options of a zod type is read like .describe()"""
+
+    analysis = analyze_source(
+        tmp_path,
+        """server.tool("a", "A", { n: z.number({ description: "How many" }), s: z.string().describe("Text") }, async () => ({}));
+""",
+    )
+    assert [(parameter.name, parameter.description) for parameter in tool(analysis, "a").parameters] == [
+        ("n", "How many"),
+        ("s", "Text"),
+    ]
+
+
 def test_invisible_characters_in_description(tmp_path: Path) -> None:
     """Escaped zero-width and tag characters in a description are found at their position"""
 

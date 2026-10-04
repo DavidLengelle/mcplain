@@ -6,7 +6,7 @@ import pytest
 
 from mcplain.adapters.javascript import JavaScriptAdapter
 from mcplain.adapters.python import PythonAdapter
-from mcplain.capabilities import Capability, is_secret_name
+from mcplain.capabilities import Capability, PathKind, find_sensitive_paths, is_secret_name, path_kinds
 
 JAVASCRIPT_CALLS: list[tuple[str, Capability]] = [
     ("fs.stat(p)", Capability.FS_READ),
@@ -93,3 +93,41 @@ def test_secret_names(name: str, secret: bool) -> None:
     """Variable names that look like secrets are recognized"""
 
     assert is_secret_name(name) is secret
+
+
+@pytest.mark.parametrize(
+    ("text", "category", "kind"),
+    [
+        ("~/.ssh/id_ed25519", "ssh_keys", PathKind.SECRET),
+        ("/home/me/.ssh/authorized_keys", "ssh_authorized_keys", PathKind.AUTOSTART),
+        ("~/.bashrc", "shell_startup", PathKind.AUTOSTART),
+        ("~/.zsh_history", "shell_history", PathKind.SECRET),
+        ("~/.npmrc", "package_config", PathKind.SECRET),
+        ("~/.npmrc", "package_config", PathKind.TOOL_CONFIG),
+        ("~/.gitconfig", "git_config", PathKind.TOOL_CONFIG),
+        ("~/Library/Application Support/Claude/claude_desktop_config.json", "mcp_client_config", PathKind.TOOL_CONFIG),
+        ("~/.cursor/mcp.json", "mcp_client_config", PathKind.TOOL_CONFIG),
+        (".vscode/mcp.json", "mcp_client_config", PathKind.TOOL_CONFIG),
+        ("/etc/cron.d/backup", "cron", PathKind.AUTOSTART),
+        ("crontab -l", "cron", PathKind.AUTOSTART),
+        ("~/.config/systemd/user/agent.service", "systemd_unit", PathKind.AUTOSTART),
+        ("~/Library/LaunchAgents/com.x.plist", "launch_agent", PathKind.AUTOSTART),
+        ("AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup", "windows_startup", PathKind.AUTOSTART),
+        ("~/.config/autostart/x.desktop", "desktop_autostart", PathKind.AUTOSTART),
+        ("~/.ethereum/keystore", "crypto_wallet", PathKind.SECRET),
+        ("Local Extension Settings/nkbihfbeogaeaoehlefnkodbefgpgknn", "crypto_wallet", PathKind.SECRET),
+    ],
+)
+def test_sensitive_path_categories(text: str, category: str, kind: PathKind) -> None:
+    """Each sensitive path has a category and at least one kind: secret, autostart or tool config"""
+
+    categories = [found for found, _ in find_sensitive_paths(text)]
+    assert category in categories
+    assert kind in path_kinds(category)
+
+
+@pytest.mark.parametrize("text", ["user.profile", "profile.json", ".env.example", "README.md", "my_crontab_parser"])
+def test_ordinary_names_are_not_sensitive(text: str) -> None:
+    """Ordinary file names that only look like sensitive ones are not reported"""
+
+    assert find_sensitive_paths(text) == []

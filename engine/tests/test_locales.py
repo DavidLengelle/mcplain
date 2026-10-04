@@ -6,9 +6,18 @@ from pathlib import Path
 
 import pytest
 
-from mcplain.capabilities import SENSITIVE_PATH_PATTERNS, Capability
+from mcplain.capabilities import SENSITIVE_PATH_PATTERNS, Capability, PathKind
 from mcplain.i18n import Translator
-from mcplain.models import AnalysisStatus, DeclarationKind, InvisibleCategory, LocationKind, SourceKind, SourceOrigin
+from mcplain.models import (
+    AnalysisStatus,
+    DeclarationKind,
+    InvisibleCategory,
+    LocationKind,
+    OutsideKind,
+    SourceKind,
+    SourceOrigin,
+    TrackingGap,
+)
 
 SOURCE = Path(__file__).parents[1] / "src" / "mcplain"
 LOCALES = SOURCE / "locales"
@@ -63,7 +72,10 @@ def test_enumerations_are_translated(language: str) -> None:
     expected += [f"location.{item.value}" for item in LocationKind]
     expected += [f"source_kind.{item.value}" for item in SourceKind]
     expected += [f"origin.{item.value}" for item in SourceOrigin]
-    expected += [f"sensitive.{category}" for category, _ in SENSITIVE_PATH_PATTERNS]
+    expected += [f"sensitive.{entry.category}" for entry in SENSITIVE_PATH_PATTERNS]
+    expected += [f"path_kind.{item.value}" for item in PathKind]
+    expected += [f"gap.{item.value}" for item in TrackingGap]
+    expected += [f"cli.outside.{item.value}" for item in OutsideKind]
     missing = [key for key in expected if key not in keys]
     assert missing == []
 

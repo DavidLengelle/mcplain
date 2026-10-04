@@ -292,6 +292,18 @@ def node_text(node: Node) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
+def innermost[T](items: list[tuple[str, int, int, T]], name: str, offset: int) -> T | None:
+    """Return the value bound to a name in the innermost scope that contains an offset"""
+
+    best = None
+    best_size = 0
+    for item_name, start, end, value in items:
+        if item_name == name and start <= offset < end and (best is None or end - start < best_size):
+            best = value
+            best_size = end - start
+    return best
+
+
 def contains(ranges: list[tuple[int, int]], offset: int) -> bool:
     """Tell whether an offset falls inside one of the ranges"""
 

@@ -151,3 +151,70 @@ def test_each_call_path_is_listed_once(tmp_path: Path) -> None:
         "            +1 other place(s)\n"
     )
     assert expected in text
+
+
+def test_local_folder_is_analyzed_without_network(fixtures: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """--local reads a folder on disk; the network guard of the tests would fail any download"""
+
+    assert main(["--local", str(fixtures / "python_fastmcp_clean"), "--lang", "fr"]) == 0
+    output = capsys.readouterr().out
+    assert "Dossier local (aucun accès réseau, réputation non vérifiée)" in output
+    assert "Outils (2)" in output
+
+
+@pytest.mark.parametrize("arguments", [[], ["uvx x", "--local", "."]])
+def test_exactly_one_input(arguments: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    """An input and --local cannot be given together, and one of them is required"""
+
+    with pytest.raises(SystemExit):
+        main(arguments)
+    assert "--local" in capsys.readouterr().err
+
+
+def test_none_agrees_in_french(fixtures: Path) -> None:
+    """URL is feminine in French: the empty list says aucune, the others say aucun"""
+
+    text = render(analyze_directory(fixtures / "python_fastmcp_clean"), Translator("fr"))
+    assert "== URL citées dans le code ==\n  aucune\n" in text
+    assert "== Chemins sensibles cités ==\n  aucun\n" in text
+    assert "== Caractères Unicode invisibles ==\n  aucun\n" in text
+
+
+def test_outside_tools_section(tmp_path: Path) -> None:
+    """Code no tool reaches is split into startup and never called, and said to count for the verdict"""
+
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\ndependencies = ["mcp"]\n', encoding="utf-8")
+    (tmp_path / "server.py").write_text(
+        "import os\nimport subprocess\n\nTOKEN = os.environ.get('API_TOKEN')\n\n\n"
+        "def unused():\n    subprocess.run(['echo', 'x'])\n",
+        encoding="utf-8",
+    )
+    text = render(analyze_directory(tmp_path), Translator("fr"))
+    assert "== Code hors des outils ==" in text
+    assert "Ce code compte pour le verdict, comme le code des outils." in text
+    assert "  Exécuté au démarrage (niveau module, point d'entrée) :\n    - env_read_secret" in text
+    assert "  Jamais appelé par un outil :\n    - process_exec" in text
+
+
+def test_incomplete_tracking_is_said(tmp_path: Path) -> None:
+    """A tool with nothing found but an unresolved dispatch says that its tracking is incomplete"""
+
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\ndependencies = ["mcp"]\n', encoding="utf-8")
+    (tmp_path / "server.py").write_text(
+        "from fastmcp import FastMCP\n\n\ndef build(registry):\n    mcp = FastMCP('x')\n\n"
+        "    @mcp.tool()\n    def run(name: str) -> str:\n        \"\"\"Run a handler\"\"\"\n"
+        "        return registry[name]()\n\n    return mcp\n",
+        encoding="utf-8",
+    )
+    text = render(analyze_directory(tmp_path), Translator("fr"))
+    assert (
+        "Trouvé pour cet outil : rien trouvé dans ce qui a pu être suivi "
+        "(suivi incomplet : appel via un dictionnaire ou une Map non résolu)"
+    ) in text
+
+
+def test_sensitive_path_kind_is_shown(fixtures: Path) -> None:
+    """Each sensitive path is shown with its kind"""
+
+    text = render(analyze_directory(fixtures / "python_fastmcp_poisoned"), Translator("fr"))
+    assert '- clés SSH (secret) : "id_rsa"' in text

@@ -2,6 +2,7 @@
 
 import posixpath
 import re
+import shlex
 from pathlib import Path
 
 import tree_sitter_javascript
@@ -22,6 +23,7 @@ from mcplain.adapters.common import (
     collect_nodes,
     dynamic_text,
     first_error,
+    innermost,
     join_texts,
     mark_dynamic,
     node_text,
@@ -34,6 +36,7 @@ from mcplain.adapters.report import (
     RawCall,
     RawFinding,
     RawFunction,
+    RawGap,
     RawHandler,
     RawString,
     RawTool,
@@ -61,7 +64,7 @@ from mcplain.capabilities import (
     rewrite_javascript_chain,
 )
 from mcplain.manifests import load_json_object, read_text, table
-from mcplain.models import DeclarationKind, InstallScript, ToolParameter, UrlKind
+from mcplain.models import DeclarationKind, InstallScript, ToolParameter, TrackingGap, UrlKind
 
 JAVASCRIPT_LANGUAGE = Language(tree_sitter_javascript.language())
 TYPESCRIPT_LANGUAGE = Language(tree_sitter_typescript.language_typescript())
@@ -153,6 +156,51 @@ MODULE_EXPORTS = "module.exports"
 DEFAULT_EXPORT = "default"
 CLASS_TYPES: frozenset[str] = frozenset({"class_declaration", "class"})
 REFERENCE_TYPES: frozenset[str] = frozenset({"identifier", "member_expression"})
+FUNCTION_NODE_TYPES: tuple[str, ...] = (
+    "function_declaration",
+    "generator_function_declaration",
+    "method_definition",
+    "arrow_function",
+    "function_expression",
+    "generator_function",
+)
+INSTALL_RUNNERS: frozenset[str] = frozenset({"node", "nodejs", "bun", "tsx", "ts-node", "deno"})
+RUNNER_SUBCOMMANDS: frozenset[str] = frozenset({"run"})
+COMMAND_SEPARATORS = re.compile(r"&&|\|\||;|\|")
+ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+IMMEDIATE_CALLBACK_METHODS: frozenset[str] = frozenset(
+    {"map", "forEach", "filter", "reduce", "some", "every", "find", "flatMap", "then", "catch", "finally"}
+)
+PROMISE_CONSTRUCTOR = "Promise"
+MAP_CONSTRUCTOR = "Map"
+LOOKUP_METHOD = "get"
+DYNAMIC_RECEIVERS: frozenset[str] = frozenset({"this", "globalThis", "window", "self", "global"})
+GLOBAL_OBJECTS: frozenset[str] = frozenset(
+    {
+        "Array",
+        "Buffer",
+        "Date",
+        "Error",
+        "Intl",
+        "JSON",
+        "Map",
+        "Math",
+        "Number",
+        "Object",
+        "Promise",
+        "Reflect",
+        "RegExp",
+        "Set",
+        "String",
+        "Symbol",
+        "URL",
+        "console",
+        "document",
+        "globalThis",
+        "process",
+        "window",
+    }
+)
 
 
 def decode_escape(text: str) -> str:
@@ -222,6 +270,57 @@ def enclosing_function(node: Node) -> str | None:
                 if label is not None:
                     return label
         current = current.parent
+    return None
+
+
+def _runs_immediately(function: Node) -> bool:
+    """Tell whether an inline function runs at once, like a map, then or new Promise callback"""
+
+    arguments = function.parent
+    if arguments is None or arguments.type != "arguments" or arguments.parent is None:
+        return False
+    call = arguments.parent
+    if call.type == "new_expression":
+        constructor = call.child_by_field_name("constructor")
+        return constructor is not None and node_text(constructor) == PROMISE_CONSTRUCTOR
+    callee = unwrap(call.child_by_field_name("function"))
+    if callee is None or callee.type != "member_expression":
+        return False
+    return property_name(callee.child_by_field_name("property")) in IMMEDIATE_CALLBACK_METHODS
+
+
+def script_targets(command: str) -> list[str]:
+    """Return the files an npm script runs with node, bun, tsx, ts-node or deno"""
+
+    targets = []
+    for segment in COMMAND_SEPARATORS.split(command):
+        try:
+            tokens = shlex.split(segment)
+        except ValueError:
+            continue
+        while tokens and ENV_ASSIGNMENT.match(tokens[0]):
+            tokens = tokens[1:]
+        if not tokens or posixpath.basename(tokens[0]) not in INSTALL_RUNNERS:
+            continue
+        for token in tokens[1:]:
+            if token.startswith("-") or token in RUNNER_SUBCOMMANDS:
+                continue
+            targets.append(token)
+            break
+    return targets
+
+
+def resolve_package_file(target: str, files: frozenset[str]) -> str | None:
+    """Return the package file a path written in package.json points to"""
+
+    base = posixpath.normpath(target.strip())
+    if base == ".." or base.startswith("../") or base.startswith("/"):
+        return None
+    candidates = [base, *(base + suffix for suffix in RESOLVE_EXTENSIONS)]
+    candidates.extend(f"{base}/index{suffix}" for suffix in RESOLVE_EXTENSIONS)
+    for candidate in candidates:
+        if candidate in files:
+            return candidate
     return None
 
 
@@ -298,6 +397,9 @@ class _JavaScriptFile:
         self.clients: list[tuple[str, int, int, str]] = []
         self.list_handlers: list[Node] = []
         self.seen_objects: set[int] = set()
+        self.tables: list[tuple[str, int, int, list[tuple[str, Node]]]] = []
+        self.instances: list[tuple[str, int, int, tuple[str, str | None]]] = []
+        self.lookups: list[tuple[str, int, int, Node]] = []
 
     def run(self) -> FileReport:
         """Run every analysis step and return the file report"""
@@ -565,6 +667,10 @@ class _JavaScriptFile:
     def _index_functions(self) -> None:
         """Index every named function for the call graph"""
 
+        for node_type in FUNCTION_NODE_TYPES:
+            for node in self.nodes[node_type]:
+                if not _runs_immediately(node):
+                    self.report.function_ranges.append((node.start_byte, node.end_byte))
         for node in self.nodes["function_declaration"] + self.nodes["generator_function_declaration"]:
             name = node.child_by_field_name("name")
             if name is not None:
@@ -688,6 +794,9 @@ class _JavaScriptFile:
             if owner is None:
                 return None
             return RawCall(offset, f"{owner}.{member}")
+        instance = innermost(self.instances, node_text(target), current.start_byte)
+        if target.type in REFERENCE_TYPES and instance is not None:
+            return RawCall(offset, f"{instance[0]}.{member}", instance[1])
         if target.type == "identifier" and node_text(target) in self.internal:
             file, imported = self.internal[node_text(target)]
             if imported is None or imported == DEFAULT_EXPORT:
@@ -701,12 +810,189 @@ class _JavaScriptFile:
                 return RawCall(offset, member, internal[0])
         return None
 
+    def _scope_of(self, node: Node, wanted: frozenset[str]) -> tuple[int, int]:
+        """Return the range of the innermost function or class around a node, or the whole file"""
+
+        current = node.parent
+        while current is not None:
+            if current.type in wanted:
+                return current.start_byte, current.end_byte
+            current = current.parent
+        return 0, len(self.source.data) + 1
+
+    def _index_dispatch(self) -> None:
+        """Remember dispatch tables, instances of package classes and variables read from a lookup"""
+
+        bindings: list[tuple[Node, Node, Node]] = []
+        for declarator in self.nodes["variable_declarator"]:
+            name = declarator.child_by_field_name("name")
+            value = declarator.child_by_field_name("value")
+            if name is not None and value is not None and name.type == "identifier":
+                bindings.append((declarator, name, value))
+        for assignment in self.nodes["assignment_expression"]:
+            left = assignment.child_by_field_name("left")
+            right = assignment.child_by_field_name("right")
+            if left is not None and right is not None and left.type in REFERENCE_TYPES:
+                bindings.append((assignment, left, right))
+        for node, name_node, value in bindings:
+            name = node_text(name_node)
+            wanted = FUNCTION_TYPES | NAMED_FUNCTION_TYPES
+            if name.startswith("this."):
+                wanted = CLASS_TYPES
+            start, end = self._scope_of(node, wanted)
+            current = unwrap(value)
+            entries = self._table_entries(current)
+            if entries:
+                self.tables.append((name, start, end, entries))
+                continue
+            instance = self._constructed_class(current)
+            if instance is not None:
+                self.instances.append((name, start, end, instance))
+            elif current is not None and name_node.type == "identifier":
+                self.lookups.append((name, start, end, current))
+
+    def _table_entries(self, node: Node | None) -> list[tuple[str, Node]]:
+        """Return the literal keys of an object or Map literal whose values are functions of the package"""
+
+        pairs: list[tuple[Node | None, Node | None]] = []
+        if node is not None and node.type == "object":
+            for child in node.named_children:
+                if child.type == "pair":
+                    pairs.append((child.child_by_field_name("key"), child.child_by_field_name("value")))
+                elif child.type == "shorthand_property_identifier":
+                    pairs.append((child, child))
+        elif node is not None and node.type == "new_expression":
+            constructor = node.child_by_field_name("constructor")
+            arguments = call_arguments(node)
+            if constructor is not None and node_text(constructor) == MAP_CONSTRUCTOR and arguments:
+                array = unwrap(arguments[0])
+                for item in array.named_children if array is not None and array.type == "array" else []:
+                    if item.type == "array" and len(item.named_children) == 2:
+                        pairs.append((item.named_children[0], item.named_children[1]))
+        entries: list[tuple[str, Node]] = []
+        for key, value in pairs:
+            target = unwrap(value)
+            if key is None or target is None or target.type not in REFERENCE_TYPES:
+                continue
+            name = property_name(key)
+            if key.type not in ("property_identifier", "shorthand_property_identifier"):
+                text = self.static_text(key)
+                name = None
+                if not text.dynamic:
+                    name = text.value
+            if name is None or self.call_target(target, target.start_byte) is None:
+                continue
+            entries.append((name, target))
+        return entries
+
+    def _constructed_class(self, node: Node | None) -> tuple[str, str | None] | None:
+        """Return the package class created by new Store(...), as class name and file"""
+
+        if node is not None and node.type == "await_expression" and node.named_children:
+            node = unwrap(node.named_children[0])
+        if node is None or node.type != "new_expression":
+            return None
+        constructor = unwrap(node.child_by_field_name("constructor"))
+        if constructor is None or constructor.type != "identifier":
+            return None
+        name = node_text(constructor)
+        if name in self.class_names:
+            return name, None
+        if name in self.internal:
+            file, member = self.internal[name]
+            if member is not None and member != DEFAULT_EXPORT:
+                return member, file
+        return None
+
+    def _lookup_kind(self, node: Node | None, offset: int) -> tuple[list[tuple[str, Node]] | None, TrackingGap | None]:
+        """Classify a callee read from a table, an object, a Map or a dynamic property"""
+
+        current = unwrap(node)
+        if current is None:
+            return None, None
+        if current.type == "subscript_expression":
+            container = unwrap(current.child_by_field_name("object"))
+            index = unwrap(current.child_by_field_name("index"))
+            if index is not None and index.type == "string":
+                return None, None
+            if container is not None and container.type in REFERENCE_TYPES:
+                table = innermost(self.tables, node_text(container), offset)
+                if table is not None:
+                    return table, None
+            return None, TrackingGap.DICT_CALL
+        if current.type != "call_expression":
+            return None, None
+        function = current.child_by_field_name("function")
+        if function is None or function.type != "member_expression":
+            return None, None
+        if property_name(function.child_by_field_name("property")) != LOOKUP_METHOD:
+            return None, None
+        container = unwrap(function.child_by_field_name("object"))
+        if container is not None and container.type in REFERENCE_TYPES:
+            table = innermost(self.tables, node_text(container), offset)
+            if table is not None:
+                return table, None
+            if node_text(container) in self.aliases:
+                return None, None
+        return None, TrackingGap.DICT_CALL
+
+    def _dynamic_call(self, call: Node, callee: Node | None) -> bool:
+        """Record calls through dispatch tables, and the calls that cannot be followed"""
+
+        current = unwrap(callee)
+        if current is None:
+            return False
+        offset = call.start_byte
+        lookup: Node | None = current
+        if current.type == "identifier":
+            name = node_text(current)
+            if name in self.function_names or name in self.internal or name in self.aliases:
+                return False
+            lookup = innermost(self.lookups, name, offset)
+        table, gap = self._lookup_kind(lookup, offset)
+        if table is not None:
+            for key, value in table:
+                target = self.call_target(value, offset)
+                if target is not None:
+                    self.report.calls.append(RawCall(offset, target.name, target.file, key))
+            return True
+        if gap is not None:
+            self.report.gaps.append(RawGap(offset, gap))
+            return True
+        return False
+
+    def _method_call(self, callee: Node | None, offset: int) -> None:
+        """Remember a method called on an object whose type is unknown"""
+
+        current = unwrap(callee)
+        if current is None or current.type != "member_expression":
+            return
+        member = property_name(current.child_by_field_name("property"))
+        target = unwrap(current.child_by_field_name("object"))
+        if member is None or target is None or target.type in TEXT_TYPES:
+            return
+        root = target
+        while root is not None and root.type == "member_expression":
+            root = unwrap(root.child_by_field_name("object"))
+        if root is not None and root.type == "identifier" and node_text(root) in GLOBAL_OBJECTS:
+            return
+        resolved = self.resolve(current)
+        if resolved is not None and resolved[1]:
+            return
+        self.report.method_calls.append(RawCall(offset, member))
+
     def _find_calls(self) -> None:
         """Record calls, side-effect loads and function references passed as arguments"""
 
+        self._index_dispatch()
         for call in self.nodes["call_expression"] + self.nodes["new_expression"]:
             callee = call.child_by_field_name("function") or call.child_by_field_name("constructor")
-            target = self.call_target(callee, call.start_byte)
+            if call.type == "call_expression" and self._dynamic_call(call, callee):
+                target = None
+            else:
+                target = self.call_target(callee, call.start_byte)
+                if target is None and call.type == "call_expression":
+                    self._method_call(callee, call.start_byte)
             if target is not None:
                 self.report.calls.append(target)
             specifier = self._loader_specifier(call)
@@ -989,6 +1275,14 @@ class _JavaScriptFile:
             target = unwrap(function.child_by_field_name("object"))
             if target is not None and target.type == "identifier":
                 type_name = name
+                options = None
+                if arguments:
+                    options = self._as_object(arguments[0])
+                option = None
+                if options is not None:
+                    option = self._object_value(options, "description")
+                if option is not None and description is None:
+                    description = self.static_text(option)
             current = target
         return type_name, description
 
@@ -1605,15 +1899,24 @@ class JavaScriptAdapter(Adapter):
                 targets.extend(item for item in value.values() if isinstance(item, str))
         entries = set()
         for target in targets:
-            base = posixpath.normpath(target.strip())
-            if base == ".." or base.startswith("../"):
+            file = resolve_package_file(target, context.files)
+            if file is not None:
+                entries.add(file)
+        return entries
+
+    def install_entries(self, server_dir: Path, context: PackageContext) -> set[str]:
+        """Return the files that preinstall, install and postinstall scripts run"""
+
+        hooks = table(load_json_object(server_dir / "package.json"), "scripts")
+        entries = set()
+        for hook in INSTALL_HOOKS:
+            command = hooks.get(hook)
+            if not isinstance(command, str):
                 continue
-            candidates = [base, *(base + suffix for suffix in RESOLVE_EXTENSIONS)]
-            candidates.extend(f"{base}/index{suffix}" for suffix in RESOLVE_EXTENSIONS)
-            for candidate in candidates:
-                if candidate in context.files:
-                    entries.add(candidate)
-                    break
+            for target in script_targets(command):
+                file = resolve_package_file(target, context.files)
+                if file is not None:
+                    entries.add(file)
         return entries
 
     def language_for(self, analyzed: list[str]) -> str:

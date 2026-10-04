@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from mcplain.capabilities import Capability
+from mcplain.capabilities import Capability, PathKind
 
 
 class InputKind(StrEnum):
@@ -88,6 +88,24 @@ class CallStep(BaseModel):
     line: int
 
 
+class TrackingGap(StrEnum):
+    """Class that lists why the call graph could not follow every call of a tool"""
+
+    DICT_CALL = "dict_call"
+    DYNAMIC_ATTRIBUTE = "dynamic_attribute"
+    UNKNOWN_TYPE = "unknown_type"
+    AMBIGUOUS = "ambiguous"
+    MAX_DEPTH = "max_depth"
+
+
+class OutsideKind(StrEnum):
+    """Class that tells when server code outside the tools runs"""
+
+    STARTUP = "startup"
+    INSTALL = "install"
+    NEVER_CALLED = "never_called"
+
+
 class Finding(BaseModel):
     """Class that describes one capability seen at one place in the code"""
 
@@ -101,6 +119,7 @@ class Finding(BaseModel):
     detail: str | None = None
     call_chain: list[CallStep] = Field(default_factory=list)
     shared_by_tools: bool = False
+    outside: OutsideKind | None = None
     url_kind: UrlKind | None = None
 
 
@@ -146,6 +165,7 @@ class Tool(BaseModel):
     annotations: dict[str, AnnotationValue] = Field(default_factory=dict)
     annotations_are_dynamic: bool = False
     findings: list[Finding] = Field(default_factory=list)
+    gaps: list[TrackingGap] = Field(default_factory=list)
 
 
 class DomainRef(BaseModel):
@@ -163,6 +183,7 @@ class SensitivePathRef(BaseModel):
     """Class that records a literal mention of a sensitive path"""
 
     category: str
+    kinds: list[PathKind] = Field(default_factory=list)
     match: str
     file: str
     line: int
@@ -289,6 +310,7 @@ class AnalysisResult(BaseModel):
 
     status: AnalysisStatus
     source: AnalyzedSource | None = None
+    local_path: str | None = None
     ignored_arguments: list[str] = Field(default_factory=list)
     servers: list[ServerAnalysis] = Field(default_factory=list)
     available_servers: list[ServerCandidate] = Field(default_factory=list)

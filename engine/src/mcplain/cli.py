@@ -1,4 +1,4 @@
-"""Command line interface: mcplain <input> [--json] [--lang en|fr] [--select <path>]"""
+"""Command line interface: mcplain <input> | --local <folder> [--json] [--lang en|fr] [--select <path>]"""
 
 import argparse
 import inspect
@@ -6,15 +6,17 @@ import json
 import sys
 import unicodedata
 from collections import defaultdict
+from pathlib import Path
 
 from mcplain.adapters.common import TAG_BASE, hidden_tag_text, invisible_category
-from mcplain.analyze import analyze_input
+from mcplain.analyze import analyze_directory, analyze_input
 from mcplain.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, Translator
 from mcplain.models import (
     AnalysisResult,
     AnalysisStatus,
     Finding,
     LocationKind,
+    OutsideKind,
     ServerAnalysis,
     SourceKind,
     Tool,
@@ -82,7 +84,8 @@ def build_parser(t: Translator) -> argparse.ArgumentParser:
     """Build the argument parser with translated help texts"""
 
     parser = argparse.ArgumentParser(prog="mcplain", description=t("cli.help.description"))
-    parser.add_argument("input", help=t("cli.help.input"))
+    parser.add_argument("input", nargs="?", help=t("cli.help.input"))
+    parser.add_argument("--local", metavar=t("cli.help.local_metavar"), help=t("cli.help.local"))
     parser.add_argument("--json", action="store_true", help=t("cli.help.json"))
     parser.add_argument("--lang", choices=SUPPORTED_LANGUAGES, default=DEFAULT_LANGUAGE, help=t("cli.help.lang"))
     parser.add_argument("--select", metavar=t("cli.help.select_metavar"), help=t("cli.help.select"))
@@ -98,7 +101,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser(Translator(_requested_language(arguments)))
     options = parser.parse_args(arguments)
     t = Translator(options.lang)
-    result = analyze_input(options.input, select=options.select)
+    if (options.input is None) == (options.local is None):
+        parser.error(t("cli.error.one_input"))
+    if options.local is not None:
+        result = analyze_directory(Path(options.local), select=options.select)
+        result.local_path = options.local
+    else:
+        result = analyze_input(options.input, select=options.select)
     if options.json:
         print(json.dumps(result.model_dump(mode="json"), ensure_ascii=True, indent=2))
     else:
@@ -163,6 +172,9 @@ def _render_source(result: AnalysisResult, t: Translator, lines: list[str]) -> N
     """Describe what was downloaded and why"""
 
     source = result.source
+    if result.local_path is not None:
+        _heading(lines, t("cli.source.heading"))
+        lines.append(f"{INDENT}{t('cli.source.local')}{t('cli.separator')}{_safe(result.local_path)}")
     if source is None:
         return
     _heading(lines, t("cli.source.heading"))
@@ -229,8 +241,7 @@ def _render_server(server: ServerAnalysis, t: Translator, lines: list[str]) -> N
     if shared:
         _heading(lines, t("cli.shared.heading"))
         _render_findings(shared, t, lines)
-    _heading(lines, t("cli.server_caps.heading"))
-    _render_findings([finding for finding in counted if not finding.shared_by_tools], t, lines)
+    _render_outside([finding for finding in counted if not finding.shared_by_tools], t, lines)
     if others:
         _heading(lines, t("cli.not_counted.heading"))
         _render_findings(others, t, lines)
@@ -239,6 +250,22 @@ def _render_server(server: ServerAnalysis, t: Translator, lines: list[str]) -> N
     _render_install(server, t, lines)
     _render_invisible(server, t, lines)
     _render_limits(server, t, lines)
+
+
+def _render_outside(findings: list[Finding], t: Translator, lines: list[str]) -> None:
+    """Show server code that no tool reaches, split by when it runs"""
+
+    _heading(lines, t("cli.outside.heading"))
+    lines.append(f"{INDENT}{t('cli.outside.counted')}")
+    if not findings:
+        lines.append(f"{INDENT}{t('cli.outside.none')}")
+        return
+    for kind in OutsideKind:
+        group = [finding for finding in findings if (finding.outside or OutsideKind.NEVER_CALLED) is kind]
+        if not group:
+            continue
+        lines.append(f"{INDENT}{t('cli.outside.' + kind.value)}{t('cli.separator')}".rstrip())
+        _render_findings(group, t, lines, INDENT * 2)
 
 
 def _render_tools(server: ServerAnalysis, t: Translator, lines: list[str]) -> None:
@@ -263,9 +290,15 @@ def _render_tools(server: ServerAnalysis, t: Translator, lines: list[str]) -> No
 def _render_tool_findings(tool: Tool, t: Translator, lines: list[str]) -> None:
     """Show each capability of a tool once, with how the tool reaches it"""
 
+    reasons = ", ".join(t("gap." + gap.value) for gap in tool.gaps)
     if not tool.findings:
-        lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}{t('cli.tool.no_capabilities')}")
+        nothing = t("cli.tool.no_capabilities")
+        if tool.gaps:
+            nothing = t("cli.tool.nothing_followed", reasons=reasons)
+        lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}{nothing}")
         return
+    if tool.gaps:
+        lines.append(f"{INDENT * 3}{t('cli.tool.incomplete')}{t('cli.separator')}{reasons}")
     lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}".rstrip())
     grouped: dict[str, list[Finding]] = defaultdict(list)
     for finding in tool.findings:
@@ -373,19 +406,16 @@ def _render_description(tool: Tool, t: Translator, lines: list[str]) -> None:
         lines.append(f"{INDENT * 4}{_safe(line)}".rstrip())
 
 
-def _render_findings(findings: list[Finding], t: Translator, lines: list[str]) -> None:
+def _render_findings(findings: list[Finding], t: Translator, lines: list[str], indent: str = INDENT) -> None:
     """Group findings by capability and show a few examples of each"""
 
-    if not findings:
-        lines.append(f"{INDENT}{t('cli.none')}")
-        return
     grouped: dict[str, list[Finding]] = defaultdict(list)
     for finding in findings:
         grouped[finding.capability.value].append(finding)
     for capability in sorted(grouped):
         items = grouped[capability]
         label = f"{capability} ({t('capability.' + capability)})"
-        lines.append(f"{INDENT}- {label}{t('cli.separator')}{t('cli.places', count=len(items))}")
+        lines.append(f"{indent}- {label}{t('cli.separator')}{t('cli.places', count=len(items))}")
         for finding in items[:EXAMPLES_PER_CAPABILITY]:
             where = f"{_safe(finding.file)}:{finding.line}"
             if finding.function:
@@ -393,7 +423,7 @@ def _render_findings(findings: list[Finding], t: Translator, lines: list[str]) -
             snippet = _safe(finding.snippet)
             if finding.url_kind is not None:
                 snippet = f"{snippet}  [{t('cli.url_kind.' + finding.url_kind.value)}]"
-            lines.append(f"{INDENT * 3}{where}: {snippet}")
+            lines.append(f"{indent}{INDENT * 2}{where}: {snippet}")
 
 
 def _render_domains(server: ServerAnalysis, t: Translator, lines: list[str]) -> None:
@@ -402,7 +432,7 @@ def _render_domains(server: ServerAnalysis, t: Translator, lines: list[str]) -> 
     _heading(lines, t("cli.domains.heading"))
     counted = [item for item in server.domains if item.location_kind is LocationKind.SERVER_CODE]
     if not counted:
-        lines.append(f"{INDENT}{t('cli.none')}")
+        lines.append(f"{INDENT}{t('cli.domains.none')}")
     grouped: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for item in counted:
         where = f"{_safe(item.file)}:{item.line}"
@@ -427,14 +457,17 @@ def _render_sensitive(server: ServerAnalysis, t: Translator, lines: list[str]) -
 
     _heading(lines, t("cli.sensitive.heading"))
     if not server.sensitive_paths:
-        lines.append(f"{INDENT}{t('cli.none')}")
+        lines.append(f"{INDENT}{t('cli.sensitive.none')}")
     for item in server.sensitive_paths[:MAX_LISTED_ITEMS]:
         where = f"{_safe(item.file)}:{item.line}"
         if item.tool:
             where = f"{where} {t('cli.in_tool', name=_safe(item.tool))}"
         if item.location_kind is not LocationKind.SERVER_CODE:
             where = f"{where} [{t('location.' + item.location_kind.value)}]"
-        lines.append(f"{INDENT}- {t('sensitive.' + item.category)}{t('cli.separator')}\"{_safe(item.match)}\" {where}")
+        label = t("sensitive." + item.category)
+        if item.kinds:
+            label = f"{label} ({', '.join(t('path_kind.' + kind.value) for kind in item.kinds)})"
+        lines.append(f"{INDENT}- {label}{t('cli.separator')}\"{_safe(item.match)}\" {where}")
     if len(server.sensitive_paths) > MAX_LISTED_ITEMS:
         lines.append(f"{INDENT}{t('cli.more', count=len(server.sensitive_paths) - MAX_LISTED_ITEMS)}")
 
@@ -444,7 +477,7 @@ def _render_install(server: ServerAnalysis, t: Translator, lines: list[str]) -> 
 
     _heading(lines, t("cli.install.heading"))
     if not server.install_scripts:
-        lines.append(f"{INDENT}{t('cli.none')}")
+        lines.append(f"{INDENT}{t('cli.install.none')}")
     for script in server.install_scripts:
         lines.append(
             f"{INDENT}- {t('install.' + script.kind)} {_safe(script.file)}:{script.line}: {_safe(script.command)}"
@@ -456,7 +489,7 @@ def _render_invisible(server: ServerAnalysis, t: Translator, lines: list[str]) -
 
     _heading(lines, t("cli.invisible.heading"))
     if not server.invisible_unicode:
-        lines.append(f"{INDENT}{t('cli.none')}")
+        lines.append(f"{INDENT}{t('cli.invisible.none')}")
     for item in server.invisible_unicode[:MAX_LISTED_ITEMS]:
         codepoints = " ".join(item.codepoints[:8])
         if len(item.codepoints) > 8:

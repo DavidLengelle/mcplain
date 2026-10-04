@@ -21,6 +21,7 @@ from mcplain.adapters.common import (
     collect_nodes,
     dynamic_text,
     first_error,
+    innermost,
     join_texts,
     mark_dynamic,
     node_text,
@@ -33,6 +34,7 @@ from mcplain.adapters.report import (
     RawCall,
     RawFinding,
     RawFunction,
+    RawGap,
     RawHandler,
     RawString,
     RawTool,
@@ -57,7 +59,7 @@ from mcplain.capabilities import (
     match_rule,
 )
 from mcplain.manifests import load_toml, read_text, string_list, table
-from mcplain.models import DeclarationKind, InstallScript, ToolParameter, UrlKind
+from mcplain.models import DeclarationKind, InstallScript, ToolParameter, TrackingGap, UrlKind
 
 PYTHON_LANGUAGE = Language(tree_sitter_python.language())
 PYTHON_EXTENSIONS: frozenset[str] = frozenset({".py", ".pyw"})
@@ -76,6 +78,7 @@ NODE_TYPES: tuple[str, ...] = (
     "match_statement",
     "assignment",
     "with_item",
+    "lambda",
 )
 SIMPLE_ESCAPES: dict[str, str] = {
     "\\": "\\",
@@ -112,6 +115,13 @@ INIT_MODULE = "__init__"
 SOURCE_ROOT = "src"
 REFERENCE_TYPES: frozenset[str] = frozenset({"identifier", "attribute"})
 CMDCLASS_KEYWORD = "cmdclass"
+SETUP_SCRIPT = "setup.py"
+OVERLOAD_DECORATORS: frozenset[str] = frozenset({"overload", "typing.overload", "typing_extensions.overload"})
+ACCESSOR_DECORATORS: frozenset[str] = frozenset({"setter", "deleter"})
+LOOKUP_METHOD = "get"
+GETATTR_NAME = "getattr"
+NAMESPACE_FUNCTIONS: frozenset[str] = frozenset({"globals", "locals", "vars"})
+IMMEDIATE_CALLBACK_FUNCTIONS: frozenset[str] = frozenset({"map", "filter", "sorted", "sort", "min", "max", "reduce"})
 
 
 def decode_escape(text: str) -> str:
@@ -212,6 +222,18 @@ def module_names(path: str) -> list[str]:
     return names
 
 
+def _runs_immediately(function: Node) -> bool:
+    """Tell whether a lambda runs at once, like the function given to map, filter or sorted"""
+
+    arguments = function.parent
+    if arguments is not None and arguments.type == "keyword_argument":
+        arguments = arguments.parent
+    if arguments is None or arguments.type != "argument_list" or arguments.parent is None:
+        return False
+    parts = dotted_parts(arguments.parent.child_by_field_name("function"))
+    return bool(parts) and parts[-1] in IMMEDIATE_CALLBACK_FUNCTIONS
+
+
 def docstring_node(definition: Node) -> Node | None:
     """Return the docstring literal of a function or class"""
 
@@ -259,6 +281,9 @@ class _PythonFile:
         self.class_constants: dict[str, Node] = {}
         self.clients: list[tuple[str, int, int, str]] = []
         self.tool_definitions: set[int] = set()
+        self.tables: list[tuple[str, int, int, list[tuple[str, Node]]]] = []
+        self.instances: list[tuple[str, int, int, tuple[str, str | None]]] = []
+        self.lookups: list[tuple[str, int, int, Node]] = []
 
     def run(self) -> FileReport:
         """Run every analysis step and return the file report"""
@@ -369,10 +394,14 @@ class _PythonFile:
             if count > 1:
                 del self.constants[name]
         for definition in self.nodes["function_definition"]:
+            self.report.function_ranges.append((definition.start_byte, definition.end_byte))
             name = definition.child_by_field_name("name")
             if name is not None:
                 self.functions.setdefault(node_text(name), definition)
                 self._add_function(definition, node_text(name))
+        for node in self.nodes["lambda"]:
+            if not _runs_immediately(node):
+                self.report.function_ranges.append((node.start_byte, node.end_byte))
         for definition in self.nodes["class_definition"]:
             name = definition.child_by_field_name("name")
             if name is not None:
@@ -398,7 +427,9 @@ class _PythonFile:
         """Index a function for the call graph, as Class.method inside a class body"""
 
         parent = definition.parent
+        overload = False
         if parent is not None and parent.type == "decorated_definition":
+            overload = self._is_overload(parent)
             parent = parent.parent
         owner = None
         if parent is not None and parent.type == "block" and parent.parent is not None:
@@ -418,8 +449,24 @@ class _PythonFile:
             current = current.parent
         self.function_names.add(name)
         self.report.functions.append(
-            RawFunction(name, definition.start_byte, definition.end_byte, scope_start, scope_end, module_level)
+            RawFunction(
+                name, definition.start_byte, definition.end_byte, scope_start, scope_end, module_level, overload
+            )
         )
+
+    def _is_overload(self, decorated: Node) -> bool:
+        """Tell whether a definition is a typing overload stub or a property setter or deleter"""
+
+        for decorator in decorated.children:
+            if decorator.type != "decorator" or not decorator.named_children:
+                continue
+            parts = dotted_parts(decorator.named_children[0])
+            if not parts:
+                continue
+            qualified, _ = self._resolve(parts)
+            if qualified in OVERLOAD_DECORATORS or parts[-1] in ACCESSOR_DECORATORS:
+                return True
+        return False
 
     def call_target(self, node: Node, offset: int) -> RawCall | None:
         """Turn a called or referenced name into a call graph edge"""
@@ -427,6 +474,11 @@ class _PythonFile:
         parts = dotted_parts(node)
         if not parts:
             return None
+        if len(parts) >= 2:
+            instance = self._instance_of(".".join(parts[:-1]), node.start_byte)
+            if instance is not None:
+                class_name, file = instance
+                return RawCall(offset, f"{class_name}.{parts[-1]}", file)
         if parts[0] in SELF_NAMES:
             class_name = enclosing_class(node)
             if class_name is None or len(parts) != 2:
@@ -444,15 +496,184 @@ class _PythonFile:
             return RawCall(offset, f"{parts[0]}.{parts[1]}")
         return None
 
+    def _scope_of(self, node: Node, wanted: str = "function_definition") -> tuple[int, int]:
+        """Return the range of the innermost function or class around a node, or the whole file"""
+
+        current = node.parent
+        while current is not None:
+            if current.type == wanted:
+                return current.start_byte, current.end_byte
+            current = current.parent
+        return 0, len(self.source.data) + 1
+
+    def _index_dispatch(self) -> None:
+        """Remember dispatch tables, instances of package classes and variables read from a lookup"""
+
+        for assignment in self.nodes["assignment"]:
+            left = assignment.child_by_field_name("left")
+            right = assignment.child_by_field_name("right")
+            if left is None or right is None:
+                continue
+            name = node_text(left)
+            wanted = "function_definition"
+            if name.split(".")[0] in SELF_NAMES:
+                wanted = "class_definition"
+            start, end = self._scope_of(assignment, wanted)
+            if right.type == "dictionary" and (left.type == "identifier" or wanted == "class_definition"):
+                entries = self._table_entries(right)
+                if entries:
+                    self.tables.append((name, start, end, entries))
+                continue
+            instance = self._constructed_class(right)
+            if instance is not None:
+                self.instances.append((name, start, end, instance))
+            elif left.type == "identifier":
+                self.lookups.append((name, start, end, right))
+        for item in self.nodes["with_item"]:
+            value = item.child_by_field_name("value")
+            if value is None or value.type != "as_pattern" or not value.named_children:
+                continue
+            alias = value.child_by_field_name("alias")
+            instance = self._constructed_class(value.named_children[0])
+            if alias is not None and instance is not None:
+                start, end = self._scope_of(item)
+                self.instances.append((node_text(alias), start, end, instance))
+
+    def _table_entries(self, dictionary: Node) -> list[tuple[str, Node]]:
+        """Return the literal keys of a dict literal whose values are functions of the package"""
+
+        entries: list[tuple[str, Node]] = []
+        for pair in dictionary.named_children:
+            key = pair.child_by_field_name("key")
+            value = pair.child_by_field_name("value")
+            if pair.type != "pair" or key is None or value is None or value.type not in REFERENCE_TYPES:
+                continue
+            text = self.static_text(key)
+            if text.dynamic or self.call_target(value, value.start_byte) is None:
+                continue
+            entries.append((text.value, value))
+        return entries
+
+    def _constructed_class(self, node: Node | None) -> tuple[str, str | None] | None:
+        """Return the package class created by a call like Store(...), as class name and file"""
+
+        if node is None or node.type != "call":
+            return None
+        parts = dotted_parts(node.child_by_field_name("function"))
+        if not parts:
+            return None
+        if len(parts) == 1 and parts[0] in self.classes:
+            return parts[0], None
+        if parts[0] not in self.aliases:
+            return None
+        qualified, _ = self._resolve(parts)
+        target = self.internal_target(qualified)
+        if target is None or target[1] is None or "." in target[1] or not target[1][:1].isupper():
+            return None
+        return target[1], target[0]
+
+    def _instance_of(self, name: str, offset: int) -> tuple[str, str | None] | None:
+        """Return the package class held by a variable or attribute at an offset"""
+
+        return innermost(self.instances, name, offset)
+
+    def _table_named(self, node: Node | None, offset: int) -> list[tuple[str, Node]] | None:
+        """Return the entries of the dispatch table a name refers to at an offset"""
+
+        if node is None or node.type not in REFERENCE_TYPES:
+            return None
+        return innermost(self.tables, node_text(node), offset)
+
+    def _lookup_kind(self, node: Node | None, offset: int) -> tuple[list[tuple[str, Node]] | None, TrackingGap | None]:
+        """Classify a callee read from a table, a dict, getattr or globals()"""
+
+        if node is None:
+            return None, None
+        if node.type == "subscript":
+            container = node.child_by_field_name("value")
+            if self._namespace_call(container):
+                return None, TrackingGap.DYNAMIC_ATTRIBUTE
+            table = self._table_named(container, offset)
+            if table is not None:
+                return table, None
+            return None, TrackingGap.DICT_CALL
+        if node.type != "call":
+            return None, None
+        function = node.child_by_field_name("function")
+        if function is not None and function.type == "identifier" and node_text(function) == GETATTR_NAME:
+            positional, _ = split_arguments(node.child_by_field_name("arguments"))
+            if len(positional) > 1 and self.static_text(positional[1]).dynamic:
+                return None, TrackingGap.DYNAMIC_ATTRIBUTE
+            return None, None
+        if function is None or function.type != "attribute":
+            return None, None
+        attribute = function.child_by_field_name("attribute")
+        container = function.child_by_field_name("object")
+        if attribute is None or node_text(attribute) != LOOKUP_METHOD:
+            return None, None
+        if self._namespace_call(container):
+            return None, TrackingGap.DYNAMIC_ATTRIBUTE
+        table = self._table_named(container, offset)
+        if table is not None:
+            return table, None
+        return None, TrackingGap.DICT_CALL
+
+    def _namespace_call(self, node: Node | None) -> bool:
+        """Tell whether an expression is globals(), locals() or vars(...)"""
+
+        if node is None or node.type != "call":
+            return False
+        function = node.child_by_field_name("function")
+        return function is not None and function.type == "identifier" and node_text(function) in NAMESPACE_FUNCTIONS
+
+    def _dynamic_call(self, call: Node, callee: Node) -> bool:
+        """Record calls through dispatch tables, and the calls that cannot be followed"""
+
+        offset = call.start_byte
+        lookup = callee
+        if callee.type == "identifier":
+            assigned = innermost(self.lookups, node_text(callee), offset)
+            if assigned is None or node_text(callee) in self.function_names:
+                return False
+            lookup = assigned
+        table, gap = self._lookup_kind(lookup, offset)
+        if table is not None:
+            for key, value in table:
+                target = self.call_target(value, offset)
+                if target is not None:
+                    self.report.calls.append(RawCall(offset, target.name, target.file, key))
+            return True
+        if gap is not None:
+            self.report.gaps.append(RawGap(offset, gap))
+            return True
+        return False
+
+    def _method_call(self, callee: Node, offset: int) -> None:
+        """Remember a method called on an object whose type is unknown"""
+
+        attribute = callee.child_by_field_name("attribute")
+        target = callee.child_by_field_name("object")
+        if attribute is None or target is None or node_text(attribute).startswith("__"):
+            return
+        parts = dotted_parts(target)
+        if parts and parts[0] in self.aliases:
+            return
+        if target.type in ("string", "concatenated_string"):
+            return
+        self.report.method_calls.append(RawCall(offset, node_text(attribute)))
+
     def _find_calls(self) -> None:
         """Record calls and function references passed as arguments"""
 
+        self._index_dispatch()
         for call in self.nodes["call"]:
             callee = call.child_by_field_name("function")
-            if callee is not None:
+            if callee is not None and not self._dynamic_call(call, callee):
                 target = self.call_target(callee, call.start_byte)
                 if target is not None:
                     self.report.calls.append(target)
+                elif callee.type == "attribute":
+                    self._method_call(callee, call.start_byte)
             positional, keywords = split_arguments(call.child_by_field_name("arguments"))
             for argument in positional + list(keywords.values()):
                 if argument.type in REFERENCE_TYPES:
@@ -1301,8 +1522,8 @@ class PythonAdapter(Adapter):
 
         return _PythonFile(relative_path, source, context).run()
 
-    def entry_points(self, server_dir: Path, context: PackageContext) -> set[str]:
-        """Return __main__ files and the modules named by console scripts and entry points"""
+    def _entry_targets(self, server_dir: Path) -> list[str]:
+        """Return the module:function targets of console scripts and entry points"""
 
         targets: list[str] = []
         project = table(load_toml(server_dir / "pyproject.toml"), "project")
@@ -1315,12 +1536,33 @@ class PythonAdapter(Adapter):
             for line in (read_text(dist_info / ENTRY_POINTS_FILE) or "").splitlines():
                 if "=" in line and not line.strip().startswith("["):
                     targets.append(line.split("=", 1)[1])
+        return string_list(targets)
+
+    def entry_points(self, server_dir: Path, context: PackageContext) -> set[str]:
+        """Return __main__ files and the modules named by console scripts and entry points"""
+
         entries = {path for path in context.files if path.rsplit("/", 1)[-1] == MAIN_MODULE}
-        for target in string_list(targets):
+        for target in self._entry_targets(server_dir):
             module = target.split(":", 1)[0].strip()
             if module in context.modules:
                 entries.add(context.modules[module])
         return entries
+
+    def entry_functions(self, server_dir: Path, context: PackageContext) -> list[tuple[str, str]]:
+        """Return the functions named by console scripts and entry points"""
+
+        functions = []
+        for target in self._entry_targets(server_dir):
+            module, _, function = target.partition(":")
+            name = function.split("[", 1)[0].strip()
+            if name and module.strip() in context.modules:
+                functions.append((context.modules[module.strip()], name))
+        return functions
+
+    def install_entries(self, server_dir: Path, context: PackageContext) -> set[str]:
+        """Return setup.py, which runs when a source distribution is installed"""
+
+        return {SETUP_SCRIPT} & context.files
 
     def index_modules(self, paths: list[str]) -> dict[str, str]:
         """Map dotted module names of the package to their files"""
@@ -1335,7 +1577,7 @@ class PythonAdapter(Adapter):
         """Find setup.py command classes and in-tree build backends"""
 
         scripts = []
-        setup_text = read_text(server_dir / "setup.py")
+        setup_text = read_text(server_dir / SETUP_SCRIPT)
         if setup_text is not None and CMDCLASS_KEYWORD in setup_text:
             source = SourceText(setup_text, self.limits)
             tree = Parser(PYTHON_LANGUAGE).parse(source.data)
@@ -1347,7 +1589,7 @@ class PythonAdapter(Adapter):
                     scripts.append(
                         InstallScript(
                             kind="setup_py_cmdclass",
-                            file="setup.py",
+                            file=SETUP_SCRIPT,
                             line=line,
                             command=source.snippet(keyword.start_byte),
                         )

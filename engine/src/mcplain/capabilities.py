@@ -459,70 +459,122 @@ def is_secret_name(name: str) -> bool:
     return False
 
 
-SENSITIVE_PATH_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("ssh", re.compile(r"(?<![\w.-])\.ssh(?![\w-])", re.IGNORECASE)),
-    (
-        "ssh",
-        re.compile(r"\b(?:id_(?:rsa|dsa|ecdsa|ed25519)(?:_sk)?|authorized_keys|known_hosts)\b"),
-    ),
-    (
+class PathKind(StrEnum):
+    """Class that tells why a sensitive path matters: it holds secrets, starts code, or configures a tool"""
+
+    SECRET = "secret"
+    AUTOSTART = "autostart"
+    TOOL_CONFIG = "tool_config"
+
+
+@dataclass(frozen=True)
+class SensitivePath:
+    """Class that maps a path pattern to a category name and its kinds"""
+
+    category: str
+    kinds: frozenset[PathKind]
+    pattern: re.Pattern[str]
+
+
+def _path(category: str, kinds: tuple[PathKind, ...], pattern: str, flags: int = 0) -> SensitivePath:
+    """Build one sensitive path entry"""
+
+    return SensitivePath(category, frozenset(kinds), re.compile(pattern, flags))
+
+
+SECRET = (PathKind.SECRET,)
+AUTOSTART = (PathKind.AUTOSTART,)
+TOOL_CONFIG = (PathKind.TOOL_CONFIG,)
+
+SENSITIVE_PATH_PATTERNS: tuple[SensitivePath, ...] = (
+    _path("ssh_keys", SECRET, r"(?<![\w.-])\.ssh(?![\w-])", re.IGNORECASE),
+    _path("ssh_keys", SECRET, r"\b(?:id_(?:rsa|dsa|ecdsa|ed25519)(?:_sk)?|known_hosts)\b"),
+    _path("ssh_authorized_keys", AUTOSTART, r"\bauthorized_keys2?\b"),
+    _path(
         "cloud_credentials",
-        re.compile(
-            r"\.aws[\\/](?:credentials|config)\b|\.config[\\/]gcloud\b|\.azure[\\/]|"
-            r"\.kube[\\/]config\b|\.docker[\\/]config\.json\b|application_default_credentials\.json",
-            re.IGNORECASE,
-        ),
+        SECRET,
+        r"\.aws[\\/](?:credentials|config)\b|\.config[\\/]gcloud\b|\.azure[\\/]|"
+        r"\.kube[\\/]config\b|\.docker[\\/]config\.json\b|application_default_credentials\.json",
+        re.IGNORECASE,
     ),
-    (
+    _path(
         "env_file",
-        re.compile(
-            r"(?<![\w.-])\.env(?!\.(?:example|sample|template|dist)\b)(?:\.[\w-]+)?(?![\w-])",
-            re.IGNORECASE,
-        ),
+        SECRET,
+        r"(?<![\w.-])\.env(?!\.(?:example|sample|template|dist)\b)(?:\.[\w-]+)?(?![\w-])",
+        re.IGNORECASE,
     ),
-    (
-        "shell_config",
-        re.compile(
-            r"(?<![\w.-])\.(?:bashrc|zshrc|profile|bash_profile|bash_login|zprofile|zshenv|"
-            r"bash_history|zsh_history)(?![\w-])"
-        ),
+    _path(
+        "shell_startup",
+        AUTOSTART,
+        r"(?<![\w.-])\.(?:bashrc|zshrc|profile|bash_profile|bash_login|bash_logout|zprofile|zshenv|zlogin)"
+        r"(?![\w-])|\.config[\\/]fish[\\/]config\.fish",
     ),
-    ("git_credentials", re.compile(r"(?<![\w.-])\.(?:gitconfig|git-credentials)(?![\w-])")),
-    (
-        "package_credentials",
-        re.compile(r"(?<![\w.-])\.(?:npmrc|pypirc|netrc|yarnrc)(?![\w-])|\.cargo[\\/]credentials"),
+    _path(
+        "shell_history",
+        SECRET,
+        r"(?<![\w.-])\.(?:bash_history|zsh_history|python_history|node_repl_history|psql_history|mysql_history)"
+        r"(?![\w-])",
     ),
-    ("system_accounts", re.compile(r"/etc/(?:passwd|shadow|gshadow|sudoers)\b")),
-    (
+    _path("git_credentials", SECRET, r"(?<![\w.-])\.git-credentials(?![\w-])"),
+    _path("git_config", TOOL_CONFIG, r"(?<![\w.-])\.gitconfig(?![\w-])"),
+    _path(
+        "package_config",
+        (PathKind.SECRET, PathKind.TOOL_CONFIG),
+        r"(?<![\w.-])\.(?:npmrc|pypirc|yarnrc(?:\.yml)?)(?![\w-])",
+    ),
+    _path("package_credentials", SECRET, r"(?<![\w.-])\.netrc(?![\w-])|\.cargo[\\/]credentials(?:\.toml)?"),
+    _path("system_accounts", SECRET, r"/etc/(?:passwd|shadow|gshadow|sudoers)\b"),
+    _path(
         "browser_profile",
-        re.compile(
-            r"Google[\\/ ]Chrome|google-chrome|chromium[\\/]|BraveSoftware|Microsoft[\\/ ]Edge|"
-            r"\.mozilla[\\/]firefox|Mozilla[\\/ ]Firefox|Firefox[\\/]Profiles|Opera Software|"
-            r"\bLogin Data\b",
-            re.IGNORECASE,
-        ),
+        SECRET,
+        r"Google[\\/ ]Chrome|google-chrome|chromium[\\/]|BraveSoftware|Microsoft[\\/ ]Edge|"
+        r"\.mozilla[\\/]firefox|Mozilla[\\/ ]Firefox|Firefox[\\/]Profiles|Opera Software|"
+        r"\bLogin Data\b",
+        re.IGNORECASE,
     ),
-    (
+    _path(
         "crypto_wallet",
-        re.compile(
-            r"\bwallet\.dat\b|\.electrum\b|\.ethereum[\\/]keystore|Exodus[\\/]exodus\.wallet|"
-            r"\.config[\\/]solana[\\/]id\.json",
-            re.IGNORECASE,
-        ),
+        SECRET,
+        r"\bwallet\.dat\b|\.electrum\b|Electrum[\\/]wallets|\.bitcoin[\\/]|\.litecoin[\\/]|\.monero[\\/]|"
+        r"\.ethereum[\\/]keystore|keystore[\\/]UTC--|Exodus[\\/]exodus\.wallet|atomic[\\/]Local Storage|"
+        r"\.config[\\/]solana[\\/]id\.json|nkbihfbeogaeaoehlefnkodbefgpgknn|bfnaelmomeimhlpmgjnjophhpkkoljpa",
+        re.IGNORECASE,
     ),
-    (
+    _path(
         "password_store",
-        re.compile(r"Library[\\/]Keychains|\.gnupg\b|\.password-store\b|\.local[\\/]share[\\/]keyrings"),
+        SECRET,
+        r"Library[\\/]Keychains|\.gnupg\b|\.password-store\b|\.local[\\/]share[\\/]keyrings",
     ),
-    (
+    _path(
         "mcp_client_config",
-        re.compile(
-            r"claude_desktop_config\.json|\.cursor[\\/]mcp\.json|(?<![\w.-])\.claude\.json|"
-            r"windsurf[\\/]mcp_config\.json",
-            re.IGNORECASE,
-        ),
+        TOOL_CONFIG,
+        r"claude_desktop_config\.json|\.cursor[\\/]mcp\.json|(?<![\w.-])\.claude\.json|"
+        r"\.claude[\\/]settings(?:\.local)?\.json|(?<![\w.-])\.mcp\.json|windsurf[\\/]mcp_config\.json|"
+        r"\.vscode[\\/]mcp\.json|Code[\\/]User[\\/](?:settings|mcp)\.json|cline_mcp_settings\.json|"
+        r"(?<![\w.-])mcp_settings\.json|\.roo[\\/]mcp\.json|\.gemini[\\/]settings\.json|"
+        r"\.codex[\\/]config\.toml|\.continue[\\/]config\.(?:json|yaml)|\.config[\\/]zed[\\/]settings\.json",
+        re.IGNORECASE,
     ),
+    _path("cron", AUTOSTART, r"\bcrontab\b|/etc/cron(?:\.d|\.hourly|\.daily|\.weekly|\.monthly)?\b|/var/spool/cron\b"),
+    _path("systemd_unit", AUTOSTART, r"\.config[\\/]systemd[\\/]user\b|/etc/systemd/system\b"),
+    _path("launch_agent", AUTOSTART, r"Library[\\/]Launch(?:Agents|Daemons)\b"),
+    _path(
+        "windows_startup",
+        AUTOSTART,
+        r"Start Menu[\\/]+Programs[\\/]+Startup|shell:startup|CurrentVersion[\\/]+Run(?:Once)?\b",
+        re.IGNORECASE,
+    ),
+    _path("desktop_autostart", AUTOSTART, r"\.config[\\/]autostart\b"),
 )
+SENSITIVE_PATH_KINDS: dict[str, frozenset[PathKind]] = {
+    entry.category: entry.kinds for entry in SENSITIVE_PATH_PATTERNS
+}
+
+
+def path_kinds(category: str) -> frozenset[PathKind]:
+    """Return the kinds of one sensitive path category"""
+
+    return SENSITIVE_PATH_KINDS.get(category, frozenset())
 
 
 def find_sensitive_paths(text: str) -> list[tuple[str, str]]:
@@ -530,9 +582,9 @@ def find_sensitive_paths(text: str) -> list[tuple[str, str]]:
 
     found: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
-    for category, pattern in SENSITIVE_PATH_PATTERNS:
-        for match in pattern.finditer(text):
-            key = (category, match.group(0))
+    for entry in SENSITIVE_PATH_PATTERNS:
+        for match in entry.pattern.finditer(text):
+            key = (entry.category, match.group(0))
             if key not in seen:
                 seen.add(key)
                 found.append(key)

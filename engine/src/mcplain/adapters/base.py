@@ -14,8 +14,8 @@ from mcplain.adapters.common import (
     scan_invisible,
     source_offset,
 )
-from mcplain.adapters.report import FileReport, PackageContext, RawHandler, RawString, RawTool
-from mcplain.capabilities import Capability
+from mcplain.adapters.report import FileReport, PackageContext, RawCall, RawHandler, RawString, RawTool
+from mcplain.capabilities import Capability, path_kinds
 from mcplain.config import DEFAULT_LIMITS, Limits
 from mcplain.models import (
     CallStep,
@@ -26,11 +26,13 @@ from mcplain.models import (
     InvisibleCategory,
     InvisibleUnicode,
     LocationKind,
+    OutsideKind,
     ParseError,
     SensitivePathRef,
     ServerAnalysis,
     SkippedFile,
     Tool,
+    TrackingGap,
 )
 from mcplain.paths import iter_files, location_kind
 
@@ -46,6 +48,15 @@ class _ToolSlot:
     model: Tool
     regions: list[Region] = field(default_factory=list)
     seen: set[tuple[Capability, str, int]] = field(default_factory=set)
+    gaps: set[TrackingGap] = field(default_factory=set)
+
+
+@dataclass(frozen=True)
+class _Starts:
+    """Class that lists the entry functions and the files run at install time"""
+
+    entries: list[tuple[str, str]]
+    installs: set[str]
 
 
 class Adapter(ABC):
@@ -80,6 +91,16 @@ class Adapter(ABC):
 
         return set()
 
+    def entry_functions(self, server_dir: Path, context: PackageContext) -> list[tuple[str, str]]:
+        """Return the functions the package declares as entry points, as file and function name"""
+
+        return []
+
+    def install_entries(self, server_dir: Path, context: PackageContext) -> set[str]:
+        """Return the source files that install-time scripts run"""
+
+        return set()
+
     def language_for(self, analyzed: list[str]) -> str:
         """Return the language name to report for the analyzed files"""
 
@@ -109,8 +130,12 @@ class Adapter(ABC):
                 analysis.minified_files.append(relative)
         analysis.files_analyzed = len(reports)
         analysis.language = self.language_for(paths)
-        locations = self._locations(server_dir, context, reports)
-        self._assemble(analysis, reports, locations)
+        installs = self.install_entries(server_dir, context) & set(reports)
+        locations = self._locations(server_dir, context, reports, installs)
+        entries = [
+            (path, name) for path, name in self.entry_functions(server_dir, context) if path in reports
+        ]
+        self._assemble(analysis, reports, locations, _Starts(entries, installs))
         self._add_install_scripts(analysis, server_dir)
         for tool in analysis.tools:
             tool.findings.sort(key=lambda finding: (len(finding.call_chain), finding.file, finding.line))
@@ -118,12 +143,16 @@ class Adapter(ABC):
         return analysis
 
     def _locations(
-        self, server_dir: Path, context: PackageContext, reports: dict[str, FileReport]
+        self,
+        server_dir: Path,
+        context: PackageContext,
+        reports: dict[str, FileReport],
+        installs: set[str],
     ) -> dict[str, LocationKind]:
         """Classify files, then mark as server code every entry point and every file the server code imports"""
 
         locations = {path: location_kind(path) for path in reports}
-        entries = self.entry_points(server_dir, context) & set(reports)
+        entries = (self.entry_points(server_dir, context) | installs) & set(reports)
         pending = [path for path, kind in locations.items() if kind is LocationKind.SERVER_CODE]
         pending.extend(sorted(entries))
         visited: set[str] = set()
@@ -150,6 +179,7 @@ class Adapter(ABC):
                     snippet=script.command[: self.limits.max_snippet_chars],
                     location_kind=LocationKind.SERVER_CODE,
                     detail=script.kind,
+                    outside=OutsideKind.INSTALL,
                 )
             )
             for url, domain in extract_urls(script.command):
@@ -168,6 +198,7 @@ class Adapter(ABC):
         analysis: ServerAnalysis,
         reports: dict[str, FileReport],
         locations: dict[str, LocationKind],
+        starts: _Starts,
     ) -> None:
         """Attach findings to tools through the call graph and keep the rest at server level"""
 
@@ -208,7 +239,9 @@ class Adapter(ABC):
                 if target is not None:
                     function = graph.function(*target)
                     roots.append(Region(target[0], function.start, function.end))
-            for reach in graph.walk(roots):
+            walk = graph.walk(roots)
+            slot.model.gaps = sorted(walk.gaps | slot.gaps)
+            for reach in walk.reaches:
                 finding = self._finding(reports, locations, built, reach.file, reach.index)
                 key = (finding.capability, finding.file, finding.line)
                 reached.add((reach.file, reach.index))
@@ -217,6 +250,7 @@ class Adapter(ABC):
                 slot.seen.add(key)
                 chain = _call_steps(reports, reach.chain)
                 slot.model.findings.append(finding.model_copy(update={"call_chain": chain}))
+        outside = self._outside(graph, reports, locations, starts)
         server_seen: set[tuple[Capability, str, int]] = set()
         for path, report in reports.items():
             for index in range(len(report.findings)):
@@ -225,6 +259,8 @@ class Adapter(ABC):
                     update = {"shared_by_tools": True, "call_chain": shared[(path, index)]}
                 elif (path, index) in reached:
                     continue
+                elif locations[path] is LocationKind.SERVER_CODE:
+                    update = {"outside": outside.get((path, index), OutsideKind.NEVER_CALLED)}
                 finding = self._finding(reports, locations, built, path, index)
                 key = (finding.capability, finding.file, finding.line)
                 if key not in server_seen:
@@ -233,6 +269,33 @@ class Adapter(ABC):
             file_slots = [slot for slot in slots if slot.file == path]
             for raw_string in report.strings:
                 self._merge_string(analysis, report, raw_string, file_slots, locations[path])
+
+    def _outside(
+        self,
+        graph: CallGraph,
+        reports: dict[str, FileReport],
+        locations: dict[str, LocationKind],
+        starts: _Starts,
+    ) -> dict[tuple[str, int], OutsideKind]:
+        """Tell which findings run at install time or at startup, from module-level code and entry points"""
+
+        kinds: dict[tuple[str, int], OutsideKind] = {}
+        install_roots = [Region(path, 0, len(reports[path].source.data) + 1) for path in sorted(starts.installs)]
+        for reach in graph.walk(install_roots).reaches:
+            kinds.setdefault((reach.file, reach.index), OutsideKind.INSTALL)
+        startup_roots = [
+            Region(path, 0, len(report.source.data) + 1, own_body=True)
+            for path, report in reports.items()
+            if locations[path] is LocationKind.SERVER_CODE and path not in starts.installs
+        ]
+        for path, name in starts.entries:
+            target = graph.resolve(path, RawCall(0, name, path))
+            if target is not None:
+                function = graph.function(*target)
+                startup_roots.append(Region(target[0], function.start, function.end, own_body=True))
+        for reach in graph.walk(startup_roots).reaches:
+            kinds.setdefault((reach.file, reach.index), OutsideKind.STARTUP)
+        return kinds
 
     def _attach_handlers(
         self,
@@ -266,9 +329,35 @@ class Adapter(ABC):
                     branch = Region(region.file, block.start, block.end)
                     owner.regions.append(branch)
                     branches.append(branch)
-                for reach in graph.walk([region], branches):
+                keys = self._attach_table_entries(graph, reports, region, by_name)
+                walk = graph.walk([region], branches, keys)
+                for slot in candidates:
+                    slot.gaps |= walk.gaps
+                for reach in walk.reaches:
                     shared.setdefault((reach.file, reach.index), _call_steps(reports, reach.chain))
         return shared
+
+    def _attach_table_entries(
+        self,
+        graph: CallGraph,
+        reports: dict[str, FileReport],
+        region: Region,
+        by_name: dict[str, _ToolSlot],
+    ) -> frozenset[str]:
+        """Give each tool the handler a dispatch table holds under its name, and return the keys handled"""
+
+        keys: set[str] = set()
+        for call in reports[region.file].calls:
+            if call.key is None or not region.start <= call.offset < region.end:
+                continue
+            owner = by_name.get(call.key)
+            target = graph.resolve(region.file, call)
+            if owner is None or target is None:
+                continue
+            function = graph.function(*target)
+            owner.regions.append(Region(target[0], function.start, function.end))
+            keys.add(call.key)
+        return frozenset(keys)
 
     def _finding(
         self,
@@ -324,6 +413,7 @@ class Adapter(ABC):
             analysis.sensitive_paths.append(
                 SensitivePathRef(
                     category=category,
+                    kinds=sorted(path_kinds(category)),
                     match=match,
                     file=report.path,
                     line=line,

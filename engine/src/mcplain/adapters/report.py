@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from mcplain.adapters.common import SourceText, TextValue
 from mcplain.capabilities import Capability
-from mcplain.models import AnnotationValue, DeclarationKind, ToolParameter, UrlKind
+from mcplain.models import AnnotationValue, DeclarationKind, ToolParameter, TrackingGap, UrlKind
 
 
 @dataclass(frozen=True)
@@ -28,11 +28,12 @@ class RawFinding:
 
 @dataclass(frozen=True)
 class RawCall:
-    """Class that holds a call or a function reference, by name and optional target file"""
+    """Class that holds a call or a function reference, by name, optional target file and dispatch key"""
 
     offset: int
     name: str
     file: str | None = None
+    key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,15 @@ class RawFunction:
     scope_start: int
     scope_end: int
     module_level: bool
+    overload: bool = False
+
+
+@dataclass(frozen=True)
+class RawGap:
+    """Class that holds a call the call graph cannot follow, and why"""
+
+    offset: int
+    gap: TrackingGap
 
 
 @dataclass(frozen=True)
@@ -103,7 +113,10 @@ class FileReport:
     tools: list[RawTool] = field(default_factory=list)
     strings: list[RawString] = field(default_factory=list)
     functions: list[RawFunction] = field(default_factory=list)
+    function_ranges: list[tuple[int, int]] = field(default_factory=list)
     calls: list[RawCall] = field(default_factory=list)
+    method_calls: list[RawCall] = field(default_factory=list)
+    gaps: list[RawGap] = field(default_factory=list)
     call_handlers: list[RawHandler] = field(default_factory=list)
     dispatch_blocks: list[RawBlock] = field(default_factory=list)
     imported_files: list[str] = field(default_factory=list)
