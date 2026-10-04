@@ -265,6 +265,7 @@ class Adapter(ABC):
                 function=raw.function,
                 location_kind=locations[path],
                 detail=raw.detail,
+                url_kind=raw.url_kind,
             )
         return built[key]
 

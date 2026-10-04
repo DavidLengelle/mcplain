@@ -71,6 +71,14 @@ class LocationKind(StrEnum):
     BUILD_SCRIPT = "build_script"
 
 
+class UrlKind(StrEnum):
+    """Class that tells how the URL of a network call is known"""
+
+    LITERAL = "literal"
+    DYNAMIC = "dynamic"
+    UNKNOWN = "unknown"
+
+
 class CallStep(BaseModel):
     """Class that describes one function on the path from a tool to a finding"""
 
@@ -92,6 +100,7 @@ class Finding(BaseModel):
     detail: str | None = None
     call_chain: list[CallStep] = Field(default_factory=list)
     shared_by_tools: bool = False
+    url_kind: UrlKind | None = None
 
 
 class DeclarationKind(StrEnum):

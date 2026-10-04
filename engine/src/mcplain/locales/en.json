@@ -236,5 +236,8 @@
   "cli.directly": "directly ({place})",
   "cli.via": "via {chain} ({place})",
   "cli.others": "+{count} other place(s)",
-  "cli.shared.heading": "Shared by all tools (call handler code outside the tool branches)"
+  "cli.shared.heading": "Shared by all tools (call handler code outside the tool branches)",
+  "cli.url_kind.literal": "URL literal",
+  "cli.url_kind.dynamic": "URL dynamic",
+  "cli.url_kind.unknown": "URL unknown"
 }

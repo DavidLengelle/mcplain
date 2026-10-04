@@ -17,6 +17,7 @@ from mcplain.models import (
     ServerAnalysis,
     SourceKind,
     Tool,
+    UrlKind,
 )
 
 UNSAFE_CATEGORIES: frozenset[str] = frozenset({"Cc", "Cf", "Co", "Cs", "Zl", "Zp"})
@@ -271,7 +272,7 @@ def _render_tool_findings(tool: Tool, t: Translator, lines: list[str]) -> None:
     for finding in tool.findings:
         grouped[finding.capability.value].append(finding)
     for capability in sorted(grouped):
-        items = grouped[capability]
+        items = _representative(grouped[capability])
         text = f"{INDENT * 4}- {capability} ({t('capability.' + capability)}){t('cli.separator')}{_reach(items[0], t)}"
         if len(items) > 1:
             text = f"{text}, {t('cli.others', count=len(items) - 1)}"
@@ -283,9 +284,27 @@ def _reach(finding: Finding, t: Translator) -> str:
 
     place = f"{_safe(finding.file)}:{finding.line}"
     if not finding.call_chain:
-        return t("cli.directly", place=place)
-    chain = " -> ".join(_safe(step.function) for step in finding.call_chain)
-    return t("cli.via", chain=chain, place=place)
+        text = t("cli.directly", place=place)
+    else:
+        chain = " -> ".join(_safe(step.function) for step in finding.call_chain)
+        text = t("cli.via", chain=chain, place=place)
+    if finding.url_kind is not None:
+        text = f"{text}, {t('cli.url_kind.' + finding.url_kind.value)}"
+    return text
+
+
+def _representative(findings: list[Finding]) -> list[Finding]:
+    """Order findings so the nearest one with a readable URL comes first"""
+
+    def rank(finding: Finding) -> tuple[int, int]:
+        """Prefer short call chains, then findings whose URL kind is known"""
+
+        unknown = 0
+        if finding.url_kind is UrlKind.UNKNOWN:
+            unknown = 1
+        return len(finding.call_chain), unknown
+
+    return sorted(findings, key=rank)
 
 
 def _tool_marks(tool: Tool, t: Translator) -> str:
@@ -330,7 +349,10 @@ def _render_findings(findings: list[Finding], t: Translator, lines: list[str]) -
             where = f"{_safe(finding.file)}:{finding.line}"
             if finding.function:
                 where = f"{where} {t('cli.in_function', name=_safe(finding.function))}"
-            lines.append(f"{INDENT * 3}{where}: {_safe(finding.snippet)}")
+            snippet = _safe(finding.snippet)
+            if finding.url_kind is not None:
+                snippet = f"{snippet}  [{t('cli.url_kind.' + finding.url_kind.value)}]"
+            lines.append(f"{INDENT * 3}{where}: {snippet}")
 
 
 def _render_domains(server: ServerAnalysis, t: Translator, lines: list[str]) -> None:

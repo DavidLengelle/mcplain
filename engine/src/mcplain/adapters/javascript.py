@@ -36,12 +36,17 @@ from mcplain.adapters.report import (
 from mcplain.capabilities import (
     JAVASCRIPT_BASE64_ENCODINGS,
     JAVASCRIPT_BUFFER_DECODERS,
+    JAVASCRIPT_CLIENT_URL_KEYS,
     JAVASCRIPT_ENV_GETTERS,
     JAVASCRIPT_ENV_OBJECTS,
+    JAVASCRIPT_NETWORK_CLIENTS,
     JAVASCRIPT_OPEN_FUNCTIONS,
     JAVASCRIPT_RULES,
     JAVASCRIPT_STRING_TIMERS,
+    JAVASCRIPT_URL_GLOBALS,
+    JAVASCRIPT_URL_KEYS,
     JAVASCRIPT_WRITE_FLAG_CHARS,
+    NETWORK_CLIENT_METHODS,
     Capability,
     RuleKind,
     find_sensitive_paths,
@@ -51,7 +56,7 @@ from mcplain.capabilities import (
     rewrite_javascript_chain,
 )
 from mcplain.manifests import load_json_object, read_text, table
-from mcplain.models import DeclarationKind, InstallScript, ToolParameter
+from mcplain.models import DeclarationKind, InstallScript, ToolParameter, UrlKind
 
 JAVASCRIPT_LANGUAGE = Language(tree_sitter_javascript.language())
 TYPESCRIPT_LANGUAGE = Language(tree_sitter_typescript.language_typescript())
@@ -284,6 +289,7 @@ class _JavaScriptFile:
         self.function_names: set[str] = set()
         self.class_names: set[str] = set()
         self.enum_members: dict[str, Node] = {}
+        self.clients: list[tuple[str, int, int, str]] = []
         self.list_handlers: list[Node] = []
         self.seen_objects: set[int] = set()
 
@@ -1263,16 +1269,106 @@ class _JavaScriptFile:
                 return text.value
         return None
 
-    def _add(self, capability: Capability, node: Node, detail: str | None) -> None:
+    def _add(
+        self, capability: Capability, node: Node, detail: str | None, url_kind: UrlKind | None = None
+    ) -> None:
         """Record one capability finding"""
 
         self.report.findings.append(
-            RawFinding(capability=capability, offset=node.start_byte, function=enclosing_function(node), detail=detail)
+            RawFinding(
+                capability=capability,
+                offset=node.start_byte,
+                function=enclosing_function(node),
+                detail=detail,
+                url_kind=url_kind,
+            )
         )
+
+    def _client_constructor(self, node: Node | None) -> str | None:
+        """Return the network client factory used by an expression, like axios.create"""
+
+        current = unwrap(node)
+        if current is not None and current.type == "await_expression" and current.named_children:
+            current = unwrap(current.named_children[0])
+        if current is None or current.type not in ("call_expression", "new_expression"):
+            return None
+        callee = current.child_by_field_name("function") or current.child_by_field_name("constructor")
+        resolved = self.resolve(callee)
+        if resolved is not None and resolved[1] and resolved[0] in JAVASCRIPT_NETWORK_CLIENTS:
+            return resolved[0]
+        return None
+
+    def _index_clients(self) -> None:
+        """Remember variables and this.x fields that hold a network client"""
+
+        for declarator in self.nodes["variable_declarator"]:
+            name = declarator.child_by_field_name("name")
+            constructor = self._client_constructor(declarator.child_by_field_name("value"))
+            if name is not None and name.type == "identifier" and constructor is not None:
+                self._bind_client(node_text(name), declarator, constructor)
+        for assignment in self.nodes["assignment_expression"]:
+            left = assignment.child_by_field_name("left")
+            constructor = self._client_constructor(assignment.child_by_field_name("right"))
+            if left is not None and constructor is not None:
+                self._bind_client(node_text(left), assignment, constructor)
+
+    def _bind_client(self, name: str, node: Node, constructor: str) -> None:
+        """Record a client variable with the range where it is visible"""
+
+        start, end = 0, len(self.source.data) + 1
+        wanted = FUNCTION_TYPES | NAMED_FUNCTION_TYPES
+        if name.startswith("this."):
+            wanted = CLASS_TYPES
+        current = node.parent
+        while current is not None:
+            if current.type in wanted:
+                start, end = current.start_byte, current.end_byte
+                break
+            current = current.parent
+        self.clients.append((name, start, end, constructor))
+
+    def _client_of(self, name: str, offset: int) -> str | None:
+        """Return the client factory behind a variable name at an offset"""
+
+        best = None
+        best_size = 0
+        for client_name, start, end, constructor in self.clients:
+            if client_name == name and start <= offset < end and (best is None or end - start < best_size):
+                best = constructor
+                best_size = end - start
+        return best
+
+    def _url_kind(self, arguments: list[Node], keys: tuple[str, ...] = JAVASCRIPT_URL_KEYS) -> UrlKind:
+        """Tell whether the URL given to a network call is a literal, dynamic or absent"""
+
+        if not arguments:
+            return UrlKind.UNKNOWN
+        first = unwrap(arguments[0])
+        options = self._as_object(first)
+        if options is not None:
+            first = None
+            for key in keys:
+                first = first or self._object_value(options, key)
+        if first is None:
+            return UrlKind.UNKNOWN
+        if self.static_text(first).dynamic:
+            return UrlKind.DYNAMIC
+        return UrlKind.LITERAL
+
+    def _network_url_kind(self, qualified: str, arguments: list[Node]) -> UrlKind:
+        """Return the URL kind of a call to a network global, module or client factory"""
+
+        if qualified in JAVASCRIPT_NETWORK_CLIENTS:
+            return self._url_kind(arguments, JAVASCRIPT_CLIENT_URL_KEYS)
+        method = qualified.rsplit(".", 1)[-1]
+        if qualified in JAVASCRIPT_URL_GLOBALS or "." not in qualified or method in NETWORK_CLIENT_METHODS:
+            return self._url_kind(arguments)
+        return UrlKind.UNKNOWN
 
     def _find_capabilities(self) -> None:
         """Match calls and environment access against the capability table"""
 
+        self._index_clients()
         for call in self.nodes["call_expression"] + self.nodes["new_expression"]:
             self._check_call(call)
         for member in self.nodes["member_expression"]:
@@ -1289,6 +1385,14 @@ class _JavaScriptFile:
             if arguments and arguments[0].type != "string":
                 self._add(Capability.DYNAMIC_CODE, call, "import()")
             return
+        if callee.type == "member_expression":
+            method = property_name(callee.child_by_field_name("property"))
+            target = callee.child_by_field_name("object")
+            if method in NETWORK_CLIENT_METHODS and target is not None:
+                constructor = self._client_of(node_text(target), call.start_byte)
+                if constructor is not None:
+                    self._add(Capability.NETWORK, call, f"{constructor}.{method}", self._url_kind(arguments))
+                    return
         resolved = self.resolve(callee)
         if resolved is not None:
             qualified, imported = resolved
@@ -1317,6 +1421,9 @@ class _JavaScriptFile:
             if imported:
                 kind = RuleKind.MODULE
             rule = match_rule(JAVASCRIPT_RULES, qualified, kind)
+            if rule is not None and rule.capability is Capability.NETWORK:
+                self._add(rule.capability, call, qualified, self._network_url_kind(qualified, arguments))
+                return
             if rule is not None:
                 self._add(rule.capability, call, qualified)
                 return

@@ -187,6 +187,22 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
     ),
 )
 
+NETWORK_CLIENT_METHODS: frozenset[str] = frozenset(
+    {"get", "post", "put", "patch", "delete", "head", "options", "request", "stream"}
+)
+URL_AFTER_METHOD: frozenset[str] = frozenset({"request", "stream"})
+PYTHON_NETWORK_CLIENTS: frozenset[str] = frozenset(
+    {
+        "httpx.Client",
+        "httpx.AsyncClient",
+        "requests.Session",
+        "requests.session",
+        "aiohttp.ClientSession",
+        "urllib3.PoolManager",
+    }
+)
+PYTHON_URL_FUNCTIONS: frozenset[str] = frozenset({"urllib.request.urlopen", "urllib.request.Request"})
+PYTHON_CLIENT_URL_KEYWORDS: tuple[str, ...] = ("base_url",)
 PYTHON_OPEN_GLOBALS: frozenset[str] = frozenset({"open"})
 PYTHON_OPEN_FUNCTIONS: frozenset[str] = frozenset({"io.open", "codecs.open", "aiofiles.open"})
 PYTHON_WRITE_MODE_CHARS = "wax+"
@@ -352,6 +368,12 @@ JAVASCRIPT_RULES: tuple[ApiRule, ...] = (
 
 JAVASCRIPT_OPEN_FUNCTIONS: frozenset[str] = frozenset({"fs.open", "fs.openSync"})
 JAVASCRIPT_WRITE_FLAG_CHARS = "wa+"
+JAVASCRIPT_NETWORK_CLIENTS: frozenset[str] = frozenset(
+    {"axios.create", "got.extend", "ky.create", "ky.extend", "undici.Client", "undici.Pool"}
+)
+JAVASCRIPT_URL_GLOBALS: frozenset[str] = frozenset({"fetch", "globalThis.fetch", "WebSocket", "EventSource"})
+JAVASCRIPT_URL_KEYS: tuple[str, ...] = ("url", "href", "hostname", "host")
+JAVASCRIPT_CLIENT_URL_KEYS: tuple[str, ...] = ("baseURL", "prefixUrl", "origin")
 JAVASCRIPT_ENV_OBJECTS: frozenset[str] = frozenset({"process.env", "Bun.env"})
 JAVASCRIPT_ENV_GETTERS: frozenset[str] = frozenset({"Deno.env.get"})
 JAVASCRIPT_BUFFER_DECODERS: frozenset[str] = frozenset({"Buffer.from"})

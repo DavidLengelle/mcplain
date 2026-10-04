@@ -33,13 +33,18 @@ from mcplain.adapters.report import (
     RawTool,
 )
 from mcplain.capabilities import (
+    NETWORK_CLIENT_METHODS,
+    PYTHON_CLIENT_URL_KEYWORDS,
     PYTHON_ENV_GETTERS,
     PYTHON_ENV_MAPPINGS,
+    PYTHON_NETWORK_CLIENTS,
     PYTHON_OPEN_FUNCTIONS,
     PYTHON_OPEN_GLOBALS,
     PYTHON_RULES,
     PYTHON_TEXT_HELPERS,
+    PYTHON_URL_FUNCTIONS,
     PYTHON_WRITE_MODE_CHARS,
+    URL_AFTER_METHOD,
     Capability,
     RuleKind,
     find_sensitive_paths,
@@ -47,7 +52,7 @@ from mcplain.capabilities import (
     match_rule,
 )
 from mcplain.manifests import load_toml, read_text, table
-from mcplain.models import DeclarationKind, InstallScript, ToolParameter
+from mcplain.models import DeclarationKind, InstallScript, ToolParameter, UrlKind
 
 PYTHON_LANGUAGE = Language(tree_sitter_python.language())
 PYTHON_EXTENSIONS: frozenset[str] = frozenset({".py", ".pyw"})
@@ -64,6 +69,8 @@ NODE_TYPES: tuple[str, ...] = (
     "if_statement",
     "elif_clause",
     "match_statement",
+    "assignment",
+    "with_item",
 )
 SIMPLE_ESCAPES: dict[str, str] = {
     "\\": "\\",
@@ -240,6 +247,7 @@ class _PythonFile:
         self.classes: dict[str, Node] = {}
         self.function_names: set[str] = set()
         self.class_constants: dict[str, Node] = {}
+        self.clients: list[tuple[str, int, int, str]] = []
         self.tool_definitions: set[int] = set()
 
     def run(self) -> FileReport:
@@ -988,16 +996,109 @@ class _PythonFile:
                 return text.value
         return None
 
-    def _add(self, capability: Capability, node: Node, detail: str | None) -> None:
+    def _add(
+        self, capability: Capability, node: Node, detail: str | None, url_kind: UrlKind | None = None
+    ) -> None:
         """Record one capability finding"""
 
         self.report.findings.append(
-            RawFinding(capability=capability, offset=node.start_byte, function=enclosing_function(node), detail=detail)
+            RawFinding(
+                capability=capability,
+                offset=node.start_byte,
+                function=enclosing_function(node),
+                detail=detail,
+                url_kind=url_kind,
+            )
         )
+
+    def _client_constructor(self, node: Node | None) -> str | None:
+        """Return the network client class created by a call, like httpx.AsyncClient"""
+
+        if node is None or node.type != "call":
+            return None
+        parts = dotted_parts(node.child_by_field_name("function"))
+        if not parts:
+            return None
+        qualified, imported = self._resolve(parts)
+        if imported and qualified in PYTHON_NETWORK_CLIENTS:
+            return qualified
+        return None
+
+    def _index_clients(self) -> None:
+        """Remember variables that hold a network client, from assignments and with ... as v"""
+
+        for assignment in self.nodes["assignment"]:
+            left = assignment.child_by_field_name("left")
+            constructor = self._client_constructor(assignment.child_by_field_name("right"))
+            if left is not None and constructor is not None:
+                self._bind_client(node_text(left), assignment, constructor)
+        for item in self.nodes["with_item"]:
+            value = item.child_by_field_name("value")
+            if value is None or value.type != "as_pattern" or not value.named_children:
+                continue
+            alias = value.child_by_field_name("alias")
+            constructor = self._client_constructor(value.named_children[0])
+            if alias is not None and constructor is not None:
+                self._bind_client(node_text(alias), item, constructor)
+
+    def _bind_client(self, name: str, node: Node, constructor: str) -> None:
+        """Record a client variable with the range where it is visible"""
+
+        start, end = 0, len(self.source.data) + 1
+        wanted = "function_definition"
+        if name.split(".")[0] in SELF_NAMES:
+            wanted = "class_definition"
+        current = node.parent
+        while current is not None:
+            if current.type == wanted:
+                start, end = current.start_byte, current.end_byte
+                break
+            current = current.parent
+        self.clients.append((name, start, end, constructor))
+
+    def _client_of(self, name: str, offset: int) -> str | None:
+        """Return the client class held by a variable name at an offset"""
+
+        best = None
+        best_size = 0
+        for client_name, start, end, constructor in self.clients:
+            if client_name == name and start <= offset < end and (best is None or end - start < best_size):
+                best = constructor
+                best_size = end - start
+        return best
+
+    def _url_kind(self, arguments: Node | None, index: int, keywords_to_try: tuple[str, ...] = ("url",)) -> UrlKind:
+        """Tell whether the URL argument of a network call is a literal, dynamic or absent"""
+
+        positional, keywords = split_arguments(arguments)
+        node = None
+        for keyword in keywords_to_try:
+            node = node or keywords.get(keyword)
+        if node is None and index >= 0 and len(positional) > index:
+            node = positional[index]
+        if node is None:
+            return UrlKind.UNKNOWN
+        if self.static_text(node).dynamic:
+            return UrlKind.DYNAMIC
+        return UrlKind.LITERAL
+
+    def _network_url_kind(self, qualified: str, arguments: Node | None) -> UrlKind:
+        """Return the URL kind of a call to a network module function or client class"""
+
+        if qualified in PYTHON_NETWORK_CLIENTS:
+            return self._url_kind(arguments, -1, PYTHON_CLIENT_URL_KEYWORDS)
+        method = qualified.rsplit(".", 1)[-1]
+        if qualified in PYTHON_URL_FUNCTIONS or method in NETWORK_CLIENT_METHODS:
+            index = 0
+            if method in URL_AFTER_METHOD:
+                index = 1
+            return self._url_kind(arguments, index)
+        return UrlKind.UNKNOWN
 
     def _find_capabilities(self) -> None:
         """Match calls, environment access and literals against the capability table"""
 
+        self._index_clients()
         for call in self.nodes["call"]:
             self._check_call(call)
         for subscript in self.nodes["subscript"]:
@@ -1015,6 +1116,8 @@ class _PythonFile:
 
         callee = call.child_by_field_name("function")
         arguments = call.child_by_field_name("arguments")
+        if callee is not None and callee.type == "attribute" and self._client_call(call, callee, arguments):
+            return
         parts = dotted_parts(callee)
         if parts:
             qualified, imported = self._resolve(parts)
@@ -1035,6 +1138,9 @@ class _PythonFile:
             if imported:
                 kind = RuleKind.MODULE
             rule = match_rule(PYTHON_RULES, qualified, kind)
+            if rule is not None and rule.capability is Capability.NETWORK:
+                self._add(rule.capability, call, qualified, self._network_url_kind(qualified, arguments))
+                return
             if rule is not None:
                 self._add(rule.capability, call, qualified)
                 return
@@ -1046,6 +1152,23 @@ class _PythonFile:
             rule = match_rule(PYTHON_RULES, method, RuleKind.METHOD)
             if rule is not None:
                 self._add(rule.capability, call, "." + method)
+
+    def _client_call(self, call: Node, callee: Node, arguments: Node | None) -> bool:
+        """Record client.get(url) and the like when client holds a known network client"""
+
+        attribute = callee.child_by_field_name("attribute")
+        target = callee.child_by_field_name("object")
+        if attribute is None or target is None or node_text(attribute) not in NETWORK_CLIENT_METHODS:
+            return False
+        method = node_text(attribute)
+        constructor = self._client_of(node_text(target), call.start_byte)
+        if constructor is None:
+            return False
+        index = 0
+        if method in URL_AFTER_METHOD:
+            index = 1
+        self._add(Capability.NETWORK, call, f"{constructor}.{method}", self._url_kind(arguments, index))
+        return True
 
     def _open_call(self, call: Node, arguments: Node | None, qualified: str) -> None:
         """Classify open() as a read or a write from its mode argument"""

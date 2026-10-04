@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from mcplain.adapters.common import SourceText, TextValue
 from mcplain.capabilities import Capability
-from mcplain.models import DeclarationKind, ToolParameter
+from mcplain.models import DeclarationKind, ToolParameter, UrlKind
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,7 @@ class RawFinding:
     offset: int
     function: str | None = None
     detail: str | None = None
+    url_kind: UrlKind | None = None
 
 
 @dataclass(frozen=True)
