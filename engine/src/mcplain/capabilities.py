@@ -114,6 +114,9 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
         "os.symlink",
         "os.link",
         "os.truncate",
+        "os.utime",
+        "os.lchmod",
+        "os.lchown",
         "shutil.copy*",
         "shutil.move",
         "shutil.rmtree",
@@ -132,6 +135,7 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
         "touch",
         "symlink_to",
         "hardlink_to",
+        "chmod",
     ),
     *_rules(
         RuleKind.MODULE,
@@ -139,10 +143,24 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
         "os.listdir",
         "os.scandir",
         "os.walk",
+        "os.stat",
+        "os.lstat",
+        "os.access",
+        "os.readlink",
         "glob.glob",
         "glob.iglob",
     ),
-    *_rules(RuleKind.METHOD, Capability.FS_READ, "read_text", "read_bytes", "iterdir", "rglob"),
+    *_rules(
+        RuleKind.METHOD,
+        Capability.FS_READ,
+        "read_text",
+        "read_bytes",
+        "iterdir",
+        "glob",
+        "rglob",
+        "stat",
+        "lstat",
+    ),
     *_rules(RuleKind.GLOBAL, Capability.DYNAMIC_CODE, "eval", "exec", "compile", "__import__"),
     *_rules(
         RuleKind.MODULE,
@@ -261,6 +279,10 @@ JAVASCRIPT_RULES: tuple[ApiRule, ...] = (
         "fs.truncate*",
         "fs.chmod*",
         "fs.chown*",
+        "fs.lchmod*",
+        "fs.lchown*",
+        "fs.utimes*",
+        "fs.lutimes*",
         "fs.symlink*",
         "fs.link*",
         "fs.write",
@@ -307,6 +329,12 @@ JAVASCRIPT_RULES: tuple[ApiRule, ...] = (
         "fs.opendir*",
         "fs.createReadStream",
         "fs.readJson*",
+        "fs.stat*",
+        "fs.lstat*",
+        "fs.fstat*",
+        "fs.realpath*",
+        "fs.access*",
+        "fs.exists*",
     ),
     *_rules(RuleKind.GLOBAL, Capability.FS_READ, "Deno.readFile", "Deno.readTextFile", "Bun.file"),
     *_rules(
@@ -322,6 +350,8 @@ JAVASCRIPT_RULES: tuple[ApiRule, ...] = (
     *_rules(RuleKind.GLOBAL, Capability.BASE64_DECODE, "atob"),
 )
 
+JAVASCRIPT_OPEN_FUNCTIONS: frozenset[str] = frozenset({"fs.open", "fs.openSync"})
+JAVASCRIPT_WRITE_FLAG_CHARS = "wa+"
 JAVASCRIPT_ENV_OBJECTS: frozenset[str] = frozenset({"process.env", "Bun.env"})
 JAVASCRIPT_ENV_GETTERS: frozenset[str] = frozenset({"Deno.env.get"})
 JAVASCRIPT_BUFFER_DECODERS: frozenset[str] = frozenset({"Buffer.from"})

@@ -26,8 +26,10 @@ from mcplain.capabilities import (
     JAVASCRIPT_BUFFER_DECODERS,
     JAVASCRIPT_ENV_GETTERS,
     JAVASCRIPT_ENV_OBJECTS,
+    JAVASCRIPT_OPEN_FUNCTIONS,
     JAVASCRIPT_RULES,
     JAVASCRIPT_STRING_TIMERS,
+    JAVASCRIPT_WRITE_FLAG_CHARS,
     Capability,
     RuleKind,
     find_sensitive_paths,
@@ -926,6 +928,9 @@ class _JavaScriptFile:
                 if arguments and arguments[0].type in TEXT_TYPES:
                     self._add(Capability.DYNAMIC_CODE, call, qualified)
                 return
+            if imported and qualified in JAVASCRIPT_OPEN_FUNCTIONS:
+                self._open_call(call, arguments, qualified)
+                return
             if qualified in JAVASCRIPT_ENV_GETTERS:
                 key_node = None
                 if arguments:
@@ -946,6 +951,18 @@ class _JavaScriptFile:
             rule = match_rule(JAVASCRIPT_RULES, method, RuleKind.METHOD)
             if rule is not None:
                 self._add(rule.capability, call, "." + method)
+
+    def _open_call(self, call: Node, arguments: list[Node], qualified: str) -> None:
+        """Classify fs.open as a read or a write from its flags argument"""
+
+        capability = Capability.FS_READ
+        detail = qualified
+        if len(arguments) > 1:
+            flags = self.static_text(arguments[1])
+            detail = f"{qualified} flags={flags.value or '?'}"
+            if flags.dynamic or any(character in flags.value for character in JAVASCRIPT_WRITE_FLAG_CHARS):
+                capability = Capability.FS_WRITE
+        self._add(capability, call, detail)
 
     def _env_key(self, node: Node, key_node: Node | None) -> None:
         """Classify an environment read as a secret or a plain variable"""
