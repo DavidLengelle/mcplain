@@ -1,6 +1,7 @@
 """Pydantic models shared by every MCPlain module, all serializable to JSON"""
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -116,6 +117,9 @@ class DeclarationKind(StrEnum):
     TOOL_CLASS = "tool_class"
 
 
+AnnotationValue = bool | Literal["computed"]
+
+
 class ToolParameter(BaseModel):
     """Class that describes one parameter of a tool"""
 
@@ -137,6 +141,10 @@ class Tool(BaseModel):
     line: int
     declaration: DeclarationKind
     location_kind: LocationKind
+    title: str | None = None
+    title_is_dynamic: bool = False
+    annotations: dict[str, AnnotationValue] = Field(default_factory=dict)
+    annotations_are_dynamic: bool = False
     findings: list[Finding] = Field(default_factory=list)
 
 

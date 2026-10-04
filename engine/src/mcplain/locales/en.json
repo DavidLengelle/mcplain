@@ -239,5 +239,15 @@
   "cli.shared.heading": "Shared by all tools (call handler code outside the tool branches)",
   "cli.url_kind.literal": "URL literal",
   "cli.url_kind.dynamic": "URL dynamic",
-  "cli.url_kind.unknown": "URL unknown"
+  "cli.url_kind.unknown": "URL unknown",
+  "cli.tool.announces": "What it announces",
+  "cli.tool.title": "title",
+  "cli.tool.annotations_dynamic": "annotations computed at runtime",
+  "annotation.readOnlyHint": "read-only",
+  "annotation.destructiveHint": "destructive",
+  "annotation.idempotentHint": "idempotent",
+  "annotation.openWorldHint": "open world",
+  "cli.value.true": "yes",
+  "cli.value.false": "no",
+  "cli.value.computed": "computed"
 }

@@ -9,7 +9,12 @@ from tree_sitter import Language, Node, Parser
 
 from mcplain.adapters.base import Adapter
 from mcplain.adapters.common import (
+    ANNOTATION_KEYS,
+    BOOLEAN_NODES,
+    COMPUTED,
     DYNAMIC_PLACEHOLDER,
+    TITLE_KEY,
+    UNSET_NODES,
     Piece,
     SourceText,
     TextValue,
@@ -96,6 +101,7 @@ MAX_CONSTANT_DEPTH = 5
 SCHEMA_METHODS: frozenset[str] = frozenset({"model_json_schema", "schema"})
 FIELD_FUNCTION = "Field"
 ANNOTATED_NAME = "Annotated"
+ANNOTATIONS_CLASS = "ToolAnnotations"
 CALL_TOOL_KEYWORD = "on_call_tool"
 SELF_NAMES: frozenset[str] = frozenset({"self", "cls"})
 MAIN_MODULE = "__main__.py"
@@ -602,18 +608,55 @@ class _PythonFile:
             if doc is not None:
                 description = self.static_text(doc)
         parameters, parameter_ranges = self._function_parameters(definition)
-        self.report.tools.append(
-            RawTool(
-                name=name,
-                name_is_dynamic=name_is_dynamic,
-                description=description,
-                offset=offset,
-                declaration=declaration,
-                parameters=parameters,
-                bodies=[(definition.start_byte, definition.end_byte)],
-                text_ranges=description.ranges + parameter_ranges,
-            )
+        tool = RawTool(
+            name=name,
+            name_is_dynamic=name_is_dynamic,
+            description=description,
+            offset=offset,
+            declaration=declaration,
+            parameters=parameters,
+            bodies=[(definition.start_byte, definition.end_byte)],
+            text_ranges=description.ranges + parameter_ranges,
         )
+        self._declare(tool, keywords)
+        self.report.tools.append(tool)
+
+    def _declare(self, tool: RawTool, keywords: dict[str, Node]) -> None:
+        """Read the title and annotations the author declares for a tool"""
+
+        if TITLE_KEY in keywords:
+            tool.title = self.static_text(keywords[TITLE_KEY])
+            tool.text_ranges.extend(tool.title.ranges)
+        if "annotations" in keywords:
+            self._read_annotations(tool, keywords["annotations"], 0)
+
+    def _read_annotations(self, tool: RawTool, node: Node, depth: int) -> None:
+        """Read a dict or ToolAnnotations(...) of behavior hints, values kept as declared"""
+
+        if node.type == "identifier" and node_text(node) in self.constants and depth < MAX_CONSTANT_DEPTH:
+            self._read_annotations(tool, self.constants[node_text(node)], depth + 1)
+            return
+        pairs: list[tuple[str, Node]] = []
+        if node.type == "dictionary":
+            for pair in node.named_children:
+                key = pair.child_by_field_name("key")
+                value = pair.child_by_field_name("value")
+                if pair.type == "pair" and key is not None and value is not None and key.type == "string":
+                    pairs.append((self._decode_string(key).value, value))
+        elif node.type == "call" and (dotted_parts(node.child_by_field_name("function")) or [""])[-1] == ANNOTATIONS_CLASS:
+            _, keywords = split_arguments(node.child_by_field_name("arguments"))
+            pairs.extend(keywords.items())
+        elif node.type not in UNSET_NODES:
+            tool.annotations_are_dynamic = True
+            return
+        for key, value in pairs:
+            if key == TITLE_KEY and tool.title is None:
+                tool.title = self.static_text(value)
+                tool.text_ranges.extend(tool.title.ranges)
+            canonical = ANNOTATION_KEYS.get(key)
+            if canonical is None or value.type in UNSET_NODES:
+                continue
+            tool.annotations[canonical] = BOOLEAN_NODES.get(value.type, COMPUTED)
 
     def _function_parameters(self, definition: Node) -> tuple[list[ToolParameter], list[tuple[int, int]]]:
         """Read the parameters of a tool function"""
@@ -823,18 +866,18 @@ class _PythonFile:
         description = dynamic_text()
         if "description" in keywords:
             description = self.static_text(keywords["description"])
-        self.report.tools.append(
-            RawTool(
-                name=name,
-                name_is_dynamic=name_is_dynamic,
-                description=description,
-                offset=call.start_byte,
-                declaration=declaration,
-                parameters_are_dynamic=True,
-                entries=entries,
-                text_ranges=description.ranges,
-            )
+        tool = RawTool(
+            name=name,
+            name_is_dynamic=name_is_dynamic,
+            description=description,
+            offset=call.start_byte,
+            declaration=declaration,
+            parameters_are_dynamic=True,
+            entries=entries,
+            text_ranges=description.ranges,
         )
+        self._declare(tool, keywords)
+        self.report.tools.append(tool)
 
     def _find_low_level_tools(self) -> None:
         """Find Tool(name=..., description=...) objects of the low-level server"""
@@ -865,6 +908,7 @@ class _PythonFile:
                 parameters_are_dynamic=dynamic,
                 text_ranges=description.ranges + ranges,
             )
+            self._declare(tool, keywords)
             self.report.tools.append(tool)
 
     def _schema_parameters(

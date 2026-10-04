@@ -42,6 +42,20 @@ URL_TRAILING = ".,;:)]!?"
 HOST_PATTERN = re.compile(r"^[a-z0-9.-]+$|^\[[0-9a-f:.]+\]$")
 MAX_URL_LENGTH = 300
 DYNAMIC_PLACEHOLDER = "{}"
+COMPUTED = "computed"
+TITLE_KEY = "title"
+ANNOTATION_KEYS: dict[str, str] = {
+    "readOnlyHint": "readOnlyHint",
+    "read_only_hint": "readOnlyHint",
+    "destructiveHint": "destructiveHint",
+    "destructive_hint": "destructiveHint",
+    "idempotentHint": "idempotentHint",
+    "idempotent_hint": "idempotentHint",
+    "openWorldHint": "openWorldHint",
+    "open_world_hint": "openWorldHint",
+}
+BOOLEAN_NODES: dict[str, bool] = {"true": True, "false": False}
+UNSET_NODES: frozenset[str] = frozenset({"none", "null", "undefined"})
 
 _QUERIES: dict[tuple[int, tuple[str, ...]], Query] = {}
 

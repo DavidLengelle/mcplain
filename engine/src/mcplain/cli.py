@@ -255,6 +255,9 @@ def _render_tools(server: ServerAnalysis, t: Translator, lines: list[str]) -> No
     for tool in server.tools:
         lines.append(f"{INDENT}- {_safe(tool.name)}  {_safe(tool.file)}:{tool.line}{_tool_marks(tool, t)}")
         lines.append(f"{INDENT * 3}{_tool_description(tool, t)}")
+        announced = _announced(tool, t)
+        if announced:
+            lines.append(f"{INDENT * 3}{t('cli.tool.announces')}{t('cli.separator')}{announced}")
         if tool.parameters:
             names = ", ".join(_safe(parameter.name) for parameter in tool.parameters)
             lines.append(f"{INDENT * 3}{t('cli.tool.parameters')}{t('cli.separator')}{names}")
@@ -305,6 +308,22 @@ def _representative(findings: list[Finding]) -> list[Finding]:
         return len(finding.call_chain), unknown
 
     return sorted(findings, key=rank)
+
+
+def _announced(tool: Tool, t: Translator) -> str:
+    """Summarize the title and behavior hints declared by the author"""
+
+    parts = []
+    if tool.title is not None:
+        title = f'"{_safe(tool.title)}"'
+        if tool.title_is_dynamic:
+            title = t("cli.value.computed")
+        parts.append(f"{t('cli.tool.title')} {title}")
+    for key, value in tool.annotations.items():
+        parts.append(f"{t('annotation.' + key)}{t('cli.separator')}{t('cli.value.' + str(value).lower())}")
+    if tool.annotations_are_dynamic:
+        parts.append(t("cli.tool.annotations_dynamic"))
+    return "; ".join(parts)
 
 
 def _tool_marks(tool: Tool, t: Translator) -> str:

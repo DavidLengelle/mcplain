@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from mcplain.adapters.common import SourceText, TextValue
 from mcplain.capabilities import Capability
-from mcplain.models import DeclarationKind, ToolParameter, UrlKind
+from mcplain.models import AnnotationValue, DeclarationKind, ToolParameter, UrlKind
 
 
 @dataclass(frozen=True)
@@ -79,6 +79,9 @@ class RawTool:
     bodies: list[tuple[int, int]] = field(default_factory=list)
     entries: list[RawCall] = field(default_factory=list)
     text_ranges: list[tuple[int, int]] = field(default_factory=list)
+    title: TextValue | None = None
+    annotations: dict[str, AnnotationValue] = field(default_factory=dict)
+    annotations_are_dynamic: bool = False
 
 
 @dataclass

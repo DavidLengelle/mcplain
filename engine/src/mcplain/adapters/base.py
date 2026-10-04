@@ -191,7 +191,12 @@ class Adapter(ABC):
                     line=line,
                     declaration=raw.declaration,
                     location_kind=locations[path],
+                    annotations=raw.annotations,
+                    annotations_are_dynamic=raw.annotations_are_dynamic,
                 )
+                if raw.title is not None:
+                    model.title = raw.title.value
+                    model.title_is_dynamic = raw.title.dynamic
                 slots.append(_ToolSlot(path, raw, model))
                 analysis.tools.append(model)
         shared = self._attach_handlers(graph, reports, slots)

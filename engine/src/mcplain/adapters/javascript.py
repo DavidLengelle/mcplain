@@ -10,7 +10,12 @@ from tree_sitter import Language, Node, Parser
 
 from mcplain.adapters.base import Adapter
 from mcplain.adapters.common import (
+    ANNOTATION_KEYS,
+    BOOLEAN_NODES,
+    COMPUTED,
     DYNAMIC_PLACEHOLDER,
+    TITLE_KEY,
+    UNSET_NODES,
     Piece,
     SourceText,
     TextValue,
@@ -1087,7 +1092,11 @@ class _JavaScriptFile:
                 rest = rest[1:]
             if rest:
                 schema = rest[0]
-        self._add_tool(arguments[0], description, call.start_byte, DeclarationKind.SERVER_TOOL, schema, bodies, entries)
+        tool = self._add_tool(
+            arguments[0], description, call.start_byte, DeclarationKind.SERVER_TOOL, schema, bodies, entries
+        )
+        if len(rest) > 1:
+            self._read_annotations(tool, rest[1], 0)
 
     def _register_tool(self, call: Node, arguments: list[Node]) -> None:
         """Read server.registerTool(name, { description, inputSchema }, handler)"""
@@ -1111,6 +1120,8 @@ class _JavaScriptFile:
         )
         if config is None:
             tool.parameters_are_dynamic = True
+            return
+        self._declare(tool, config)
 
     def _object_tool(self, config: Node, offset: int, declaration: DeclarationKind, schema_key: str) -> RawTool | None:
         """Read a tool described by an object with name, description and a handler"""
@@ -1123,7 +1134,7 @@ class _JavaScriptFile:
         if description_node is not None:
             description = self.static_text(description_node)
         bodies, entries = self._handler(self._object_value(config, "execute"))
-        return self._add_tool(
+        tool = self._add_tool(
             self._object_value(config, "name"),
             description,
             offset,
@@ -1132,6 +1143,43 @@ class _JavaScriptFile:
             bodies,
             entries,
         )
+        self._declare(tool, config)
+        return tool
+
+    def _declare(self, tool: RawTool, config: Node) -> None:
+        """Read the title and annotations the author declares in a tool config object"""
+
+        title = self._object_value(config, TITLE_KEY)
+        if title is not None:
+            tool.title = self.static_text(title)
+            tool.text_ranges.extend(tool.title.ranges)
+        annotations = self._object_value(config, "annotations")
+        if annotations is not None:
+            self._read_annotations(tool, annotations, 0)
+
+    def _read_annotations(self, tool: RawTool, node: Node, depth: int) -> None:
+        """Read an object of behavior hints, values kept as declared"""
+
+        container = self._as_object(node, depth)
+        if container is None:
+            current = unwrap(node)
+            if current is None or current.type not in UNSET_NODES:
+                tool.annotations_are_dynamic = True
+            return
+        for child in container.named_children:
+            if child.type != "pair":
+                continue
+            key = property_name(child.child_by_field_name("key"))
+            value = unwrap(child.child_by_field_name("value"))
+            if key is None or value is None:
+                continue
+            if key == TITLE_KEY and tool.title is None:
+                tool.title = self.static_text(value)
+                tool.text_ranges.extend(tool.title.ranges)
+            canonical = ANNOTATION_KEYS.get(key)
+            if canonical is None or value.type in UNSET_NODES:
+                continue
+            tool.annotations[canonical] = BOOLEAN_NODES.get(value.type, COMPUTED)
 
     def _request_handler(self, arguments: list[Node]) -> None:
         """Remember low-level tools/list and tools/call handlers"""
@@ -1176,7 +1224,7 @@ class _JavaScriptFile:
         description = TextValue()
         if "description" in fields:
             description = self.static_text(fields["description"])
-        self._add_tool(
+        tool = self._add_tool(
             fields["name"],
             description,
             definition.start_byte,
@@ -1184,6 +1232,10 @@ class _JavaScriptFile:
             fields.get("schema"),
             [(definition.start_byte, definition.end_byte)],
         )
+        if TITLE_KEY in fields:
+            tool.title = self.static_text(fields[TITLE_KEY])
+        if "annotations" in fields:
+            self._read_annotations(tool, fields["annotations"], 0)
 
     def _find_low_level_tools(self) -> None:
         """Find tool objects returned by low-level tools/list handlers"""

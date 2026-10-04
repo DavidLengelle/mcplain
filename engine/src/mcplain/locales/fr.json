@@ -239,5 +239,15 @@
   "cli.shared.heading": "Partagé par tous les outils (code du gestionnaire d'appels hors des branches des outils)",
   "cli.url_kind.literal": "URL littérale",
   "cli.url_kind.dynamic": "URL dynamique",
-  "cli.url_kind.unknown": "URL inconnue"
+  "cli.url_kind.unknown": "URL inconnue",
+  "cli.tool.announces": "Ce qu'il annonce",
+  "cli.tool.title": "titre",
+  "cli.tool.annotations_dynamic": "annotations calculées à l'exécution",
+  "annotation.readOnlyHint": "lecture seule",
+  "annotation.destructiveHint": "destructif",
+  "annotation.idempotentHint": "idempotent",
+  "annotation.openWorldHint": "monde ouvert",
+  "cli.value.true": "oui",
+  "cli.value.false": "non",
+  "cli.value.computed": "calculé"
 }
