@@ -10,8 +10,6 @@ import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser
 
 from mcplain.adapters.base import Adapter
-from mcplain.adapters.javascript_flow import JavaScriptLowering
-from mcplain.adapters.javascript_syntax import WRAPPER_TYPES, call_arguments, property_name, unwrap
 from mcplain.adapters.common import (
     ANNOTATION_KEYS,
     BOOLEAN_NODES,
@@ -31,11 +29,14 @@ from mcplain.adapters.common import (
     node_text,
     text_from_pieces,
 )
+from mcplain.adapters.javascript_flow import JavaScriptLowering
+from mcplain.adapters.javascript_syntax import WRAPPER_TYPES, call_arguments, property_name, unwrap
 from mcplain.adapters.report import (
     FileReport,
     PackageContext,
     RawBlock,
     RawCall,
+    RawCopy,
     RawFinding,
     RawFunction,
     RawGap,
@@ -67,6 +68,16 @@ from mcplain.capabilities import (
 )
 from mcplain.manifests import load_json_object, read_text, table
 from mcplain.models import DeclarationKind, InstallScript, ToolParameter, TrackingGap, UrlKind
+from mcplain.patterns import (
+    COPY_FIELDS,
+    COPY_LIST_NAME,
+    COPY_METHODS,
+    DOWNLOAD_COMMAND,
+    EMAIL_PATTERN,
+    HEADER_METHODS,
+    LIST_METHODS,
+    SHELL_RUNNERS,
+)
 
 JAVASCRIPT_LANGUAGE = Language(tree_sitter_javascript.language())
 TYPESCRIPT_LANGUAGE = Language(tree_sitter_typescript.language_typescript())
@@ -105,6 +116,8 @@ NODE_TYPES: tuple[str, ...] = (
     "generator_function",
     "assignment_expression",
     "export_statement",
+    "comment",
+    "pair",
 )
 TYPESCRIPT_NODE_TYPES: tuple[str, ...] = (*NODE_TYPES, "enum_declaration")
 SIMPLE_ESCAPES: dict[str, str] = {
@@ -279,6 +292,26 @@ def script_targets(command: str) -> list[str]:
     return targets
 
 
+def shell_targets(command: str) -> list[str]:
+    """Return the shell scripts an npm script runs, like sh scripts/setup.sh or ./setup.sh"""
+
+    targets = []
+    for segment in COMMAND_SEPARATORS.split(command):
+        try:
+            tokens = shlex.split(segment)
+        except ValueError:
+            continue
+        while tokens and ENV_ASSIGNMENT.match(tokens[0]):
+            tokens = tokens[1:]
+        if not tokens:
+            continue
+        if posixpath.basename(tokens[0]) in SHELL_RUNNERS:
+            targets.extend(token for token in tokens[1:2] if not token.startswith("-"))
+        elif tokens[0].endswith((".sh", ".bash", ".ps1")):
+            targets.append(tokens[0])
+    return targets
+
+
 def resolve_package_file(target: str, files: frozenset[str]) -> str | None:
     """Return the package file a path written in package.json points to"""
 
@@ -380,6 +413,7 @@ class _JavaScriptFile:
         self._find_capabilities()
         self._find_calls()
         self._find_strings()
+        self._find_comments_and_copies()
         self.report.flow_functions = JavaScriptLowering(self).functions()
         return self.report
 
@@ -1856,6 +1890,73 @@ class _JavaScriptFile:
             self.report.strings.append(RawString(value=value, offset=node.start_byte, sensitive=sensitive))
 
 
+    def _find_comments_and_copies(self) -> None:
+        """Keep the comments, and the e-mail addresses written as cc or bcc recipients"""
+
+        for comment in self.nodes["comment"]:
+            self.report.comments.append((comment.start_byte, node_text(comment)))
+        for pair in self.nodes["pair"]:
+            key = pair.child_by_field_name("key")
+            value = pair.child_by_field_name("value")
+            name = property_name(key)
+            if key is not None and key.type == "template_string":
+                name = self.static_text(key).value
+            if name is not None and value is not None and name.lower() in COPY_FIELDS:
+                self._copy(value, name)
+        for assignment in self.nodes["assignment_expression"]:
+            left = unwrap(assignment.child_by_field_name("left"))
+            right = assignment.child_by_field_name("right")
+            if left is None or right is None:
+                continue
+            field = None
+            if left.type == "member_expression":
+                field = property_name(left.child_by_field_name("property"))
+            elif left.type == "subscript_expression":
+                index = unwrap(left.child_by_field_name("index"))
+                if index is not None and index.type in TEXT_TYPES:
+                    field = self.static_text(index).value
+            if field is not None and field.lower() in COPY_FIELDS:
+                self._copy(right, field)
+        for call in self.nodes["call_expression"]:
+            callee = unwrap(call.child_by_field_name("function"))
+            if callee is None or callee.type != "member_expression":
+                continue
+            method = (property_name(callee.child_by_field_name("property")) or "").lower()
+            arguments = call_arguments(call)
+            receiver = unwrap(callee.child_by_field_name("object"))
+            receiver_name = ""
+            if receiver is not None and receiver.type == "member_expression":
+                receiver_name = property_name(receiver.child_by_field_name("property")) or ""
+            elif receiver is not None and receiver.type == "identifier":
+                receiver_name = node_text(receiver)
+            if method in COPY_METHODS:
+                for argument in arguments:
+                    self._copy(argument, method)
+            elif method in HEADER_METHODS and len(arguments) > 1:
+                field = self.static_text(arguments[0])
+                if not field.dynamic and field.value.lower() in COPY_FIELDS:
+                    self._copy(arguments[1], field.value)
+            elif method in LIST_METHODS and receiver_name and COPY_LIST_NAME.search(receiver_name):
+                for argument in arguments:
+                    self._copy(argument, receiver_name)
+
+    def _copy(self, node: Node, field: str) -> None:
+        """Record the literal e-mail addresses of a value given to a cc or bcc field"""
+
+        current = unwrap(node)
+        if current is None:
+            return
+        items = [current]
+        if current.type == "array":
+            items = [child for child in current.named_children if child.type != "comment"]
+        for item in items:
+            text = self.static_text(item)
+            if text.dynamic:
+                continue
+            for address in EMAIL_PATTERN.findall(text.value):
+                self.report.copies.append(RawCopy(item.start_byte, field, address))
+
+
 class JavaScriptAdapter(Adapter):
     """Class that analyzes JavaScript and TypeScript MCP servers"""
 
@@ -1909,6 +2010,18 @@ class JavaScriptAdapter(Adapter):
                     entries.add(file)
         return entries
 
+    def _shell_downloads(self, server_dir: Path, command: str) -> bool:
+        """Tell whether a shell script run by an install hook downloads something"""
+
+        for target in shell_targets(command):
+            base = posixpath.normpath(target)
+            if base == ".." or base.startswith("../") or base.startswith("/"):
+                continue
+            text = read_text(server_dir.joinpath(*base.split("/")))
+            if text is not None and DOWNLOAD_COMMAND.search(text):
+                return True
+        return False
+
     def language_for(self, analyzed: list[str]) -> str:
         """Report typescript when at least one TypeScript file was analyzed"""
 
@@ -1932,7 +2045,10 @@ class JavaScriptAdapter(Adapter):
                 if f'"{hook}"' in content:
                     line = number
                     break
-            scripts.append(InstallScript(kind=f"npm_{hook}", file="package.json", line=line, command=command))
+            downloads = DOWNLOAD_COMMAND.search(command) is not None or self._shell_downloads(server_dir, command)
+            scripts.append(
+                InstallScript(kind=f"npm_{hook}", file="package.json", line=line, command=command, downloads=downloads)
+            )
         if (server_dir / "binding.gyp").is_file() and "install" not in hooks and "preinstall" not in hooks:
             scripts.append(
                 InstallScript(kind="npm_binding_gyp", file="binding.gyp", line=1, command="node-gyp rebuild")

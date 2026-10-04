@@ -1,0 +1,1 @@
+{"status": "checked", "queried": 1, "packages": [{"name": "r11-false-positive", "ecosystem": "npm", "version": "1.0.0", "dependency": false, "malicious": [{"id": "MAL-0000-2", "all_versions": false}]}]}

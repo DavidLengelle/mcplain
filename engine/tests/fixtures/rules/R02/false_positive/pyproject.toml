@@ -1,0 +1,4 @@
+[project]
+name = "r02-false-positive"
+version = "0.0.0"
+dependencies = ["fastmcp"]

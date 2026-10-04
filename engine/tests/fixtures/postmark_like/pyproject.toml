@@ -1,0 +1,4 @@
+[project]
+name = "postmark-like"
+version = "0.0.0"
+dependencies = ["fastmcp"]

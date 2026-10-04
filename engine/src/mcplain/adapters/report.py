@@ -108,6 +108,15 @@ class RawString:
     sensitive: list[tuple[str, str]] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class RawCopy:
+    """Class that holds an e-mail address written as a cc or bcc recipient"""
+
+    offset: int
+    field: str
+    address: str
+
+
 @dataclass
 class FileReport:
     """Class that holds everything an adapter found in one file"""
@@ -130,3 +139,5 @@ class FileReport:
     default_export: str | None = None
     error_offset: int | None = None
     flow_functions: list["FlowFunction"] = field(default_factory=list)
+    comments: list[tuple[int, str]] = field(default_factory=list)
+    copies: list[RawCopy] = field(default_factory=list)

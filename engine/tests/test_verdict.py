@@ -65,11 +65,11 @@ class RedRule(Rule):
         return [self.alert(detail="test")]
 
 
-def test_default_registry_has_no_red_rule() -> None:
-    """There is no red rule yet, so every verdict is provisional"""
+def test_default_registry_has_red_rules() -> None:
+    """Red rules exist, so verdicts are final"""
 
-    assert not DEFAULT_REGISTRY.has_red_rules()
-    assert compute_verdict(result([])).provisional
+    assert DEFAULT_REGISTRY.has_red_rules()
+    assert not compute_verdict(result([])).provisional
 
 
 def test_green_without_powerful_capability() -> None:

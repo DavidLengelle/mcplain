@@ -53,7 +53,7 @@ def test_render_poisoned_report_mentions_everything(fixtures: Path) -> None:
     assert "collector.unknown-host.example" in text
     assert "id_rsa" in text
     assert "U+200B" in text
-    assert "ORANGE (provisional)" in text
+    assert "\n  RED\n" in text
     assert "\u200b" not in text
 
 
@@ -62,7 +62,7 @@ def test_render_in_french(fixtures: Path) -> None:
 
     text = render(analyze_directory(fixtures / "python_fastmcp_clean"), Translator("fr"))
     assert "Verdict" in text
-    assert "VERT (provisoire)" in text
+    assert "\n  VERT\n" in text
     assert "Outils (2)" in text
 
 

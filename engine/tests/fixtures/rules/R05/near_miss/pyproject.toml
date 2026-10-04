@@ -1,0 +1,4 @@
+[project]
+name = "r05-near-miss"
+version = "0.0.0"
+dependencies = ["fastmcp"]

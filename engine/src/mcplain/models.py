@@ -229,6 +229,38 @@ class InstallScript(BaseModel):
     file: str
     line: int
     command: str
+    downloads: bool = False
+
+
+class TextMatchKind(StrEnum):
+    """Class that lists the kinds of suspicious text found in strings and comments"""
+
+    PIPE_TO_SHELL = "pipe_to_shell"
+    ANALYZER_TALK = "analyzer_talk"
+
+
+class TextMatch(BaseModel):
+    """Class that records a suspicious passage of a string or a comment"""
+
+    kind: TextMatchKind
+    file: str
+    line: int
+    quote: str
+    in_comment: bool = False
+    tool: str | None = None
+    location_kind: LocationKind
+
+
+class CopyRecipient(BaseModel):
+    """Class that records an e-mail address written in the code as a cc or bcc recipient"""
+
+    field: str
+    address: str
+    file: str
+    line: int
+    quote: str
+    tool: str | None = None
+    location_kind: LocationKind
 
 
 class InvisibleCategory(StrEnum):
@@ -251,6 +283,7 @@ class InvisibleUnicode(BaseModel):
     codepoints: list[str]
     hidden_text: str | None = None
     in_description: bool = False
+    in_source: bool = False
     tool: str | None = None
     location_kind: LocationKind
 
@@ -285,6 +318,8 @@ class ServerAnalysis(BaseModel):
     install_scripts: list[InstallScript] = Field(default_factory=list)
     invisible_unicode: list[InvisibleUnicode] = Field(default_factory=list)
     flows: list[Flow] = Field(default_factory=list)
+    text_matches: list[TextMatch] = Field(default_factory=list)
+    copy_recipients: list[CopyRecipient] = Field(default_factory=list)
     compiled_files: list[str] = Field(default_factory=list)
     minified_files: list[str] = Field(default_factory=list)
     parse_errors: list[ParseError] = Field(default_factory=list)

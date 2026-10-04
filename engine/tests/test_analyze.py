@@ -12,7 +12,7 @@ from mcplain.models import AnalysisStatus, VerdictColor
     ("folder", "status", "color"),
     [
         ("python_fastmcp_clean", AnalysisStatus.OK, VerdictColor.GREEN),
-        ("python_fastmcp_poisoned", AnalysisStatus.OK, VerdictColor.ORANGE),
+        ("python_fastmcp_poisoned", AnalysisStatus.OK, VerdictColor.RED),
         ("python_lowlevel", AnalysisStatus.OK, VerdictColor.ORANGE),
         ("python_alias", AnalysisStatus.OK, VerdictColor.ORANGE),
         ("python_env", AnalysisStatus.OK, VerdictColor.ORANGE),
@@ -27,20 +27,30 @@ from mcplain.models import AnalysisStatus, VerdictColor
     ],
 )
 def test_fixture_outcomes(fixtures: Path, folder: str, status: AnalysisStatus, color: VerdictColor) -> None:
-    """Every fixture gets the expected status and provisional verdict"""
+    """Every fixture gets the expected status and verdict"""
 
     result = analyze_directory(fixtures / folder)
     assert result.status is status
     assert result.verdict.color is color
-    assert result.verdict.provisional
 
 
 def test_poisoned_verdict_reasons(fixtures: Path) -> None:
-    """The poisoned server is orange because of the sensitive path, with an invisible character caveat"""
+    """The poisoned server asks for silence, asks for the SSH key and sends it: red"""
 
     verdict = analyze_directory(fixtures / "python_fastmcp_poisoned").verdict
+    rules = {alert.rule for alert in verdict.alerts}
+    assert {"R02", "R03", "R04"} <= rules
     assert ("O08", "sensitive_path") in [(alert.rule, alert.detail) for alert in verdict.alerts]
     assert "caveat.invisible_unicode" in verdict.reasons
+
+
+def test_postmark_like_is_red_by_hidden_copy(fixtures: Path) -> None:
+    """An e-mail server with a hard-coded Bcc to an outside address is red because of R05"""
+
+    result = analyze_directory(fixtures / "postmark_like")
+    assert result.status is AnalysisStatus.OK
+    assert result.verdict.color is VerdictColor.RED
+    assert "R05" in {alert.rule for alert in result.verdict.alerts}
 
 
 def test_env_verdict_comes_from_the_secret_only(fixtures: Path) -> None:

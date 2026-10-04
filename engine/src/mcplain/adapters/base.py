@@ -1,5 +1,6 @@
 """Common interface of the language adapters and assembly of their results"""
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,6 +21,7 @@ from mcplain.capabilities import Capability, path_kinds
 from mcplain.config import DEFAULT_LIMITS, Limits
 from mcplain.models import (
     CallStep,
+    CopyRecipient,
     DeclarationKind,
     DomainRef,
     Finding,
@@ -32,12 +34,16 @@ from mcplain.models import (
     SensitivePathRef,
     ServerAnalysis,
     SkippedFile,
+    TextMatch,
+    TextMatchKind,
     Tool,
     TrackingGap,
 )
 from mcplain.paths import iter_files, location_kind
+from mcplain.patterns import PIPE_TO_SHELL, analyzer_talk, excerpt
 
 TOO_LARGE_REASON = "too_large"
+RAW_BIDI_PATTERN = re.compile("[\u202a-\u202e\u2066-\u2069]+")
 FUNCTION_DECLARATIONS: frozenset[DeclarationKind] = frozenset(
     {DeclarationKind.DECORATOR, DeclarationKind.ADD_TOOL, DeclarationKind.FROM_FUNCTION}
 )
@@ -278,6 +284,7 @@ class Adapter(ABC):
             file_slots = [slot for slot in slots if slot.file == path]
             for raw_string in report.strings:
                 self._merge_string(analysis, report, raw_string, file_slots, locations[path])
+            self._merge_texts(analysis, report, file_slots, locations[path])
 
     def _start_regions(
         self,
@@ -405,6 +412,86 @@ class Adapter(ABC):
             )
         return built[key]
 
+    def _merge_texts(
+        self,
+        analysis: ServerAnalysis,
+        report: FileReport,
+        slots: list[_ToolSlot],
+        location: LocationKind,
+    ) -> None:
+        """Record suspicious passages of strings and comments, cc and bcc addresses, and raw bidi controls"""
+
+        source = report.source
+        for raw_string in report.strings:
+            value = raw_string.value.value
+            line, _ = source.position(raw_string.offset)
+            for kind, match in (
+                (TextMatchKind.PIPE_TO_SHELL, PIPE_TO_SHELL.search(value)),
+                (TextMatchKind.ANALYZER_TALK, analyzer_talk(value)),
+            ):
+                if match is not None:
+                    analysis.text_matches.append(
+                        TextMatch(
+                            kind=kind,
+                            file=report.path,
+                            line=line,
+                            quote=excerpt(value, match.start(), match.end()),
+                            tool=_tool_name(slots, raw_string.offset),
+                            location_kind=location,
+                        )
+                    )
+        for offset, comment in report.comments:
+            match = analyzer_talk(comment)
+            if match is not None:
+                analysis.text_matches.append(
+                    TextMatch(
+                        kind=TextMatchKind.ANALYZER_TALK,
+                        file=report.path,
+                        line=source.position(offset)[0],
+                        quote=excerpt(comment, match.start(), match.end()),
+                        in_comment=True,
+                        tool=_tool_name(slots, offset),
+                        location_kind=location,
+                    )
+                )
+        for copy in report.copies:
+            analysis.copy_recipients.append(
+                CopyRecipient(
+                    field=copy.field,
+                    address=copy.address,
+                    file=report.path,
+                    line=source.position(copy.offset)[0],
+                    quote=source.snippet(copy.offset),
+                    tool=_tool_name(slots, copy.offset),
+                    location_kind=location,
+                )
+            )
+        for match in RAW_BIDI_PATTERN.finditer(source.text):
+            offset = len(source.text[: match.start()].encode("utf-8"))
+            line, column = source.position(offset)
+            existing = [
+                item
+                for item in analysis.invisible_unicode
+                if (item.file, item.line, item.column, item.category)
+                == (report.path, line, column, InvisibleCategory.BIDI_CONTROL)
+            ]
+            for item in existing:
+                item.in_source = True
+            if existing:
+                continue
+            analysis.invisible_unicode.append(
+                InvisibleUnicode(
+                    file=report.path,
+                    line=line,
+                    column=column,
+                    category=InvisibleCategory.BIDI_CONTROL,
+                    codepoints=[codepoint_label(character) for character in match.group(0)],
+                    in_source=True,
+                    tool=_tool_name(slots, offset),
+                    location_kind=location,
+                )
+            )
+
     def _merge_string(
         self,
         analysis: ServerAnalysis,
@@ -459,6 +546,15 @@ class Adapter(ABC):
                     location_kind=location,
                 )
             )
+
+
+def _tool_name(slots: list[_ToolSlot], offset: int) -> str | None:
+    """Return the name of the tool whose code or description holds an offset"""
+
+    owner = _owner(slots, offset)
+    if owner is None:
+        return None
+    return owner.model.name
 
 
 def _tool_parameters(slot: _ToolSlot) -> tuple[str, ...] | None:

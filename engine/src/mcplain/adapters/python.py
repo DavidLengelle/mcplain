@@ -8,8 +8,6 @@ import tree_sitter_python
 from tree_sitter import Language, Node, Parser
 
 from mcplain.adapters.base import Adapter
-from mcplain.adapters.python_flow import PythonLowering
-from mcplain.adapters.python_syntax import dotted_parts, split_arguments
 from mcplain.adapters.common import (
     ANNOTATION_KEYS,
     BOOLEAN_NODES,
@@ -29,11 +27,14 @@ from mcplain.adapters.common import (
     node_text,
     text_from_pieces,
 )
+from mcplain.adapters.python_flow import PythonLowering
+from mcplain.adapters.python_syntax import dotted_parts, split_arguments
 from mcplain.adapters.report import (
     FileReport,
     PackageContext,
     RawBlock,
     RawCall,
+    RawCopy,
     RawFinding,
     RawFunction,
     RawGap,
@@ -62,6 +63,15 @@ from mcplain.capabilities import (
 )
 from mcplain.manifests import load_toml, read_text, string_list, table
 from mcplain.models import DeclarationKind, InstallScript, ToolParameter, TrackingGap, UrlKind
+from mcplain.patterns import (
+    COPY_FIELDS,
+    COPY_LIST_NAME,
+    COPY_METHODS,
+    DOWNLOAD_TOOLS,
+    EMAIL_PATTERN,
+    HEADER_METHODS,
+    LIST_METHODS,
+)
 
 PYTHON_LANGUAGE = Language(tree_sitter_python.language())
 PYTHON_EXTENSIONS: frozenset[str] = frozenset({".py", ".pyw"})
@@ -81,6 +91,8 @@ NODE_TYPES: tuple[str, ...] = (
     "assignment",
     "with_item",
     "lambda",
+    "comment",
+    "pair",
 )
 SIMPLE_ESCAPES: dict[str, str] = {
     "\\": "\\",
@@ -263,6 +275,7 @@ class _PythonFile:
         self._find_capabilities()
         self._find_calls()
         self._find_strings()
+        self._find_comments_and_copies()
         self.report.flow_functions = PythonLowering(self).functions()
         return self.report
 
@@ -1495,6 +1508,71 @@ class _PythonFile:
             self.report.strings.append(RawString(value=value, offset=node.start_byte, sensitive=sensitive))
 
 
+    def _find_comments_and_copies(self) -> None:
+        """Keep the comments, and the e-mail addresses written as cc or bcc recipients"""
+
+        for comment in self.nodes["comment"]:
+            self.report.comments.append((comment.start_byte, node_text(comment)))
+        for call in self.nodes["call"]:
+            positional, keywords = split_arguments(call.child_by_field_name("arguments"))
+            for name, value in keywords.items():
+                if name.lower() in COPY_FIELDS:
+                    self._copy(value, name)
+            callee = call.child_by_field_name("function")
+            if callee is None or callee.type != "attribute":
+                continue
+            attribute = callee.child_by_field_name("attribute")
+            method = node_text(attribute).lower() if attribute is not None else ""
+            receiver = dotted_parts(callee.child_by_field_name("object")) or [""]
+            if method in COPY_METHODS:
+                for item in positional:
+                    self._copy(item, method)
+            elif method in HEADER_METHODS and len(positional) > 1:
+                field = self.static_text(positional[0])
+                if not field.dynamic and field.value.lower() in COPY_FIELDS:
+                    self._copy(positional[1], field.value)
+            elif method in LIST_METHODS and COPY_LIST_NAME.search(receiver[-1]):
+                for item in positional:
+                    self._copy(item, receiver[-1])
+        for pair in self.nodes["pair"]:
+            key = pair.child_by_field_name("key")
+            value = pair.child_by_field_name("value")
+            if key is None or value is None or key.type not in STRING_TYPES:
+                continue
+            field = self.static_text(key)
+            if not field.dynamic and field.value.lower() in COPY_FIELDS:
+                self._copy(value, field.value)
+        for assignment in self.nodes["assignment"]:
+            left = assignment.child_by_field_name("left")
+            right = assignment.child_by_field_name("right")
+            if left is None or right is None:
+                continue
+            field = None
+            if left.type == "attribute":
+                attribute = left.child_by_field_name("attribute")
+                if attribute is not None:
+                    field = node_text(attribute)
+            elif left.type == "subscript":
+                key = left.child_by_field_name("subscript")
+                if key is not None and key.type in STRING_TYPES:
+                    field = self.static_text(key).value
+            if field is not None and field.lower() in COPY_FIELDS:
+                self._copy(right, field)
+
+    def _copy(self, node: Node, field: str) -> None:
+        """Record the literal e-mail addresses of a value given to a cc or bcc field"""
+
+        items = [node]
+        if node.type in ("list", "tuple", "set"):
+            items = list(node.named_children)
+        for item in items:
+            text = self.static_text(item)
+            if text.dynamic:
+                continue
+            for address in EMAIL_PATTERN.findall(text.value):
+                self.report.copies.append(RawCopy(item.start_byte, field, address))
+
+
 class PythonAdapter(Adapter):
     """Class that analyzes Python MCP servers"""
 
@@ -1580,6 +1658,7 @@ class PythonAdapter(Adapter):
                             file=SETUP_SCRIPT,
                             line=line,
                             command=source.snippet(keyword.start_byte),
+                            downloads=DOWNLOAD_TOOLS.search(setup_text) is not None,
                         )
                     )
         pyproject_text = read_text(server_dir / "pyproject.toml")
