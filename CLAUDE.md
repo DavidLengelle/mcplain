@@ -52,6 +52,18 @@ Files under `engine/tests/fixtures/` are analyzed code: they are never imported 
 `pytest_ignore_collect` hook keeps pytest away from them whatever the working directory.
 Do not name fixture files `test_*.py`, `*_test.py` or `conftest.py`.
 
+### Inert fixtures
+
+Many fixtures imitate attacks. Even if one is run by mistake, it must not be able to break or send
+anything:
+
+- Domains are `.invalid` (reserved by RFC 2606) or `example.com`. E-mail addresses are
+  `@attacker.invalid`.
+- No destructive command: use `echo` instead.
+- Only function definitions, no call at module level. Exception: when the tested rule targets
+  startup code; the domains must then be `.invalid`.
+- Never name a fixture file `test_*.py`, `*.test.*` or `*.spec.*`, except to test `location_kind`.
+
 ## Code style
 
 - Type hints on every parameter and return value.
