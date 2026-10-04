@@ -230,5 +230,7 @@
   "analyze.subdir_not_found": "The folder \"{path}\" does not exist in this source.",
   "analyze.not_a_directory": "\"{path}\" is not a folder.",
   "cli.separator": ": ",
-  "cli.source.linked": "{repository} (commit {revision})"
+  "cli.source.linked": "{repository} (commit {revision})",
+  "cli.ignored_arguments": "Ignored arguments (never run)",
+  "cli.source.version_requested": "{version} (asked: {requested})"
 }

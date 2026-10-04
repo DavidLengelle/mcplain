@@ -12,8 +12,10 @@ import respx
 from builders import tar_gz, zip_bytes
 
 from mcplain.analyze import analyze_input, fetch_source
+from mcplain.cli import render
 from mcplain.config import Limits
 from mcplain.errors import FetchError, InputError
+from mcplain.i18n import Translator
 from mcplain.inputs import parse_input
 from mcplain.models import AnalysisStatus, SourceKind, SourceOrigin
 
@@ -387,3 +389,23 @@ def test_analyze_input_reports_refused_input_without_network() -> None:
     assert result.status is AnalysisStatus.ERROR
     assert result.error is not None
     assert result.error.code == "input.unsupported_scheme"
+
+
+@respx.mock
+def test_ignored_arguments_and_dist_tag_reach_the_report() -> None:
+    """Arguments after the package are reported as ignored and a dist-tag is resolved by the registry"""
+
+    data = npm_package()
+    respx.get("https://registry.npmjs.org/@demo%2Fweather-server/next").mock(
+        return_value=httpx.Response(200, json=npm_document(data))
+    )
+    respx.get(NPM_TARBALL).mock(return_value=httpx.Response(200, content=data))
+    result = analyze_input(f"npx -y {NPM_NAME}@next ~/Bureau --port 3000")
+    assert result.status is AnalysisStatus.OK
+    assert result.ignored_arguments == ["~/Bureau", "--port", "3000"]
+    assert result.source is not None
+    assert result.source.version == "1.2.3"
+    assert result.source.requested_version == "next"
+    text = render(result, Translator("fr"))
+    assert "Arguments ignorés (jamais exécutés) : ~/Bureau --port 3000" in text
+    assert "1.2.3 (demandée : next)" in text

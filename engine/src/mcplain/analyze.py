@@ -41,6 +41,7 @@ from mcplain.verdict import compute_verdict
 WORKDIR_PREFIX = "mcplain-"
 GITHUB_ARTIFACT = "github_tarball"
 NPM_ARTIFACT = "npm_tarball"
+LATEST_LABEL = "latest"
 NOT_PUBLISHED_CODES: frozenset[str] = frozenset({"fetch.npm_not_found", "fetch.pypi_not_found"})
 
 
@@ -88,12 +89,17 @@ def _fetch_npm(
     """Download, verify and extract an npm package"""
 
     release = npm.fetch_release(client, name, version)
+    requested = version or LATEST_LABEL
+    requested_version = None
+    if requested != release.version:
+        requested_version = requested
     download = npm.download_release(client, release, workdir / "package.tgz")
     root = extract_archive(download.path, workdir / "package", limits)
     source = AnalyzedSource(
         kind=SourceKind.NPM,
         name=release.name,
         version=release.version,
+        requested_version=requested_version,
         revision=revision,
         integrity=release.integrity,
         url=release.tarball,
@@ -118,12 +124,16 @@ def _fetch_pypi(
     """Download, verify and extract a PyPI release"""
 
     release = pypi.fetch_release(client, name, version)
+    requested_version = None
+    if version is None:
+        requested_version = LATEST_LABEL
     download = pypi.download_release(client, release, workdir / release.filename.replace("/", "_"))
     root = extract_archive(download.path, workdir / "package", limits)
     source = AnalyzedSource(
         kind=SourceKind.PYPI,
         name=release.name,
         version=release.version,
+        requested_version=requested_version,
         revision=revision,
         integrity=f"sha256:{release.sha256}",
         url=release.url,
@@ -297,8 +307,10 @@ def analyze_input(
 ) -> AnalysisResult:
     """Run the whole pipeline on what the user pasted"""
 
+    ignored: list[str] = []
     try:
         spec = parse_input(text)
+        ignored = spec.ignored_arguments
         selection = None
         if select:
             selection = parse_selection(select)
@@ -306,7 +318,7 @@ def analyze_input(
             spec = add_subdir(spec, selection)
             selection = None
         with fetch_source(spec, limits, transport) as fetched:
-            return analyze_directory(
+            result = analyze_directory(
                 fetched.root,
                 source=fetched.source,
                 subdir=fetched.subdir,
@@ -314,4 +326,6 @@ def analyze_input(
                 limits=limits,
             )
     except McplainError as error:
-        return error_result(error)
+        result = error_result(error)
+    result.ignored_arguments = ignored
+    return result

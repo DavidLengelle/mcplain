@@ -91,6 +91,7 @@ def test_unknown_tree_reference() -> None:
         ("npx -y @scope/name@2026.8.31", "@scope/name", "2026.8.31"),
         ("npx some-server@latest", "some-server", "latest"),
         ("npx some-server@v1.0.0", "some-server", "1.0.0"),
+        ("npx -y some-server@next", "some-server", "next"),
     ],
 )
 def test_npx_commands(text: str, package: str, version: str | None) -> None:
@@ -150,8 +151,6 @@ def test_uvx_commands(text: str, package: str, version: str | None) -> None:
         ("hello", "input.unrecognized"),
         ("npx", "input.missing_package"),
         ("npx -y", "input.missing_package"),
-        ("npx -y pkg --stdio", "input.unexpected_arguments"),
-        ("npx pkg /tmp/allowed", "input.unexpected_arguments"),
         ("npx -p other pkg", "input.unexpected_arguments"),
         ("npx github:owner/repo", "input.npm_not_registry"),
         ("npx ./local-folder", "input.npm_not_registry"),
@@ -162,10 +161,14 @@ def test_uvx_commands(text: str, package: str, version: str | None) -> None:
         ("npx node_modules", "input.invalid_npm_name"),
         ("npx @scope/a/b", "input.invalid_npm_name"),
         ("npx pkg@^1.0.0", "input.version_range_unsupported"),
+        ("npx pkg@~2", "input.version_range_unsupported"),
+        ("npx pkg@1.x", "input.version_range_unsupported"),
+        ("npx pkg@2", "input.version_range_unsupported"),
+        ("uvx pkg@>1.0", "input.version_range_unsupported"),
+        ("uvx --python 3.12 pkg", "input.unexpected_arguments"),
         ("npx pkg@", "input.invalid_npm_version"),
         ("uvx", "input.missing_package"),
         ("uvx --from git+https://github.com/x/y tool", "input.unexpected_arguments"),
-        ("uvx mcp-server-fetch --help", "input.unexpected_arguments"),
         ("uvx mcp[cli]", "input.pypi_extras_unsupported"),
         ("uvx mcp>=1.0", "input.version_range_unsupported"),
         ("uvx mcp==abc", "input.invalid_pypi_version"),
@@ -215,3 +218,26 @@ def test_add_subdir_to_repository_and_tree() -> None:
     assert repository.subdir == "src/a"
     tree = add_subdir(parse_input("https://github.com/owner/repo/tree/main/src"), "a")
     assert tree.tree_path == "main/src/a"
+
+
+@pytest.mark.parametrize(
+    ("text", "ignored"),
+    [
+        ("npx -y @modelcontextprotocol/server-filesystem ~/Bureau /tmp", ["~/Bureau", "/tmp"]),
+        ("npx some-server --stdio --port 3000", ["--stdio", "--port", "3000"]),
+        ("uvx mcp-server-fetch --ignore-robots-txt", ["--ignore-robots-txt"]),
+        ("uvx mcp-server-time@1.0.0 --local-timezone Europe/Paris", ["--local-timezone", "Europe/Paris"]),
+    ],
+)
+def test_arguments_after_the_package_are_ignored(text: str, ignored: list[str]) -> None:
+    """Arguments placed after the package belong to the server: kept as data and never run"""
+
+    assert parse_input(text).ignored_arguments == ignored
+
+
+def test_options_before_the_package_stay_refused() -> None:
+    """Options that change what npx runs are still refused"""
+
+    with pytest.raises(InputError) as error:
+        parse_input("npx --package evil some-server")
+    assert error.value.code == "input.unexpected_arguments"

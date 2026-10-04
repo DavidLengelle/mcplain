@@ -20,6 +20,7 @@ NPM_SEMVER_PATTERN = re.compile(
     r"^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
 )
 NPM_TAG_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,63}$")
+NPM_PARTIAL_VERSION_PATTERN = re.compile(r"^[v=]?\d+(?:\.(?:\d+|x|X|\*))?(?:\.(?:x|X|\*))?$")
 NPX_YES_FLAGS: frozenset[str] = frozenset({"-y", "--yes"})
 PYPI_NAME_PATTERN = re.compile(r"^(?:[A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])$", re.IGNORECASE)
 PYPI_VERSION_PATTERN = re.compile(
@@ -202,8 +203,6 @@ def _parse_npx(arguments: list[str]) -> InputSpec:
         rest = rest[1:]
     if not rest:
         raise InputError("input.missing_package")
-    if len(rest) > 1:
-        raise InputError("input.unexpected_arguments", arguments=" ".join(rest[1:]))
     token = rest[0]
     if token.startswith("-"):
         raise InputError("input.unexpected_arguments", arguments=token)
@@ -218,7 +217,7 @@ def _parse_npx(arguments: list[str]) -> InputSpec:
         raise InputError("input.invalid_npm_name", name=name)
     if version is not None:
         version = _validate_npm_version(version)
-    return InputSpec(kind=InputKind.NPM, package=name, version=version)
+    return InputSpec(kind=InputKind.NPM, package=name, version=version, ignored_arguments=rest[1:])
 
 
 def _split_npm_spec(token: str) -> tuple[str, str | None]:
@@ -243,7 +242,7 @@ def _validate_npm_version(version: str) -> str:
         return version.removeprefix("v")
     if NPM_TAG_PATTERN.match(version):
         return version
-    if any(character in version for character in "^~<>=| *"):
+    if NPM_PARTIAL_VERSION_PATTERN.match(version) or any(character in version for character in "^~<>=| *"):
         raise InputError("input.version_range_unsupported", version=version)
     raise InputError("input.invalid_npm_version", version=version)
 
@@ -253,8 +252,6 @@ def _parse_uvx(arguments: list[str]) -> InputSpec:
 
     if not arguments:
         raise InputError("input.missing_package")
-    if len(arguments) > 1:
-        raise InputError("input.unexpected_arguments", arguments=" ".join(arguments[1:]))
     token = arguments[0]
     if token.startswith("-"):
         raise InputError("input.unexpected_arguments", arguments=token)
@@ -273,6 +270,13 @@ def _parse_uvx(arguments: list[str]) -> InputSpec:
         raise InputError("input.version_range_unsupported", version=token)
     if not PYPI_NAME_PATTERN.match(name):
         raise InputError("input.invalid_pypi_name", name=name)
+    if version is not None and any(character in version for character in PYPI_RANGE_CHARACTERS):
+        raise InputError("input.version_range_unsupported", version=version)
     if version is not None and not PYPI_VERSION_PATTERN.match(version):
         raise InputError("input.invalid_pypi_version", version=version)
-    return InputSpec(kind=InputKind.PYPI, package=normalize_pypi_name(name), version=version)
+    return InputSpec(
+        kind=InputKind.PYPI,
+        package=normalize_pypi_name(name),
+        version=version,
+        ignored_arguments=arguments[1:],
+    )

@@ -126,6 +126,10 @@ def render(result: AnalysisResult, t: Translator) -> str:
     """Build the human readable report"""
 
     lines = [t("cli.title")]
+    if result.ignored_arguments:
+        ignored = " ".join(_safe(argument) for argument in result.ignored_arguments)
+        lines.append("")
+        lines.append(f"{t('cli.ignored_arguments')}{t('cli.separator')}{ignored}")
     _render_source(result, t, lines)
     lines.append("")
     lines.append(f"{t('cli.status')}{t('cli.separator')}{t('status.' + result.status.value, language=_safe(result.language))}")
@@ -171,7 +175,10 @@ def _render_source(result: AnalysisResult, t: Translator, lines: list[str]) -> N
     lines.append(f"{INDENT}{t('cli.source.kind')}{t('cli.separator')}{t('source_kind.' + source.kind.value)}")
     lines.append(f"{INDENT}{t('cli.source.name')}{t('cli.separator')}{_safe(source.name)}")
     if source.version:
-        lines.append(f"{INDENT}{t('cli.source.version')}{t('cli.separator')}{_safe(source.version)}")
+        version = _safe(source.version)
+        if source.requested_version:
+            version = t("cli.source.version_requested", version=version, requested=_safe(source.requested_version))
+        lines.append(f"{INDENT}{t('cli.source.version')}{t('cli.separator')}{version}")
     if source.reference:
         lines.append(f"{INDENT}{t('cli.source.reference')}{t('cli.separator')}{_safe(source.reference)}")
     if source.revision and not source.repository:

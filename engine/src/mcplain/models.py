@@ -27,6 +27,7 @@ class InputSpec(BaseModel):
     package: str | None = None
     version: str | None = None
     tree_path: str | None = None
+    ignored_arguments: list[str] = Field(default_factory=list)
 
 
 class SourceKind(StrEnum):
@@ -50,6 +51,7 @@ class AnalyzedSource(BaseModel):
     kind: SourceKind
     name: str
     version: str | None = None
+    requested_version: str | None = None
     revision: str | None = None
     reference: str | None = None
     subdir: str | None = None
@@ -260,6 +262,7 @@ class AnalysisResult(BaseModel):
 
     status: AnalysisStatus
     source: AnalyzedSource | None = None
+    ignored_arguments: list[str] = Field(default_factory=list)
     servers: list[ServerAnalysis] = Field(default_factory=list)
     available_servers: list[ServerCandidate] = Field(default_factory=list)
     available_servers_truncated: bool = False
