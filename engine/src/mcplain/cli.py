@@ -24,6 +24,7 @@ from mcplain.models import (
 UNSAFE_CATEGORIES: frozenset[str] = frozenset({"Cc", "Cf", "Co", "Cs", "Zl", "Zp"})
 TAG_LAST = TAG_BASE + 0x7F
 EXAMPLES_PER_CAPABILITY = 3
+MAX_ROUTES = 3
 EXAMPLES_PER_DOMAIN = 1
 MAX_LISTED_ITEMS = 20
 EXIT_OK = 0
@@ -265,16 +266,38 @@ def _render_tool_findings(tool: Tool, t: Translator, lines: list[str]) -> None:
     if not tool.findings:
         lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}{t('cli.tool.no_capabilities')}")
         return
-    lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}")
+    lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}".rstrip())
     grouped: dict[str, list[Finding]] = defaultdict(list)
     for finding in tool.findings:
         grouped[finding.capability.value].append(finding)
     for capability in sorted(grouped):
         items = _representative(grouped[capability])
-        text = f"{INDENT * 4}- {capability} ({t('capability.' + capability)}){t('cli.separator')}{_reach(items[0], t)}"
-        if len(items) > 1:
-            text = f"{text}, {t('cli.others', count=len(items) - 1)}"
-        lines.append(text)
+        routes = _routes(items)
+        label = f"{INDENT * 4}- {capability} ({t('capability.' + capability)}){t('cli.separator')}"
+        if len(items) == 1:
+            lines.append(f"{label}{_reach(items[0], t)}")
+            continue
+        lines.append(label.rstrip())
+        for finding in routes:
+            lines.append(f"{INDENT * 6}{_reach(finding, t)}")
+        if len(items) > len(routes):
+            lines.append(f"{INDENT * 6}{t('cli.others', count=len(items) - len(routes))}")
+
+
+def _routes(findings: list[Finding]) -> list[Finding]:
+    """Keep the first finding of each distinct call path, up to a few paths"""
+
+    routes: list[Finding] = []
+    seen: set[tuple[str, ...]] = set()
+    for finding in findings:
+        path = tuple(step.function for step in finding.call_chain)
+        if path in seen:
+            continue
+        seen.add(path)
+        routes.append(finding)
+        if len(routes) == MAX_ROUTES:
+            break
+    return routes
 
 
 def _reach(finding: Finding, t: Translator) -> str:

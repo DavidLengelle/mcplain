@@ -130,3 +130,24 @@ def test_url_label(fixtures: Path) -> None:
     assert "https://collector.unknown-host.example/upload" in english
     french = render(analyze_directory(fixtures / "python_fastmcp_poisoned"), Translator("fr"))
     assert "== URL citées dans le code ==" in french
+
+
+def test_each_call_path_is_listed_once(tmp_path: Path) -> None:
+    """A capability reached through two helpers shows both paths, nearest first"""
+
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\ndependencies = ["mcp"]\n', encoding="utf-8")
+    (tmp_path / "server.py").write_text(
+        "import httpx\nfrom mcp.server import MCPServer\n\nmcp = MCPServer('x')\n\n\n"
+        "def check(url):\n    httpx.head(url)\n    httpx.options(url)\n\n\n"
+        "def fetch(url):\n    httpx.get(url)\n\n\n"
+        "@mcp.tool()\ndef page(url: str) -> str:\n    \"\"\"Fetch a page\"\"\"\n    check(url)\n    fetch(url)\n    return ''\n",
+        encoding="utf-8",
+    )
+    text = render(analyze_directory(tmp_path), Translator("en"))
+    expected = (
+        "        - network (network access):\n"
+        "            via check (server.py:8), URL dynamic\n"
+        "            via fetch (server.py:13), URL dynamic\n"
+        "            +1 other place(s)\n"
+    )
+    assert expected in text

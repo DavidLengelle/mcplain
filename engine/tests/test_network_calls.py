@@ -161,4 +161,4 @@ def test_lowlevel_single_tool_network_through_client(fixtures: Path) -> None:
     assert get[0].url_kind is UrlKind.DYNAMIC
     assert [step.function for step in get[0].call_chain] == ["fetch_url"]
     text = render(analyze_directory(fixtures / "python_lowlevel_single"), Translator("en"))
-    assert "network (network access): via fetch_url (server.py:8), URL dynamic" in text
+    assert "        - network (network access):\n            via fetch_url (server.py:8), URL dynamic\n" in text
