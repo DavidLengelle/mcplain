@@ -51,7 +51,7 @@ from mcplain.capabilities import (
     is_secret_name,
     match_rule,
 )
-from mcplain.manifests import load_toml, read_text, table
+from mcplain.manifests import load_toml, read_text, string_list, table
 from mcplain.models import DeclarationKind, InstallScript, ToolParameter, UrlKind
 
 PYTHON_LANGUAGE = Language(tree_sitter_python.language())
@@ -98,6 +98,10 @@ FIELD_FUNCTION = "Field"
 ANNOTATED_NAME = "Annotated"
 CALL_TOOL_KEYWORD = "on_call_tool"
 SELF_NAMES: frozenset[str] = frozenset({"self", "cls"})
+MAIN_MODULE = "__main__.py"
+ENTRY_POINTS_FILE = "entry_points.txt"
+DIST_INFO_SUFFIX = ".dist-info"
+SCRIPT_TABLES: tuple[str, ...] = ("scripts", "gui-scripts")
 INIT_MODULE = "__init__"
 SOURCE_ROOT = "src"
 REFERENCE_TYPES: frozenset[str] = frozenset({"identifier", "attribute"})
@@ -1252,6 +1256,27 @@ class PythonAdapter(Adapter):
         """Analyze one Python file"""
 
         return _PythonFile(relative_path, source, context).run()
+
+    def entry_points(self, server_dir: Path, context: PackageContext) -> set[str]:
+        """Return __main__ files and the modules named by console scripts and entry points"""
+
+        targets: list[str] = []
+        project = table(load_toml(server_dir / "pyproject.toml"), "project")
+        for name in SCRIPT_TABLES:
+            targets.extend(value for value in table(project, name).values() if isinstance(value, str))
+        for group in table(project, "entry-points").values():
+            if isinstance(group, dict):
+                targets.extend(value for value in group.values() if isinstance(value, str))
+        for dist_info in server_dir.glob(f"*{DIST_INFO_SUFFIX}"):
+            for line in (read_text(dist_info / ENTRY_POINTS_FILE) or "").splitlines():
+                if "=" in line and not line.strip().startswith("["):
+                    targets.append(line.split("=", 1)[1])
+        entries = {path for path in context.files if path.rsplit("/", 1)[-1] == MAIN_MODULE}
+        for target in string_list(targets):
+            module = target.split(":", 1)[0].strip()
+            if module in context.modules:
+                entries.add(context.modules[module])
+        return entries
 
     def index_modules(self, paths: list[str]) -> dict[str, str]:
         """Map dotted module names of the package to their files"""

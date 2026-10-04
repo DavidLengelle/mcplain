@@ -133,6 +133,7 @@ PROMISIFY_NAMES: frozenset[str] = frozenset({"promisify", "util.promisify"})
 TEXT_HELPERS: frozenset[str] = frozenset({"dedent", "String.raw", "outdent", "stripIndent"})
 EQUALITY_OPERATORS: frozenset[str] = frozenset({"===", "=="})
 INSTALL_HOOKS: tuple[str, ...] = ("preinstall", "install", "postinstall")
+ENTRY_FIELDS: tuple[str, ...] = ("main", "bin")
 MAX_CONSTANT_DEPTH = 5
 RESOLVE_EXTENSIONS: tuple[str, ...] = (".js", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".jsx")
 SOURCE_SWAPS: dict[str, tuple[str, ...]] = {
@@ -1538,6 +1539,30 @@ class JavaScriptAdapter(Adapter):
         suffix = Path(relative_path).suffix.lower()
         language = LANGUAGES_BY_SUFFIX.get(suffix, JAVASCRIPT_LANGUAGE)
         return _JavaScriptFile(relative_path, source, language, context).run()
+
+    def entry_points(self, server_dir: Path, context: PackageContext) -> set[str]:
+        """Return the files named by main and bin in package.json"""
+
+        manifest = load_json_object(server_dir / "package.json") or {}
+        targets: list[str] = []
+        for field_name in ENTRY_FIELDS:
+            value = manifest.get(field_name)
+            if isinstance(value, str):
+                targets.append(value)
+            elif isinstance(value, dict):
+                targets.extend(item for item in value.values() if isinstance(item, str))
+        entries = set()
+        for target in targets:
+            base = posixpath.normpath(target.strip())
+            if base == ".." or base.startswith("../"):
+                continue
+            candidates = [base, *(base + suffix for suffix in RESOLVE_EXTENSIONS)]
+            candidates.extend(f"{base}/index{suffix}" for suffix in RESOLVE_EXTENSIONS)
+            for candidate in candidates:
+                if candidate in context.files:
+                    entries.add(candidate)
+                    break
+        return entries
 
     def language_for(self, analyzed: list[str]) -> str:
         """Report typescript when at least one TypeScript file was analyzed"""

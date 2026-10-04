@@ -75,6 +75,11 @@ class Adapter(ABC):
 
         return {}
 
+    def entry_points(self, server_dir: Path, context: PackageContext) -> set[str]:
+        """Return the files the package declares as entry points"""
+
+        return set()
+
     def language_for(self, analyzed: list[str]) -> str:
         """Return the language name to report for the analyzed files"""
 
@@ -104,13 +109,32 @@ class Adapter(ABC):
                 analysis.minified_files.append(relative)
         analysis.files_analyzed = len(reports)
         analysis.language = self.language_for(paths)
-        locations = {path: location_kind(path) for path in reports}
+        locations = self._locations(server_dir, context, reports)
         self._assemble(analysis, reports, locations)
         self._add_install_scripts(analysis, server_dir)
         for tool in analysis.tools:
             tool.findings.sort(key=lambda finding: (len(finding.call_chain), finding.file, finding.line))
         analysis.findings.sort(key=lambda finding: (finding.file, finding.line, finding.column))
         return analysis
+
+    def _locations(
+        self, server_dir: Path, context: PackageContext, reports: dict[str, FileReport]
+    ) -> dict[str, LocationKind]:
+        """Classify files, then mark as server code every entry point and every file the server code imports"""
+
+        locations = {path: location_kind(path) for path in reports}
+        entries = self.entry_points(server_dir, context) & set(reports)
+        pending = [path for path, kind in locations.items() if kind is LocationKind.SERVER_CODE]
+        pending.extend(sorted(entries))
+        visited: set[str] = set()
+        while pending:
+            path = pending.pop()
+            if path in visited or path not in reports:
+                continue
+            visited.add(path)
+            locations[path] = LocationKind.SERVER_CODE
+            pending.extend(reports[path].imported_files)
+        return locations
 
     def _add_install_scripts(self, analysis: ServerAnalysis, server_dir: Path) -> None:
         """Record install-time code as findings and as URL sources"""
