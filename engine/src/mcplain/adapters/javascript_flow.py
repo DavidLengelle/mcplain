@@ -144,6 +144,7 @@ UNION_OPERATORS: frozenset[str] = frozenset({"||", "??", "&&", "-", "*", "/", "%
 UNLABELLED_UNARY: frozenset[str] = frozenset({"typeof", "!", "void", "delete"})
 PARAMETER_WRAPPERS: frozenset[str] = frozenset({"required_parameter", "optional_parameter"})
 MIN_CODE_ARRAY = 4
+URL_PREFIXES: tuple[str, ...] = ("http://", "https://")
 
 
 class _Inputs:
@@ -842,7 +843,10 @@ class JavaScriptLowering:
         if rule is not None and rule.capability is Capability.NETWORK:
             return self._network(inputs, arguments, offset, qualified)
         if qualified.rsplit(".", 1)[-1] in JAVASCRIPT_TOOL_BUILDERS:
-            sink = (FlowSinkKind.TOOL_DESCRIPTION, ROLE_DESCRIPTION, inputs.arguments(), qualified)
+            sources = inputs.arguments()
+            if any(self.file.static_text(item).value.startswith(URL_PREFIXES) for item in arguments):
+                sources += (inputs.add(Source(FlowSourceKind.NETWORK_RESPONSE, qualified, offset)),)
+            sink = (FlowSinkKind.TOOL_DESCRIPTION, ROLE_DESCRIPTION, sources, qualified)
             return self._sinks(inputs, offset, [sink])
         if qualified in JAVASCRIPT_PROPAGATORS:
             return Operation(tuple(inputs.items), offset, result=Result("union", inputs.arguments()))

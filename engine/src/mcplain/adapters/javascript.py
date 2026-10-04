@@ -25,6 +25,7 @@ from mcplain.adapters.common import (
     first_error,
     innermost,
     join_texts,
+    literal_host,
     mark_dynamic,
     node_text,
     text_from_pieces,
@@ -57,7 +58,10 @@ from mcplain.capabilities import (
     JAVASCRIPT_URL_GLOBALS,
     JAVASCRIPT_URL_KEYS,
     JAVASCRIPT_WRITE_FLAG_CHARS,
+    NETWORK_BODY_KEYS,
     NETWORK_CLIENT_METHODS,
+    NETWORK_SEND_METHODS,
+    SAFE_HTTP_METHODS,
     Capability,
     RuleKind,
     find_sensitive_paths,
@@ -1641,10 +1645,19 @@ class _JavaScriptFile:
         return None
 
     def _add(
-        self, capability: Capability, node: Node, detail: str | None, url_kind: UrlKind | None = None
+        self,
+        capability: Capability,
+        node: Node,
+        detail: str | None,
+        target: tuple[UrlKind, str | None] | None = None,
+        sends: bool | None = None,
     ) -> None:
-        """Record one capability finding"""
+        """Record one capability finding, with the URL kind, host and sending of a network call"""
 
+        url_kind = None
+        url_host = None
+        if target is not None:
+            url_kind, url_host = target
         self.report.findings.append(
             RawFinding(
                 capability=capability,
@@ -1652,6 +1665,8 @@ class _JavaScriptFile:
                 function=enclosing_function(node),
                 detail=detail,
                 url_kind=url_kind,
+                url_host=url_host,
+                sends=sends,
             )
         )
 
@@ -1709,11 +1724,13 @@ class _JavaScriptFile:
                 best_size = end - start
         return best
 
-    def _url_kind(self, arguments: list[Node], keys: tuple[str, ...] = JAVASCRIPT_URL_KEYS) -> UrlKind:
-        """Tell whether the URL given to a network call is a literal, dynamic or absent"""
+    def _url_kind(
+        self, arguments: list[Node], keys: tuple[str, ...] = JAVASCRIPT_URL_KEYS
+    ) -> tuple[UrlKind, str | None]:
+        """Tell whether the URL given to a network call is a literal, dynamic or absent, and its fixed host"""
 
         if not arguments:
-            return UrlKind.UNKNOWN
+            return UrlKind.UNKNOWN, None
         first = unwrap(arguments[0])
         options = self._as_object(first)
         if options is not None:
@@ -1721,12 +1738,31 @@ class _JavaScriptFile:
             for key in keys:
                 first = first or self._object_value(options, key)
         if first is None:
-            return UrlKind.UNKNOWN
-        if self.static_text(first).dynamic:
-            return UrlKind.DYNAMIC
-        return UrlKind.LITERAL
+            return UrlKind.UNKNOWN, None
+        text = self.static_text(first)
+        if text.dynamic:
+            return UrlKind.DYNAMIC, literal_host(text)
+        return UrlKind.LITERAL, literal_host(text)
 
-    def _network_url_kind(self, qualified: str, arguments: list[Node]) -> UrlKind:
+    def _sends(self, name: str, arguments: list[Node]) -> bool:
+        """Tell whether a network call sends data: a sending method, a body, or a non-GET method option"""
+
+        if name.rsplit(".", 1)[-1] in NETWORK_SEND_METHODS:
+            return True
+        for argument in arguments:
+            options = self._as_object(argument)
+            if options is None:
+                continue
+            if any(self._object_value(options, key) is not None for key in NETWORK_BODY_KEYS):
+                return True
+            method = self._object_value(options, "method")
+            if method is not None:
+                verb = self.static_text(method)
+                if verb.dynamic or verb.value.upper() not in SAFE_HTTP_METHODS:
+                    return True
+        return False
+
+    def _network_url_kind(self, qualified: str, arguments: list[Node]) -> tuple[UrlKind, str | None]:
         """Return the URL kind of a call to a network global, module or client factory"""
 
         if qualified in JAVASCRIPT_NETWORK_CLIENTS:
@@ -1734,7 +1770,7 @@ class _JavaScriptFile:
         method = qualified.rsplit(".", 1)[-1]
         if qualified in JAVASCRIPT_URL_GLOBALS or "." not in qualified or method in NETWORK_CLIENT_METHODS:
             return self._url_kind(arguments)
-        return UrlKind.UNKNOWN
+        return UrlKind.UNKNOWN, None
 
     def _find_capabilities(self) -> None:
         """Match calls and environment access against the capability table"""
@@ -1762,7 +1798,8 @@ class _JavaScriptFile:
             if method in NETWORK_CLIENT_METHODS and target is not None:
                 constructor = self._client_of(node_text(target), call.start_byte)
                 if constructor is not None:
-                    self._add(Capability.NETWORK, call, f"{constructor}.{method}", self._url_kind(arguments))
+                    target = self._url_kind(arguments)
+                    self._add(Capability.NETWORK, call, f"{constructor}.{method}", target, self._sends(method, arguments))
                     return
         resolved = self.resolve(callee)
         if resolved is not None:
@@ -1793,7 +1830,8 @@ class _JavaScriptFile:
                 kind = RuleKind.MODULE
             rule = match_rule(JAVASCRIPT_RULES, qualified, kind)
             if rule is not None and rule.capability is Capability.NETWORK:
-                self._add(rule.capability, call, qualified, self._network_url_kind(qualified, arguments))
+                target = self._network_url_kind(qualified, arguments)
+                self._add(rule.capability, call, qualified, target, self._sends(qualified, arguments))
                 return
             if rule is not None:
                 self._add(rule.capability, call, qualified)

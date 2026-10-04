@@ -87,9 +87,13 @@ def test_translator_falls_back_and_formats() -> None:
     assert Translator("en")("no.such.key") == "no.such.key"
 
 
+CONTACT_KEYS: frozenset[str] = frozenset({"rule.O01.title", "rule.O01.explanation", "reason.green.network"})
+
+
 @pytest.mark.parametrize("language", ["en", "fr"])
 def test_urls_are_never_called_contacted(language: str) -> None:
-    """No message claims that a server contacts a site: MCPlain only sees URLs quoted in the code"""
+    """Only messages about network calls say contact: URLs merely quoted in the code are never called contacted"""
 
-    for text in catalog(language).values():
-        assert "contact" not in text.lower()
+    for key, text in catalog(language).items():
+        if key not in CONTACT_KEYS:
+            assert "contact" not in text.lower(), key

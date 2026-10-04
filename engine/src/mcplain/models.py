@@ -122,6 +122,8 @@ class Finding(BaseModel):
     shared_by_tools: bool = False
     outside: OutsideKind | None = None
     url_kind: UrlKind | None = None
+    url_host: str | None = None
+    sends: bool | None = None
 
 
 class FlowPoint(BaseModel):

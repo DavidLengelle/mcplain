@@ -4,7 +4,7 @@ import pytest
 
 from mcplain.analyze import analyze_input
 from mcplain.capabilities import Capability
-from mcplain.models import AnalysisStatus, ReputationStatus, SourceKind, SourceOrigin, UrlKind
+from mcplain.models import AnalysisStatus, ReputationStatus, SourceKind, SourceOrigin, UrlKind, VerdictColor
 
 pytestmark = pytest.mark.network
 
@@ -70,3 +70,24 @@ def test_reputation_is_checked_on_osv() -> None:
     assert result.reputation.status is ReputationStatus.CHECKED
     assert result.reputation.queried >= 5
     assert result.reputation.packages == []
+
+
+def test_fetch_is_orange_by_open_network() -> None:
+    """The fetch tool reaches any address the AI gives: orange by O01, and no red rule"""
+
+    verdict = analyze_input("uvx mcp-server-fetch").verdict
+    rules = {alert.rule for alert in verdict.alerts}
+    assert verdict.color is VerdictColor.ORANGE
+    assert "O01" in rules
+    assert not any(rule.startswith("R") for rule in rules)
+
+
+def test_filesystem_is_orange_by_powerful_capability() -> None:
+    """The filesystem server writes files: orange by O08, no red rule and no annotation mismatch"""
+
+    verdict = analyze_input("npx -y @modelcontextprotocol/server-filesystem").verdict
+    rules = {alert.rule for alert in verdict.alerts}
+    assert verdict.color is VerdictColor.ORANGE
+    assert "O08" in rules
+    assert "O04" not in rules
+    assert not any(rule.startswith("R") for rule in rules)

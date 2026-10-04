@@ -28,6 +28,8 @@ class RawFinding:
     function: str | None = None
     detail: str | None = None
     url_kind: UrlKind | None = None
+    url_host: str | None = None
+    sends: bool | None = None
 
 
 @dataclass(frozen=True)

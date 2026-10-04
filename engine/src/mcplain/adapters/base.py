@@ -409,6 +409,8 @@ class Adapter(ABC):
                 location_kind=locations[path],
                 detail=raw.detail,
                 url_kind=raw.url_kind,
+                url_host=raw.url_host,
+                sends=raw.sends,
             )
         return built[key]
 

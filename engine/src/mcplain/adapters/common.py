@@ -41,6 +41,7 @@ URL_PATTERN = re.compile(r"https?://[^\s\"'<>`\\{}|^\x00-\x1f]+", re.IGNORECASE)
 URL_TRAILING = ".,;:)]!?"
 HOST_PATTERN = re.compile(r"^[a-z0-9.-]+$|^\[[0-9a-f:.]+\]$")
 MAX_URL_LENGTH = 300
+URL_HOST_PATTERN = re.compile(r"^\s*(?:https?|wss?)://([A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(?::\d+)?(?=[/?#]|$)", re.IGNORECASE)
 DYNAMIC_PLACEHOLDER = "{}"
 COMPUTED = "computed"
 TITLE_KEY = "title"
@@ -183,6 +184,22 @@ def hidden_tag_text(characters: str) -> str | None:
     if decoded:
         return "".join(decoded)
     return None
+
+
+def literal_host(text: TextValue) -> str | None:
+    """Return the host of a URL when it is written in full before any computed part"""
+
+    value = text.value
+    if text.dynamic:
+        prefix = value.split(DYNAMIC_PLACEHOLDER, 1)[0]
+        match = URL_HOST_PATTERN.match(prefix)
+        if match is None or match.end() >= len(prefix):
+            return None
+        return match.group(1).lower()
+    match = URL_HOST_PATTERN.match(value)
+    if match is None:
+        return None
+    return match.group(1).lower()
 
 
 def extract_urls(value: str) -> list[tuple[str, str]]:

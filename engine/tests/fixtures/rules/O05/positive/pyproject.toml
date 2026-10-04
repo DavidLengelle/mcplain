@@ -1,0 +1,4 @@
+[project]
+name = "o05-positive"
+version = "0.0.0"
+dependencies = ["fastmcp"]

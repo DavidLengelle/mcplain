@@ -85,8 +85,9 @@ COMPREHENSION_NODES: frozenset[str] = frozenset(
 PATTERN_NODES: frozenset[str] = frozenset({"pattern_list", "tuple_pattern", "list_pattern", "expression_list", "tuple", "list"})
 SPLAT_NODES: frozenset[str] = frozenset({"list_splat", "dictionary_splat"})
 SKIPPED_STATEMENTS: frozenset[str] = frozenset(
-    {"function_definition", "class_definition", "decorated_definition", "import_statement", "import_from_statement"}
+    {"function_definition", "class_definition", "import_statement", "import_from_statement"}
 )
+URL_PREFIXES: tuple[str, ...] = ("http://", "https://")
 LEAF_NODES: frozenset[str] = frozenset(
     {"integer", "float", "true", "false", "none", "ellipsis", "lambda", "slice", "yield", "comment"}
 )
@@ -296,6 +297,12 @@ class PythonLowering:
         kind = node.type
         if kind in SKIPPED_STATEMENTS:
             return []
+        if kind == "decorated_definition":
+            return [
+                Evaluate(self.expr(decorator.named_children[0]))
+                for decorator in node.children
+                if decorator.type == "decorator" and decorator.named_children
+            ]
         if kind == "expression_statement":
             statements: list[Stmt] = []
             for child in node.named_children:
@@ -759,7 +766,10 @@ class PythonLowering:
             if rule is not None and rule.capability is Capability.NETWORK:
                 return self._network(inputs, offset, qualified)
         if qualified.rsplit(".", 1)[-1] in PYTHON_TOOL_BUILDERS:
-            sink = (FlowSinkKind.TOOL_DESCRIPTION, ROLE_DESCRIPTION, inputs.arguments(), qualified)
+            sources = inputs.arguments()
+            if any(self.file.static_text(item).value.startswith(URL_PREFIXES) for item in positional + list(keywords.values())):
+                sources += (inputs.add(Source(FlowSourceKind.NETWORK_RESPONSE, qualified, offset)),)
+            sink = (FlowSinkKind.TOOL_DESCRIPTION, ROLE_DESCRIPTION, sources, qualified)
             return self._sinks(inputs, offset, [sink])
         if qualified in PYTHON_PROPAGATORS:
             return Operation(tuple(inputs.items), offset, result=Result("union", inputs.arguments()))

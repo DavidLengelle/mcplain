@@ -194,6 +194,25 @@ NETWORK_CLIENT_METHODS: frozenset[str] = frozenset(
     {"get", "post", "put", "patch", "delete", "head", "options", "request", "stream"}
 )
 URL_AFTER_METHOD: frozenset[str] = frozenset({"request", "stream"})
+NETWORK_SEND_METHODS: frozenset[str] = frozenset(
+    {
+        "post",
+        "put",
+        "patch",
+        "delete",
+        "send",
+        "sendall",
+        "sendto",
+        "sendmail",
+        "send_message",
+        "sendMail",
+        "sendEmail",
+        "upload",
+        "write",
+    }
+)
+NETWORK_BODY_KEYS: frozenset[str] = frozenset({"data", "json", "content", "files", "body", "form"})
+SAFE_HTTP_METHODS: frozenset[str] = frozenset({"GET", "HEAD", "OPTIONS"})
 PYTHON_NETWORK_CLIENTS: frozenset[str] = frozenset(
     {
         "httpx.Client",

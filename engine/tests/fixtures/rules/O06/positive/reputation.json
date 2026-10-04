@@ -1,0 +1,1 @@
+{"status": "checked", "queried": 2, "packages": [{"name": "o06-positive", "ecosystem": "npm", "version": "1.0.0", "dependency": false, "malicious": []}, {"name": "left-pad-ish", "ecosystem": "npm", "version": "2.0.0", "dependency": true, "malicious": [{"id": "MAL-0000-3", "all_versions": false}]}]}

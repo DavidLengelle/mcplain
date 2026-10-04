@@ -10,7 +10,7 @@ from mcplain.models import (
     VerdictColor,
 )
 from mcplain.rules.base import RuleContext, RuleRegistry
-from mcplain.rules.orange import PowerfulCapability
+from mcplain.rules.orange import ORANGE_RULES
 from mcplain.rules.red import RED_RULES
 
 SEVERITY: dict[VerdictColor, int] = {
@@ -20,9 +20,8 @@ SEVERITY: dict[VerdictColor, int] = {
 }
 
 DEFAULT_REGISTRY = RuleRegistry()
-for rule_class in RED_RULES:
+for rule_class in RED_RULES + ORANGE_RULES:
     DEFAULT_REGISTRY.register(rule_class())
-DEFAULT_REGISTRY.register(PowerfulCapability())
 
 def counted_findings(server: ServerAnalysis) -> list[Finding]:
     """Return the findings that count for the verdict: server code only"""

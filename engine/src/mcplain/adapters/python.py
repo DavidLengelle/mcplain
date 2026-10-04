@@ -23,6 +23,7 @@ from mcplain.adapters.common import (
     first_error,
     innermost,
     join_texts,
+    literal_host,
     mark_dynamic,
     node_text,
     text_from_pieces,
@@ -43,7 +44,9 @@ from mcplain.adapters.report import (
     RawTool,
 )
 from mcplain.capabilities import (
+    NETWORK_BODY_KEYS,
     NETWORK_CLIENT_METHODS,
+    NETWORK_SEND_METHODS,
     PYTHON_CLIENT_URL_KEYWORDS,
     PYTHON_ENV_GETTERS,
     PYTHON_ENV_MAPPINGS,
@@ -54,6 +57,7 @@ from mcplain.capabilities import (
     PYTHON_TEXT_HELPERS,
     PYTHON_URL_FUNCTIONS,
     PYTHON_WRITE_MODE_CHARS,
+    SAFE_HTTP_METHODS,
     URL_AFTER_METHOD,
     Capability,
     RuleKind,
@@ -1267,10 +1271,19 @@ class _PythonFile:
         return None
 
     def _add(
-        self, capability: Capability, node: Node, detail: str | None, url_kind: UrlKind | None = None
+        self,
+        capability: Capability,
+        node: Node,
+        detail: str | None,
+        target: tuple[UrlKind, str | None] | None = None,
+        sends: bool | None = None,
     ) -> None:
-        """Record one capability finding"""
+        """Record one capability finding, with the URL kind, host and sending of a network call"""
 
+        url_kind = None
+        url_host = None
+        if target is not None:
+            url_kind, url_host = target
         self.report.findings.append(
             RawFinding(
                 capability=capability,
@@ -1278,6 +1291,8 @@ class _PythonFile:
                 function=enclosing_function(node),
                 detail=detail,
                 url_kind=url_kind,
+                url_host=url_host,
+                sends=sends,
             )
         )
 
@@ -1337,8 +1352,10 @@ class _PythonFile:
                 best_size = end - start
         return best
 
-    def _url_kind(self, arguments: Node | None, index: int, keywords_to_try: tuple[str, ...] = ("url",)) -> UrlKind:
-        """Tell whether the URL argument of a network call is a literal, dynamic or absent"""
+    def _url_kind(
+        self, arguments: Node | None, index: int, keywords_to_try: tuple[str, ...] = ("url",)
+    ) -> tuple[UrlKind, str | None]:
+        """Tell whether the URL argument of a network call is a literal, dynamic or absent, and its fixed host"""
 
         positional, keywords = split_arguments(arguments)
         node = None
@@ -1347,12 +1364,25 @@ class _PythonFile:
         if node is None and index >= 0 and len(positional) > index:
             node = positional[index]
         if node is None:
-            return UrlKind.UNKNOWN
-        if self.static_text(node).dynamic:
-            return UrlKind.DYNAMIC
-        return UrlKind.LITERAL
+            return UrlKind.UNKNOWN, None
+        text = self.static_text(node)
+        if text.dynamic:
+            return UrlKind.DYNAMIC, literal_host(text)
+        return UrlKind.LITERAL, literal_host(text)
 
-    def _network_url_kind(self, qualified: str, arguments: Node | None) -> UrlKind:
+    def _sends(self, name: str, arguments: Node | None) -> bool:
+        """Tell whether a network call sends data: a sending method, a body, or a non-GET request"""
+
+        method = name.rsplit(".", 1)[-1]
+        positional, keywords = split_arguments(arguments)
+        if method in NETWORK_SEND_METHODS or any(key in NETWORK_BODY_KEYS for key in keywords):
+            return True
+        if method in URL_AFTER_METHOD and positional:
+            verb = self.static_text(positional[0])
+            return verb.dynamic or verb.value.upper() not in SAFE_HTTP_METHODS
+        return False
+
+    def _network_url_kind(self, qualified: str, arguments: Node | None) -> tuple[UrlKind, str | None]:
         """Return the URL kind of a call to a network module function or client class"""
 
         if qualified in PYTHON_NETWORK_CLIENTS:
@@ -1363,7 +1393,7 @@ class _PythonFile:
             if method in URL_AFTER_METHOD:
                 index = 1
             return self._url_kind(arguments, index)
-        return UrlKind.UNKNOWN
+        return UrlKind.UNKNOWN, None
 
     def _find_capabilities(self) -> None:
         """Match calls, environment access and literals against the capability table"""
@@ -1409,7 +1439,8 @@ class _PythonFile:
                 kind = RuleKind.MODULE
             rule = match_rule(PYTHON_RULES, qualified, kind)
             if rule is not None and rule.capability is Capability.NETWORK:
-                self._add(rule.capability, call, qualified, self._network_url_kind(qualified, arguments))
+                target = self._network_url_kind(qualified, arguments)
+                self._add(rule.capability, call, qualified, target, self._sends(qualified, arguments))
                 return
             if rule is not None:
                 self._add(rule.capability, call, qualified)
@@ -1437,7 +1468,8 @@ class _PythonFile:
         index = 0
         if method in URL_AFTER_METHOD:
             index = 1
-        self._add(Capability.NETWORK, call, f"{constructor}.{method}", self._url_kind(arguments, index))
+        target = self._url_kind(arguments, index)
+        self._add(Capability.NETWORK, call, f"{constructor}.{method}", target, self._sends(method, arguments))
         return True
 
     def _open_call(self, call: Node, arguments: Node | None, qualified: str) -> None:
