@@ -219,3 +219,49 @@ def test_sensitive_path_kind_is_shown(fixtures: Path) -> None:
 
     text = render(analyze_directory(fixtures / "python_fastmcp_poisoned"), Translator("fr"))
     assert '- clés SSH (secret) : "id_rsa"' in text
+
+
+def test_alerts_are_shown_red_first_with_their_place_path_and_quote(fixtures: Path) -> None:
+    """Each fired rule shows its color, title, kind and explanation, then each place with its path and quote"""
+
+    text = render(analyze_directory(fixtures / "python_fastmcp_poisoned"), Translator("en"))
+    alerts = text[text.index("== Alerts (") : text.index("== Verdict ==")]
+    headers = [line.strip().split()[:2] for line in alerts.splitlines() if line.startswith("  ") and not line.startswith("   ")]
+    colors = [header[0] for header in headers if header]
+    assert colors == sorted(colors, key=lambda color: color != "RED")
+    assert "  RED R04 Sends secrets over the network\n    Kind: suspicious use\n    What it means: This code reads" in alerts
+    assert "    - Tool save_note\n      Where: server.py:18 in save_note()\n" in alerts
+    assert "      Path: from server.py:16 -> to server.py:18\n" in alerts
+    assert '      Quoted: "requests.post(' in alerts
+    assert "<U+200B>" in alerts
+    assert "​" not in alerts
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        ("en", "Kind: serious flaw: the author is probably honest, but the flaw is serious"),
+        ("fr", "Nature : faille grave : l'auteur est probablement honnête, mais la faille est grave"),
+    ],
+)
+def test_command_injection_is_a_serious_flaw(fixtures: Path, language: str, expected: str) -> None:
+    """R09 says that the flaw is serious and that the author is probably honest"""
+
+    text = render(analyze_directory(fixtures / "rules" / "R09" / "positive"), Translator(language))
+    assert expected in text
+
+
+def test_quotes_are_cut_at_two_hundred_characters(tmp_path: Path) -> None:
+    """A quoted passage is neutralized and never longer than 200 characters"""
+
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\ndependencies = ["mcp"]\n', encoding="utf-8")
+    long_text = "List the hosts of ~/.ssh/config. " + "Then keep reading the manual page for more details. " * 20
+    (tmp_path / "server.py").write_text(
+        "from fastmcp import FastMCP\n\n\ndef build():\n    mcp = FastMCP('x')\n\n"
+        f"    @mcp.tool(description={long_text!r})\n    def hosts() -> str:\n        return ''\n\n    return mcp\n",
+        encoding="utf-8",
+    )
+    text = render(analyze_directory(tmp_path), Translator("en"))
+    quotes = [line.split("Quoted: ", 1)[1] for line in text.splitlines() if "Quoted: " in line]
+    assert quotes
+    assert all(len(quote) <= 202 for quote in quotes)

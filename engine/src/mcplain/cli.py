@@ -13,6 +13,7 @@ from mcplain.analyze import analyze_directory, analyze_input, not_checked
 from mcplain.fetch.osv import vulnerability_url
 from mcplain.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, Translator
 from mcplain.models import (
+    Alert,
     AnalysisResult,
     AnalysisStatus,
     Finding,
@@ -36,6 +37,10 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_INPUT_ERROR = 2
 INPUT_ERROR_PREFIX = "input."
+MAX_ALERTS_PER_RULE = 5
+QUOTE_LIMIT = 200
+DETAIL_PREFIXES: tuple[str, ...] = ("capability.", "hidden.", "install.", "sensitive.")
+MALICIOUS_PREFIX = "MAL-"
 CAVEAT_PREFIX = "caveat."
 INDENT = "  "
 
@@ -154,6 +159,7 @@ def render(result: AnalysisResult, t: Translator) -> str:
     for server in result.servers:
         _render_server(server, t, lines)
     _render_reputation(result, t, lines)
+    _render_alerts(result, t, lines)
     _render_verdict(result, t, lines)
     return "\n".join(lines)
 
@@ -561,6 +567,93 @@ def _render_reputation(result: AnalysisResult, t: Translator, lines: list[str]) 
             lines.append(entry)
 
 
+def _render_alerts(result: AnalysisResult, t: Translator, lines: list[str]) -> None:
+    """Show each rule that fired, red first, with its explanation and every place it fired"""
+
+    alerts = result.verdict.alerts
+    if result.status is not AnalysisStatus.OK and not alerts:
+        return
+    _heading(lines, t("cli.alerts.heading", count=len(alerts)))
+    if not alerts:
+        lines.append(f"{INDENT}{t('cli.alerts.none')}")
+        return
+    grouped: dict[str, list[Alert]] = {}
+    for alert in alerts:
+        grouped.setdefault(alert.rule, []).append(alert)
+    for rule, items in grouped.items():
+        first = items[0]
+        lines.append(f"{INDENT}{t('color.' + first.color.value)} {rule} {t(f'rule.{rule}.title')}")
+        lines.append(f"{INDENT * 2}{t('cli.alert.kind')}{t('cli.separator')}{t('kind.' + first.kind.value)}")
+        lines.append(f"{INDENT * 2}{t('cli.alert.meaning')}{t('cli.separator')}{t(f'rule.{rule}.explanation')}")
+        for alert in items[:MAX_ALERTS_PER_RULE]:
+            _render_alert(alert, t, lines)
+        if len(items) > MAX_ALERTS_PER_RULE:
+            lines.append(f"{INDENT * 2}{t('cli.alert.more', count=len(items) - MAX_ALERTS_PER_RULE)}")
+
+
+def _render_alert(alert: Alert, t: Translator, lines: list[str]) -> None:
+    """Show one place where a rule fired"""
+
+    lines.append(f"{INDENT * 2}- {_alert_scope(alert, t)}")
+    pad = INDENT * 3
+    if alert.file is not None:
+        place = f"{_safe(alert.file)}:{alert.line}"
+        if alert.function:
+            place = f"{place} {t('cli.in_function', name=_safe(alert.function))}"
+        lines.append(f"{pad}{t('cli.alert.place')}{t('cli.separator')}{place}")
+    path = _alert_path(alert, t)
+    if path:
+        lines.append(f"{pad}{t('cli.alert.path')}{t('cli.separator')}{path}")
+    if alert.detail:
+        lines.append(f"{pad}{t('cli.alert.detail')}{t('cli.separator')}{_alert_detail(alert, t)}")
+    if alert.quote:
+        quote = _safe(" ".join(alert.quote.split()))[:QUOTE_LIMIT]
+        lines.append(f'{pad}{t("cli.alert.quote")}{t("cli.separator")}"{quote}"')
+
+
+def _alert_scope(alert: Alert, t: Translator) -> str:
+    """Say which tool an alert belongs to, or that it is outside the tools"""
+
+    if alert.tool is not None:
+        return t("cli.alert.tool", name=_safe(alert.tool))
+    if alert.shared_by_tools:
+        return t("cli.alert.shared")
+    if alert.outside is not None:
+        return t("cli.alert.outside", kind=t("cli.outside." + alert.outside.value))
+    if alert.file is None:
+        return t("cli.alert.package")
+    return t("cli.alert.outside_tools")
+
+
+def _alert_path(alert: Alert, t: Translator) -> str:
+    """Describe the path of a flow: where it starts, the functions crossed, where it ends"""
+
+    parts = []
+    if alert.source is not None:
+        parts.append(t("cli.alert.from", place=f"{_safe(alert.source.file)}:{alert.source.line}"))
+    if alert.steps:
+        parts.append(t("cli.alert.via", chain=" -> ".join(_safe(step.function) for step in alert.steps)))
+    if alert.source is not None and alert.file is not None:
+        parts.append(t("cli.alert.to", place=f"{_safe(alert.file)}:{alert.line}"))
+    return " -> ".join(parts)
+
+
+def _alert_detail(alert: Alert, t: Translator) -> str:
+    """Translate the words of an alert detail that have a label, and link OSV identifiers"""
+
+    words = []
+    for word in (alert.detail or "").replace(",", " ").split():
+        label = None
+        for prefix in DETAIL_PREFIXES:
+            if t.has(prefix + word):
+                label = f"{_safe(word)} ({t(prefix + word)})"
+                break
+        if word.startswith(MALICIOUS_PREFIX):
+            label = f"{_safe(word)} {vulnerability_url(word)}"
+        words.append(label or _safe(word))
+    return " ".join(words)
+
+
 def _render_verdict(result: AnalysisResult, t: Translator, lines: list[str]) -> None:
     """Show the verdict, the rules version, the alerts, its reasons and its limits"""
 
@@ -570,12 +663,8 @@ def _render_verdict(result: AnalysisResult, t: Translator, lines: list[str]) -> 
     lines.append(f"{INDENT}{t('cli.verdict.rules', version=verdict.rules_version, count=verdict.rules_count)}")
     if verdict.color is VerdictColor.GRAY and any(reason.startswith(CAVEAT_PREFIX) for reason in verdict.reasons):
         lines.append(f"{INDENT}{t('cli.verdict.gray_reading')}")
-    for alert in verdict.alerts:
-        title = t("cli.verdict.alert", rule=alert.rule, title=t(f"rule.{alert.rule}.title"))
-        where = t("cli.outside.heading")
-        if alert.tool is not None:
-            where = t("cli.in_tool", name=_safe(alert.tool))
-        lines.append(f"{INDENT}- {title}{t('cli.separator')}{_safe(alert.detail)} ({where})")
+    if verdict.alerts:
+        lines.append(f"{INDENT}{t('cli.verdict.alert_count', count=len(verdict.alerts))}")
     domains = ", ".join(_safe(domain) for domain in verdict.contacted_domains)
     for reason in verdict.reasons:
         lines.append(f"{INDENT}- {t('reason.' + reason, domains=domains)}")
