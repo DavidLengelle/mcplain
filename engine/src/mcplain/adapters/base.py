@@ -4,9 +4,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from mcplain.adapters.callgraph import CallGraph, Region
 from mcplain.adapters.common import (
     SourceText,
-    TextValue,
     codepoint_label,
     contains,
     extract_urls,
@@ -14,10 +14,11 @@ from mcplain.adapters.common import (
     scan_invisible,
     source_offset,
 )
+from mcplain.adapters.report import FileReport, PackageContext, RawString, RawTool
 from mcplain.capabilities import Capability
 from mcplain.config import DEFAULT_LIMITS, Limits
 from mcplain.models import (
-    DeclarationKind,
+    CallStep,
     DomainRef,
     Finding,
     InstallScript,
@@ -29,7 +30,6 @@ from mcplain.models import (
     ServerAnalysis,
     SkippedFile,
     Tool,
-    ToolParameter,
 )
 from mcplain.paths import iter_files, location_kind
 
@@ -37,58 +37,13 @@ TOO_LARGE_REASON = "too_large"
 
 
 @dataclass
-class RawFinding:
-    """Class that holds a capability seen at a byte offset"""
-
-    capability: Capability
-    offset: int
-    function: str | None = None
-    detail: str | None = None
-
-
-@dataclass
-class RawTool:
-    """Class that holds a tool declaration before positions are resolved"""
-
-    name: str
-    description: TextValue
-    offset: int
-    declaration: DeclarationKind
-    name_is_dynamic: bool = False
-    parameters: list[ToolParameter] = field(default_factory=list)
-    parameters_are_dynamic: bool = False
-    bodies: list[tuple[int, int]] = field(default_factory=list)
-    text_ranges: list[tuple[int, int]] = field(default_factory=list)
-
-
-@dataclass
-class RawString:
-    """Class that holds one decoded string literal"""
-
-    value: TextValue
-    offset: int
-    sensitive: list[tuple[str, str]] = field(default_factory=list)
-
-
-@dataclass
-class FileReport:
-    """Class that holds everything an adapter found in one file"""
-
-    path: str
-    source: SourceText
-    findings: list[RawFinding] = field(default_factory=list)
-    tools: list[RawTool] = field(default_factory=list)
-    strings: list[RawString] = field(default_factory=list)
-    error_offset: int | None = None
-
-
-@dataclass
 class _ToolSlot:
-    """Class that pairs a raw tool with the model being filled"""
+    """Class that pairs a raw tool with its file and the model being filled"""
 
+    file: str
     raw: RawTool
     model: Tool
-    seen: set[tuple[Capability, int]] = field(default_factory=set)
+    seen: set[tuple[Capability, str, int]] = field(default_factory=set)
 
 
 class Adapter(ABC):
@@ -106,12 +61,17 @@ class Adapter(ABC):
         """Tell whether a file is source code for this adapter"""
 
     @abstractmethod
-    def analyze_file(self, relative_path: str, source: SourceText) -> FileReport:
+    def analyze_file(self, relative_path: str, source: SourceText, context: PackageContext) -> FileReport:
         """Analyze one decoded source file"""
 
     @abstractmethod
     def install_scripts(self, server_dir: Path) -> list[InstallScript]:
         """Return the code this server runs at install time"""
+
+    def index_modules(self, paths: list[str]) -> dict[str, str]:
+        """Map importable module names to files, when the language needs it"""
+
+        return {}
 
     def language_for(self, analyzed: list[str]) -> str:
         """Return the language name to report for the analyzed files"""
@@ -122,8 +82,7 @@ class Adapter(ABC):
         """Analyze every source file of a server folder"""
 
         analysis = ServerAnalysis(path=".", language=self.language)
-        analyzed: list[str] = []
-        server_seen: set[tuple[Capability, str, int]] = set()
+        sources: list[tuple[str, Path]] = []
         for path in iter_files(server_dir):
             if not self.accepts(path):
                 continue
@@ -132,15 +91,28 @@ class Adapter(ABC):
             if size > self.limits.max_source_file_bytes:
                 analysis.skipped_files.append(SkippedFile(file=relative, reason=TOO_LARGE_REASON, size=size))
                 continue
-            text = path.read_bytes().decode("utf-8", errors="replace")
-            source = SourceText(text, self.limits)
-            report = self.analyze_file(relative, source)
-            analyzed.append(relative)
+            sources.append((relative, path))
+        paths = [relative for relative, _ in sources]
+        context = PackageContext(files=frozenset(paths), modules=self.index_modules(paths))
+        reports: dict[str, FileReport] = {}
+        for relative, path in sources:
+            source = SourceText(path.read_bytes().decode("utf-8", errors="replace"), self.limits)
+            reports[relative] = self.analyze_file(relative, source, context)
             if source.is_minified(relative):
                 analysis.minified_files.append(relative)
-            self._merge(analysis, report, server_seen)
-        analysis.files_analyzed = len(analyzed)
-        analysis.language = self.language_for(analyzed)
+        analysis.files_analyzed = len(reports)
+        analysis.language = self.language_for(paths)
+        locations = {path: location_kind(path) for path in reports}
+        self._assemble(analysis, reports, locations)
+        self._add_install_scripts(analysis, server_dir)
+        for tool in analysis.tools:
+            tool.findings.sort(key=lambda finding: (len(finding.call_chain), finding.file, finding.line))
+        analysis.findings.sort(key=lambda finding: (finding.file, finding.line, finding.column))
+        return analysis
+
+    def _add_install_scripts(self, analysis: ServerAnalysis, server_dir: Path) -> None:
+        """Record install-time code as findings and as URL sources"""
+
         for script in self.install_scripts(server_dir):
             analysis.install_scripts.append(script)
             analysis.findings.append(
@@ -164,66 +136,98 @@ class Adapter(ABC):
                         location_kind=LocationKind.SERVER_CODE,
                     )
                 )
-        for tool in analysis.tools:
-            tool.findings.sort(key=lambda finding: (finding.line, finding.column))
-        analysis.findings.sort(key=lambda finding: (finding.file, finding.line, finding.column))
-        return analysis
 
-    def _merge(
+    def _assemble(
         self,
         analysis: ServerAnalysis,
-        report: FileReport,
-        server_seen: set[tuple[Capability, str, int]],
+        reports: dict[str, FileReport],
+        locations: dict[str, LocationKind],
     ) -> None:
-        """Resolve positions of one file report and attach results to tools or server"""
+        """Attach findings to tools through the call graph and keep the rest at server level"""
 
-        source = report.source
-        location = location_kind(report.path)
-        if report.error_offset is not None:
-            line, column = source.position(report.error_offset)
-            analysis.parse_errors.append(ParseError(file=report.path, line=line, column=column))
-        slots = []
-        for raw in report.tools:
-            line, _ = source.position(raw.offset)
-            model = Tool(
-                name=raw.name,
-                name_is_dynamic=raw.name_is_dynamic,
-                description=raw.description.value,
-                description_is_dynamic=raw.description.dynamic,
-                parameters=raw.parameters,
-                parameters_are_dynamic=raw.parameters_are_dynamic,
-                file=report.path,
-                line=line,
-                declaration=raw.declaration,
-                location_kind=location,
-            )
-            slots.append(_ToolSlot(raw, model))
-            analysis.tools.append(model)
-        for raw_finding in report.findings:
-            line, column = source.position(raw_finding.offset)
-            finding = Finding(
-                capability=raw_finding.capability,
-                file=report.path,
+        graph = CallGraph(reports, self.limits.max_call_depth)
+        built: dict[tuple[str, int], Finding] = {}
+        slots: list[_ToolSlot] = []
+        for path, report in reports.items():
+            if report.error_offset is not None:
+                line, column = report.source.position(report.error_offset)
+                analysis.parse_errors.append(ParseError(file=path, line=line, column=column))
+            for raw in report.tools:
+                line, _ = report.source.position(raw.offset)
+                model = Tool(
+                    name=raw.name,
+                    name_is_dynamic=raw.name_is_dynamic,
+                    description=raw.description.value,
+                    description_is_dynamic=raw.description.dynamic,
+                    parameters=raw.parameters,
+                    parameters_are_dynamic=raw.parameters_are_dynamic,
+                    file=path,
+                    line=line,
+                    declaration=raw.declaration,
+                    location_kind=locations[path],
+                )
+                slots.append(_ToolSlot(path, raw, model))
+                analysis.tools.append(model)
+        reached: set[tuple[str, int]] = set()
+        for slot in slots:
+            roots = [Region(slot.file, start, end) for start, end in slot.raw.bodies]
+            for entry in slot.raw.entries:
+                target = graph.resolve(slot.file, entry)
+                if target is not None:
+                    function = graph.function(*target)
+                    roots.append(Region(target[0], function.start, function.end))
+            for reach in graph.walk(roots):
+                finding = self._finding(reports, locations, built, reach.file, reach.index)
+                key = (finding.capability, finding.file, finding.line)
+                reached.add((reach.file, reach.index))
+                if key in slot.seen:
+                    continue
+                slot.seen.add(key)
+                chain = [
+                    CallStep(function=step.function, file=step.file, line=reports[step.file].source.position(step.offset)[0])
+                    for step in reach.chain
+                ]
+                slot.model.findings.append(finding.model_copy(update={"call_chain": chain}))
+        server_seen: set[tuple[Capability, str, int]] = set()
+        for path, report in reports.items():
+            for index in range(len(report.findings)):
+                if (path, index) in reached:
+                    continue
+                finding = self._finding(reports, locations, built, path, index)
+                key = (finding.capability, finding.file, finding.line)
+                if key not in server_seen:
+                    server_seen.add(key)
+                    analysis.findings.append(finding)
+            file_slots = [slot for slot in slots if slot.file == path]
+            for raw_string in report.strings:
+                self._merge_string(analysis, report, raw_string, file_slots, locations[path])
+
+    def _finding(
+        self,
+        reports: dict[str, FileReport],
+        locations: dict[str, LocationKind],
+        built: dict[tuple[str, int], Finding],
+        path: str,
+        index: int,
+    ) -> Finding:
+        """Build the model of one raw finding once"""
+
+        key = (path, index)
+        if key not in built:
+            report = reports[path]
+            raw = report.findings[index]
+            line, column = report.source.position(raw.offset)
+            built[key] = Finding(
+                capability=raw.capability,
+                file=path,
                 line=line,
                 column=column,
-                snippet=source.snippet(raw_finding.offset),
-                function=raw_finding.function,
-                location_kind=location,
-                detail=raw_finding.detail,
+                snippet=report.source.snippet(raw.offset),
+                function=raw.function,
+                location_kind=locations[path],
+                detail=raw.detail,
             )
-            owner = _owner(slots, raw_finding.offset)
-            if owner is not None:
-                key = (finding.capability, line)
-                if key not in owner.seen:
-                    owner.seen.add(key)
-                    owner.model.findings.append(finding)
-                continue
-            server_key = (finding.capability, report.path, line)
-            if server_key not in server_seen:
-                server_seen.add(server_key)
-                analysis.findings.append(finding)
-        for raw_string in report.strings:
-            self._merge_string(analysis, report, raw_string, slots, location)
+        return built[key]
 
     def _merge_string(
         self,

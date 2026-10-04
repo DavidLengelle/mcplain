@@ -71,6 +71,14 @@ class LocationKind(StrEnum):
     BUILD_SCRIPT = "build_script"
 
 
+class CallStep(BaseModel):
+    """Class that describes one function on the path from a tool to a finding"""
+
+    function: str
+    file: str
+    line: int
+
+
 class Finding(BaseModel):
     """Class that describes one capability seen at one place in the code"""
 
@@ -82,6 +90,7 @@ class Finding(BaseModel):
     function: str | None = None
     location_kind: LocationKind
     detail: str | None = None
+    call_chain: list[CallStep] = Field(default_factory=list)
 
 
 class DeclarationKind(StrEnum):

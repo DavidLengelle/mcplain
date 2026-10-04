@@ -7,7 +7,7 @@ from pathlib import Path
 import tree_sitter_python
 from tree_sitter import Language, Node, Parser
 
-from mcplain.adapters.base import Adapter, FileReport, RawFinding, RawString, RawTool
+from mcplain.adapters.base import Adapter
 from mcplain.adapters.common import (
     DYNAMIC_PLACEHOLDER,
     Piece,
@@ -20,6 +20,15 @@ from mcplain.adapters.common import (
     mark_dynamic,
     node_text,
     text_from_pieces,
+)
+from mcplain.adapters.report import (
+    FileReport,
+    PackageContext,
+    RawCall,
+    RawFinding,
+    RawFunction,
+    RawString,
+    RawTool,
 )
 from mcplain.capabilities import (
     PYTHON_ENV_GETTERS,
@@ -79,6 +88,10 @@ SCHEMA_METHODS: frozenset[str] = frozenset({"model_json_schema", "schema"})
 FIELD_FUNCTION = "Field"
 ANNOTATED_NAME = "Annotated"
 CALL_TOOL_KEYWORD = "on_call_tool"
+SELF_NAMES: frozenset[str] = frozenset({"self", "cls"})
+INIT_MODULE = "__init__"
+SOURCE_ROOT = "src"
+REFERENCE_TYPES: frozenset[str] = frozenset({"identifier", "attribute"})
 CMDCLASS_KEYWORD = "cmdclass"
 
 
@@ -140,7 +153,7 @@ def dotted_parts(node: Node | None) -> list[str] | None:
 
 
 def enclosing_function(node: Node) -> str | None:
-    """Return the name of the innermost function around a node"""
+    """Return the name of the innermost named function around a node, skipping lambdas"""
 
     current = node.parent
     while current is not None:
@@ -148,10 +161,36 @@ def enclosing_function(node: Node) -> str | None:
             name = current.child_by_field_name("name")
             if name is not None:
                 return node_text(name)
-        if current.type == "lambda":
-            return "lambda"
         current = current.parent
     return None
+
+
+def enclosing_class(node: Node) -> str | None:
+    """Return the name of the class whose body holds a node"""
+
+    current = node.parent
+    while current is not None:
+        if current.type == "class_definition":
+            name = current.child_by_field_name("name")
+            if name is not None:
+                return node_text(name)
+        current = current.parent
+    return None
+
+
+def module_names(path: str) -> list[str]:
+    """Return the dotted module names a Python file can be imported as"""
+
+    stem = path.rsplit(".", 1)[0]
+    parts = stem.split("/")
+    if parts[-1] == INIT_MODULE:
+        parts = parts[:-1]
+    names = []
+    if len(parts) > 1 and parts[0] == SOURCE_ROOT:
+        names.append(".".join(parts[1:]))
+    if parts:
+        names.append(".".join(parts))
+    return names
 
 
 def docstring_node(definition: Node) -> Node | None:
@@ -174,11 +213,19 @@ def docstring_node(definition: Node) -> Node | None:
 class _PythonFile:
     """Class that analyzes one parsed Python file"""
 
-    def __init__(self, relative_path: str, source: SourceText) -> None:
+    def __init__(self, relative_path: str, source: SourceText, context: PackageContext) -> None:
         """Parse the file and index the nodes the analysis needs"""
 
         self.source = source
+        self.context = context
         self.report = FileReport(path=relative_path, source=source)
+        names = module_names(relative_path)
+        package = []
+        if names:
+            package = names[0].split(".")
+            if not relative_path.endswith(f"{INIT_MODULE}.py"):
+                package = package[:-1]
+        self.package_parts = package
         tree = Parser(PYTHON_LANGUAGE).parse(source.data)
         self.root = tree.root_node
         error = first_error(self.root)
@@ -189,6 +236,7 @@ class _PythonFile:
         self.constants: dict[str, Node] = {}
         self.functions: dict[str, Node] = {}
         self.classes: dict[str, Node] = {}
+        self.function_names: set[str] = set()
         self.tool_definitions: set[int] = set()
         self.low_level: list[RawTool] = []
         self.call_handlers: list[Node] = []
@@ -203,36 +251,83 @@ class _PythonFile:
         self._find_low_level_tools()
         self._attach_dispatch()
         self._find_capabilities()
+        self._find_calls()
         self._find_strings()
         return self.report
 
     def _index_imports(self) -> None:
-        """Record local names bound by import statements"""
+        """Record local names bound by import statements and the package files they load"""
 
         for statement in self.nodes["import_statement"]:
             for child in statement.named_children:
                 if child.type == "dotted_name":
-                    first = node_text(child).split(".")[0]
+                    full = node_text(child)
+                    first = full.split(".")[0]
                     self.aliases[first] = first
+                    self._note_import(full)
                 elif child.type == "aliased_import":
                     name = child.child_by_field_name("name")
                     alias = child.child_by_field_name("alias")
                     if name is not None and alias is not None:
                         self.aliases[node_text(alias)] = node_text(name)
+                        self._note_import(node_text(name))
         for statement in self.nodes["import_from_statement"]:
             module = statement.child_by_field_name("module_name")
-            if module is None or module.type != "dotted_name":
+            if module is None:
                 continue
-            module_name = node_text(module)
+            module_name = None
+            if module.type == "dotted_name":
+                module_name = node_text(module)
+            elif module.type == "relative_import":
+                module_name = self._absolute_module(node_text(module))
+            if module_name is None:
+                continue
+            self._note_import(module_name)
             for child in statement.children_by_field_name("name"):
                 if child.type == "dotted_name":
                     imported = node_text(child)
                     self.aliases[imported.split(".")[0]] = f"{module_name}.{imported}"
+                    self._note_import(f"{module_name}.{imported}")
                 elif child.type == "aliased_import":
                     name = child.child_by_field_name("name")
                     alias = child.child_by_field_name("alias")
                     if name is not None and alias is not None:
                         self.aliases[node_text(alias)] = f"{module_name}.{node_text(name)}"
+                        self._note_import(f"{module_name}.{node_text(name)}")
+
+    def _absolute_module(self, relative: str) -> str | None:
+        """Turn a relative import like ..pkg.mod into an absolute module name"""
+
+        level = len(relative) - len(relative.lstrip("."))
+        rest = relative[level:]
+        if level - 1 > len(self.package_parts):
+            return None
+        parts = self.package_parts[: len(self.package_parts) - (level - 1)]
+        if rest:
+            parts = parts + rest.split(".")
+        if not parts:
+            return None
+        return ".".join(parts)
+
+    def internal_target(self, qualified: str) -> tuple[str, str | None] | None:
+        """Return the package file and member a qualified name points to, if it is internal"""
+
+        modules = self.context.modules
+        if qualified in modules:
+            return modules[qualified], None
+        parts = qualified.split(".")
+        for size in range(len(parts) - 1, 0, -1):
+            module = ".".join(parts[:size])
+            if module in modules:
+                return modules[module], ".".join(parts[size:])
+        return None
+
+    def _note_import(self, qualified: str) -> None:
+        """Remember a package file loaded by an import"""
+
+        target = self.internal_target(qualified)
+        if target is not None and target[0] not in self.report.imported_files:
+            self.report.imported_files.append(target[0])
 
     def _index_definitions(self) -> None:
         """Record module constants, functions and classes by name"""
@@ -258,10 +353,77 @@ class _PythonFile:
             name = definition.child_by_field_name("name")
             if name is not None:
                 self.functions.setdefault(node_text(name), definition)
+                self._add_function(definition, node_text(name))
         for definition in self.nodes["class_definition"]:
             name = definition.child_by_field_name("name")
             if name is not None:
                 self.classes.setdefault(node_text(name), definition)
+
+    def _add_function(self, definition: Node, name: str) -> None:
+        """Index a function for the call graph, as Class.method inside a class body"""
+
+        parent = definition.parent
+        if parent is not None and parent.type == "decorated_definition":
+            parent = parent.parent
+        owner = None
+        if parent is not None and parent.type == "block" and parent.parent is not None:
+            owner = parent.parent
+        if owner is not None and owner.type == "class_definition":
+            class_name = owner.child_by_field_name("name")
+            if class_name is not None:
+                name = f"{node_text(class_name)}.{name}"
+        scope_start, scope_end = 0, len(self.source.data) + 1
+        module_level = True
+        current = definition.parent
+        while current is not None:
+            if current.type == "function_definition":
+                scope_start, scope_end = current.start_byte, current.end_byte
+                module_level = False
+                break
+            current = current.parent
+        self.function_names.add(name)
+        self.report.functions.append(
+            RawFunction(name, definition.start_byte, definition.end_byte, scope_start, scope_end, module_level)
+        )
+
+    def call_target(self, node: Node, offset: int) -> RawCall | None:
+        """Turn a called or referenced name into a call graph edge"""
+
+        parts = dotted_parts(node)
+        if not parts:
+            return None
+        if parts[0] in SELF_NAMES:
+            class_name = enclosing_class(node)
+            if class_name is None or len(parts) != 2:
+                return None
+            return RawCall(offset, f"{class_name}.{parts[1]}")
+        if parts[0] in self.aliases:
+            qualified, _ = self._resolve(parts)
+            target = self.internal_target(qualified)
+            if target is None or target[1] is None:
+                return None
+            return RawCall(offset, target[1], target[0])
+        if len(parts) == 1 and parts[0] in self.function_names:
+            return RawCall(offset, parts[0])
+        if len(parts) == 2 and parts[0] in self.classes:
+            return RawCall(offset, f"{parts[0]}.{parts[1]}")
+        return None
+
+    def _find_calls(self) -> None:
+        """Record calls and function references passed as arguments"""
+
+        for call in self.nodes["call"]:
+            callee = call.child_by_field_name("function")
+            if callee is not None:
+                target = self.call_target(callee, call.start_byte)
+                if target is not None:
+                    self.report.calls.append(target)
+            positional, keywords = split_arguments(call.child_by_field_name("arguments"))
+            for argument in positional + list(keywords.values()):
+                if argument.type in REFERENCE_TYPES:
+                    target = self.call_target(argument, argument.start_byte)
+                    if target is not None:
+                        self.report.calls.append(target)
 
     def _resolve(self, parts: list[str]) -> tuple[str, bool]:
         """Return the qualified name of a dotted name and whether it was imported"""
@@ -594,6 +756,11 @@ class _PythonFile:
         if definition is not None:
             self._function_tool(definition, arguments, declaration, call.start_byte, skip_first_positional=True)
             return
+        entries = []
+        if target.type in REFERENCE_TYPES:
+            entry = self.call_target(target, call.start_byte)
+            if entry is not None:
+                entries.append(entry)
         name = node_text(target)
         name_is_dynamic = True
         if "name" in keywords:
@@ -612,6 +779,7 @@ class _PythonFile:
                 offset=call.start_byte,
                 declaration=declaration,
                 parameters_are_dynamic=True,
+                entries=entries,
                 text_ranges=description.ranges,
             )
         )
@@ -938,10 +1106,19 @@ class PythonAdapter(Adapter):
 
         return path.suffix.lower() in PYTHON_EXTENSIONS
 
-    def analyze_file(self, relative_path: str, source: SourceText) -> FileReport:
+    def analyze_file(self, relative_path: str, source: SourceText, context: PackageContext) -> FileReport:
         """Analyze one Python file"""
 
-        return _PythonFile(relative_path, source).run()
+        return _PythonFile(relative_path, source, context).run()
+
+    def index_modules(self, paths: list[str]) -> dict[str, str]:
+        """Map dotted module names of the package to their files"""
+
+        modules: dict[str, str] = {}
+        for path in sorted(paths):
+            for name in module_names(path):
+                modules.setdefault(name, path)
+        return modules
 
     def install_scripts(self, server_dir: Path) -> list[InstallScript]:
         """Find setup.py command classes and in-tree build backends"""

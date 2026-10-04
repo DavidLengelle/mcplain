@@ -253,12 +253,35 @@ def _render_tools(server: ServerAnalysis, t: Translator, lines: list[str]) -> No
         if tool.parameters:
             names = ", ".join(_safe(parameter.name) for parameter in tool.parameters)
             lines.append(f"{INDENT * 3}{t('cli.tool.parameters')}{t('cli.separator')}{names}")
-        capabilities = sorted({finding.capability.value for finding in tool.findings})
-        if capabilities:
-            labels = ", ".join(f"{name} ({t('capability.' + name)})" for name in capabilities)
-            lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}{labels}")
-        else:
-            lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}{t('cli.tool.no_capabilities')}")
+        _render_tool_findings(tool, t, lines)
+
+
+def _render_tool_findings(tool: Tool, t: Translator, lines: list[str]) -> None:
+    """Show each capability of a tool once, with how the tool reaches it"""
+
+    if not tool.findings:
+        lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}{t('cli.tool.no_capabilities')}")
+        return
+    lines.append(f"{INDENT * 3}{t('cli.tool.capabilities')}{t('cli.separator')}")
+    grouped: dict[str, list[Finding]] = defaultdict(list)
+    for finding in tool.findings:
+        grouped[finding.capability.value].append(finding)
+    for capability in sorted(grouped):
+        items = grouped[capability]
+        text = f"{INDENT * 4}- {capability} ({t('capability.' + capability)}){t('cli.separator')}{_reach(items[0], t)}"
+        if len(items) > 1:
+            text = f"{text}, {t('cli.others', count=len(items) - 1)}"
+        lines.append(text)
+
+
+def _reach(finding: Finding, t: Translator) -> str:
+    """Say whether a finding is in the tool itself or reached through other functions"""
+
+    place = f"{_safe(finding.file)}:{finding.line}"
+    if not finding.call_chain:
+        return t("cli.directly", place=place)
+    chain = " -> ".join(_safe(step.function) for step in finding.call_chain)
+    return t("cli.via", chain=chain, place=place)
 
 
 def _tool_marks(tool: Tool, t: Translator) -> str:

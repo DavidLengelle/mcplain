@@ -1,5 +1,6 @@
 """JavaScript and TypeScript adapter: reads code with tree-sitter, never runs it"""
 
+import posixpath
 import re
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import tree_sitter_javascript
 import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser
 
-from mcplain.adapters.base import Adapter, FileReport, RawFinding, RawString, RawTool
+from mcplain.adapters.base import Adapter
 from mcplain.adapters.common import (
     DYNAMIC_PLACEHOLDER,
     Piece,
@@ -20,6 +21,15 @@ from mcplain.adapters.common import (
     mark_dynamic,
     node_text,
     text_from_pieces,
+)
+from mcplain.adapters.report import (
+    FileReport,
+    PackageContext,
+    RawCall,
+    RawFinding,
+    RawFunction,
+    RawString,
+    RawTool,
 )
 from mcplain.capabilities import (
     JAVASCRIPT_BASE64_ENCODINGS,
@@ -70,6 +80,14 @@ NODE_TYPES: tuple[str, ...] = (
     "switch_statement",
     "if_statement",
     "object",
+    "function_declaration",
+    "generator_function_declaration",
+    "method_definition",
+    "arrow_function",
+    "function_expression",
+    "generator_function",
+    "assignment_expression",
+    "export_statement",
 )
 SIMPLE_ESCAPES: dict[str, str] = {
     "n": "\n",
@@ -108,6 +126,19 @@ TEXT_HELPERS: frozenset[str] = frozenset({"dedent", "String.raw", "outdent", "st
 EQUALITY_OPERATORS: frozenset[str] = frozenset({"===", "=="})
 INSTALL_HOOKS: tuple[str, ...] = ("preinstall", "install", "postinstall")
 MAX_CONSTANT_DEPTH = 5
+RESOLVE_EXTENSIONS: tuple[str, ...] = (".js", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".jsx")
+SOURCE_SWAPS: dict[str, tuple[str, ...]] = {
+    ".js": (".ts", ".tsx"),
+    ".mjs": (".mts",),
+    ".cjs": (".cts",),
+    ".jsx": (".tsx",),
+}
+RELATIVE_PREFIXES: tuple[str, ...] = ("./", "../")
+EXPORT_OBJECTS: frozenset[str] = frozenset({"exports", "module.exports"})
+MODULE_EXPORTS = "module.exports"
+DEFAULT_EXPORT = "default"
+CLASS_TYPES: frozenset[str] = frozenset({"class_declaration", "class"})
+REFERENCE_TYPES: frozenset[str] = frozenset({"identifier", "member_expression"})
 
 
 def decode_escape(text: str) -> str:
@@ -176,7 +207,31 @@ def enclosing_function(node: Node) -> str | None:
                 label = _function_label(parent)
                 if label is not None:
                     return label
-            return None
+        current = current.parent
+    return None
+
+
+def class_name(definition: Node) -> str | None:
+    """Return the name of a class declaration or of the variable holding a class expression"""
+
+    name = definition.child_by_field_name("name")
+    if name is not None:
+        return node_text(name)
+    parent = definition.parent
+    if parent is not None and parent.type == "variable_declarator":
+        variable = parent.child_by_field_name("name")
+        if variable is not None:
+            return node_text(variable)
+    return None
+
+
+def enclosing_class(node: Node) -> str | None:
+    """Return the name of the class around a node"""
+
+    current = node.parent
+    while current is not None:
+        if current.type in CLASS_TYPES:
+            return class_name(current)
         current = current.parent
     return None
 
@@ -204,10 +259,11 @@ def _function_label(parent: Node) -> str | None:
 class _JavaScriptFile:
     """Class that analyzes one parsed JavaScript or TypeScript file"""
 
-    def __init__(self, relative_path: str, source: SourceText, language: Language) -> None:
+    def __init__(self, relative_path: str, source: SourceText, language: Language, context: PackageContext) -> None:
         """Parse the file and index the nodes the analysis needs"""
 
         self.source = source
+        self.context = context
         self.report = FileReport(path=relative_path, source=source)
         tree = Parser(language).parse(source.data)
         self.root = tree.root_node
@@ -218,6 +274,9 @@ class _JavaScriptFile:
         self.aliases: dict[str, str] = {}
         self.constants: dict[str, Node] = {}
         self.functions: dict[str, Node] = {}
+        self.internal: dict[str, tuple[str, str | None]] = {}
+        self.function_names: set[str] = set()
+        self.class_names: set[str] = set()
         self.low_level: list[RawTool] = []
         self.list_handlers: list[Node] = []
         self.call_handlers: list[Node] = []
@@ -228,10 +287,106 @@ class _JavaScriptFile:
 
         self._index_imports()
         self._index_definitions()
+        self._index_functions()
         self._find_tools()
         self._find_capabilities()
+        self._find_calls()
         self._find_strings()
         return self.report
+
+    def internal_file(self, specifier: str) -> str | None:
+        """Resolve a relative import specifier to a file of the analyzed package"""
+
+        if not specifier.startswith(RELATIVE_PREFIXES) and specifier not in (".", ".."):
+            return None
+        base = posixpath.normpath(posixpath.join(posixpath.dirname(self.report.path), specifier))
+        if base == ".." or base.startswith("../"):
+            return None
+        stem, extension = posixpath.splitext(base)
+        candidates = [base]
+        candidates.extend(stem + swap for swap in SOURCE_SWAPS.get(extension, ()))
+        candidates.extend(base + suffix for suffix in RESOLVE_EXTENSIONS)
+        candidates.extend(f"{base}/index{suffix}" for suffix in RESOLVE_EXTENSIONS)
+        for candidate in candidates:
+            if candidate in self.context.files:
+                return candidate
+        return None
+
+    def _note_file(self, file: str) -> None:
+        """Remember a package file loaded by this file"""
+
+        if file not in self.report.imported_files:
+            self.report.imported_files.append(file)
+
+    def _loader_specifier(self, node: Node | None) -> str | None:
+        """Return the string given to require() or import(), if node is such a call"""
+
+        if node is None or node.type != "call_expression":
+            return None
+        function = node.child_by_field_name("function")
+        if function is None:
+            return None
+        if not (function.type == "import" or (function.type == "identifier" and node_text(function) == "require")):
+            return None
+        arguments = call_arguments(node)
+        if not arguments or arguments[0].type != "string":
+            return None
+        return self._decode_string(arguments[0]).value
+
+    def _required_internal(self, value: Node | None) -> tuple[str, str | None] | None:
+        """Return the package file and member loaded by require("./x") or await import("./x")"""
+
+        node = unwrap(value)
+        if node is not None and node.type == "await_expression" and node.named_children:
+            node = unwrap(node.named_children[0])
+        member = None
+        if node is not None and node.type == "member_expression":
+            member = property_name(node.child_by_field_name("property"))
+            node = unwrap(node.child_by_field_name("object"))
+        specifier = self._loader_specifier(node)
+        if specifier is None:
+            return None
+        file = self.internal_file(specifier)
+        if file is None:
+            return None
+        return file, member
+
+    def _bind_internal_import(self, child: Node, file: str) -> None:
+        """Record names bound by an import of a package file"""
+
+        if child.type == "identifier":
+            self.internal[node_text(child)] = (file, DEFAULT_EXPORT)
+        elif child.type == "namespace_import":
+            for identifier in child.named_children:
+                if identifier.type == "identifier":
+                    self.internal[node_text(identifier)] = (file, None)
+        elif child.type == "named_imports":
+            for specifier in child.named_children:
+                if specifier.type != "import_specifier":
+                    continue
+                imported = specifier.child_by_field_name("name")
+                alias = specifier.child_by_field_name("alias") or imported
+                imported_name = property_name(imported)
+                if imported_name is not None and alias is not None:
+                    self.internal[node_text(alias)] = (file, imported_name)
+
+    def _bind_internal_pattern(self, pattern: Node, target: tuple[str, str | None]) -> None:
+        """Record names bound by require() of a package file"""
+
+        file, member = target
+        if pattern.type == "identifier":
+            self.internal[node_text(pattern)] = (file, member)
+            return
+        if pattern.type != "object_pattern" or member is not None:
+            return
+        for child in pattern.named_children:
+            if child.type == "shorthand_property_identifier_pattern":
+                self.internal[node_text(child)] = (file, node_text(child))
+            elif child.type == "pair_pattern":
+                key = property_name(child.child_by_field_name("key"))
+                value = child.child_by_field_name("value")
+                if key is not None and value is not None and value.type == "identifier":
+                    self.internal[node_text(value)] = (file, key)
 
     def _required_module(self, value: Node | None) -> str | None:
         """Return the module loaded by require("x"), await import("x") or require("x").y"""
@@ -251,12 +406,10 @@ class _JavaScriptFile:
         function = node.child_by_field_name("function")
         if function is None:
             return None
-        if not (function.type == "import" or (function.type == "identifier" and node_text(function) == "require")):
+        specifier = self._loader_specifier(node)
+        if specifier is None or specifier.startswith("."):
             return None
-        arguments = call_arguments(node)
-        if not arguments or arguments[0].type != "string":
-            return None
-        module = normalize_javascript_module(self._decode_string(arguments[0]).value)
+        module = normalize_javascript_module(specifier)
         return rewrite_javascript_chain(".".join([module, *suffix]))
 
     def _index_imports(self) -> None:
@@ -266,7 +419,18 @@ class _JavaScriptFile:
             source = statement.child_by_field_name("source")
             if source is None or source.type != "string":
                 continue
-            module = normalize_javascript_module(self._decode_string(source).value)
+            specifier = self._decode_string(source).value
+            internal = self.internal_file(specifier)
+            if internal is not None:
+                self._note_file(internal)
+                for clause in statement.named_children:
+                    if clause.type == "import_clause":
+                        for child in clause.named_children:
+                            self._bind_internal_import(child, internal)
+                continue
+            if specifier.startswith("."):
+                continue
+            module = normalize_javascript_module(specifier)
             for clause in statement.named_children:
                 if clause.type != "import_clause":
                     continue
@@ -276,6 +440,11 @@ class _JavaScriptFile:
             name = declarator.child_by_field_name("name")
             value = declarator.child_by_field_name("value")
             if name is None or value is None:
+                continue
+            internal = self._required_internal(value)
+            if internal is not None:
+                self._note_file(internal[0])
+                self._bind_internal_pattern(name, internal)
                 continue
             module = self._required_module(value)
             if module is not None:
@@ -365,6 +534,178 @@ class _JavaScriptFile:
         for key, count in counts.items():
             if count > 1:
                 self.constants.pop(key, None)
+
+    def _index_functions(self) -> None:
+        """Index every named function for the call graph"""
+
+        for node in self.nodes["function_declaration"] + self.nodes["generator_function_declaration"]:
+            name = node.child_by_field_name("name")
+            if name is not None:
+                self._add_function(node, node_text(name))
+        for node in self.nodes["method_definition"]:
+            body = node.parent
+            name = property_name(node.child_by_field_name("name"))
+            if body is None or body.parent is None or body.parent.type not in CLASS_TYPES or name is None:
+                continue
+            owner = class_name(body.parent)
+            if owner is not None:
+                self.class_names.add(owner)
+                self._add_function(node, f"{owner}.{name}")
+        for node in self.nodes["arrow_function"] + self.nodes["function_expression"] + self.nodes["generator_function"]:
+            name = self._assigned_name(node)
+            if name is not None:
+                self._add_function(node, name)
+        for node in self.nodes["export_statement"]:
+            self._index_export(node)
+        for node in self.nodes["assignment_expression"]:
+            left = node.child_by_field_name("left")
+            right = unwrap(node.child_by_field_name("right"))
+            if left is None or right is None or right.type != "identifier":
+                continue
+            if node_text(left) == MODULE_EXPORTS:
+                self.report.default_export = node_text(right)
+
+    def _assigned_name(self, node: Node) -> str | None:
+        """Return the name a function expression receives from a declaration or an assignment"""
+
+        parent = node.parent
+        if parent is None:
+            return None
+        if parent.type == "variable_declarator":
+            name = parent.child_by_field_name("name")
+            value = parent.child_by_field_name("value")
+            if name is not None and name.type == "identifier" and value is not None and value.id == node.id:
+                return node_text(name)
+        if parent.type == "assignment_expression":
+            left = parent.child_by_field_name("left")
+            right = parent.child_by_field_name("right")
+            if left is None or right is None or right.id != node.id:
+                return None
+            if left.type == "identifier":
+                return node_text(left)
+            if node_text(left) == MODULE_EXPORTS:
+                return DEFAULT_EXPORT
+            if left.type == "member_expression" and node_text(left.child_by_field_name("object") or left) in EXPORT_OBJECTS:
+                return property_name(left.child_by_field_name("property"))
+        return None
+
+    def _index_export(self, node: Node) -> None:
+        """Record default exports and re-exports of an export statement"""
+
+        is_default = any(child.type == DEFAULT_EXPORT for child in node.children)
+        if is_default:
+            declaration = node.child_by_field_name("declaration")
+            value = unwrap(node.child_by_field_name("value"))
+            if declaration is not None and declaration.type in NAMED_FUNCTION_TYPES:
+                self._add_function(declaration, DEFAULT_EXPORT)
+            elif value is not None and value.type == "identifier":
+                self.report.default_export = node_text(value)
+            elif value is not None and value.type in FUNCTION_TYPES:
+                self._add_function(value, DEFAULT_EXPORT)
+        source = node.child_by_field_name("source")
+        if source is None or source.type != "string":
+            return
+        file = self.internal_file(self._decode_string(source).value)
+        if file is None:
+            return
+        self._note_file(file)
+        clauses = [child for child in node.named_children if child.type == "export_clause"]
+        if not clauses:
+            self.report.star_exports.append(file)
+            return
+        for specifier in clauses[0].named_children:
+            if specifier.type != "export_specifier":
+                continue
+            name = property_name(specifier.child_by_field_name("name"))
+            alias = property_name(specifier.child_by_field_name("alias"))
+            if name is not None:
+                self.report.reexports[alias or name] = (file, name)
+
+    def _add_function(self, node: Node, name: str) -> None:
+        """Index one function with the scope where its name is visible"""
+
+        scope_start, scope_end = 0, len(self.source.data) + 1
+        module_level = True
+        current = node.parent
+        while current is not None:
+            if current.type in FUNCTION_TYPES or current.type in NAMED_FUNCTION_TYPES:
+                scope_start, scope_end = current.start_byte, current.end_byte
+                module_level = False
+                break
+            current = current.parent
+        self.function_names.add(name)
+        self.report.functions.append(RawFunction(name, node.start_byte, node.end_byte, scope_start, scope_end, module_level))
+
+    def call_target(self, node: Node | None, offset: int) -> RawCall | None:
+        """Turn a called or referenced expression into a call graph edge"""
+
+        current = unwrap(node)
+        if current is None:
+            return None
+        if current.type == "identifier":
+            name = node_text(current)
+            if name in self.internal:
+                file, member = self.internal[name]
+                return RawCall(offset, member or DEFAULT_EXPORT, file)
+            if name in self.function_names:
+                return RawCall(offset, name)
+            return None
+        if current.type != "member_expression":
+            return None
+        target = unwrap(current.child_by_field_name("object"))
+        member = property_name(current.child_by_field_name("property"))
+        if target is None or member is None:
+            return None
+        if target.type == "this":
+            owner = enclosing_class(current)
+            if owner is None:
+                return None
+            return RawCall(offset, f"{owner}.{member}")
+        if target.type == "identifier" and node_text(target) in self.internal:
+            file, imported = self.internal[node_text(target)]
+            if imported is None or imported == DEFAULT_EXPORT:
+                return RawCall(offset, member, file)
+            return None
+        if target.type == "identifier" and node_text(target) in self.class_names:
+            return RawCall(offset, f"{node_text(target)}.{member}")
+        if target.type == "call_expression":
+            internal = self._required_internal(target)
+            if internal is not None and internal[1] is None:
+                return RawCall(offset, member, internal[0])
+        return None
+
+    def _find_calls(self) -> None:
+        """Record calls, side-effect loads and function references passed as arguments"""
+
+        for call in self.nodes["call_expression"] + self.nodes["new_expression"]:
+            callee = call.child_by_field_name("function") or call.child_by_field_name("constructor")
+            target = self.call_target(callee, call.start_byte)
+            if target is not None:
+                self.report.calls.append(target)
+            specifier = self._loader_specifier(call)
+            if specifier is not None:
+                file = self.internal_file(specifier)
+                if file is not None:
+                    self._note_file(file)
+            for argument in call_arguments(call):
+                current = unwrap(argument)
+                if current is not None and current.type in REFERENCE_TYPES:
+                    reference = self.call_target(current, current.start_byte)
+                    if reference is not None:
+                        self.report.calls.append(reference)
+
+    def _handler(self, node: Node | None) -> tuple[list[tuple[int, int]], list[RawCall]]:
+        """Return the body range of an inline handler, or a graph edge for a handler given by name"""
+
+        handler_range = self._function_range(node)
+        if handler_range is not None:
+            return [handler_range], []
+        current = unwrap(node)
+        if current is not None and current.type in REFERENCE_TYPES:
+            entry = self.call_target(current, current.start_byte)
+            if entry is not None:
+                return [], [entry]
+        return [], []
 
     def resolve(self, node: Node | None) -> tuple[str, bool] | None:
         """Return the qualified name of a member chain and whether its root was imported"""
@@ -528,7 +869,9 @@ class _JavaScriptFile:
             return False
         if current.type in FUNCTION_TYPES:
             return True
-        return current.type == "identifier" and node_text(current) in self.functions
+        if current.type == "identifier" and node_text(current) in self.functions:
+            return True
+        return current.type in REFERENCE_TYPES and self.call_target(current, current.start_byte) is not None
 
     def _schema_parameters(
         self, node: Node | None, depth: int = 0
@@ -636,6 +979,7 @@ class _JavaScriptFile:
         declaration: DeclarationKind,
         schema: Node | None,
         bodies: list[tuple[int, int]],
+        entries: list[RawCall] | None = None,
     ) -> RawTool:
         """Build and record one tool"""
 
@@ -653,6 +997,7 @@ class _JavaScriptFile:
             parameters=parameters,
             parameters_are_dynamic=dynamic,
             bodies=bodies,
+            entries=entries or [],
             text_ranges=description.ranges + ranges,
         )
         self.report.tools.append(tool)
@@ -686,11 +1031,10 @@ class _JavaScriptFile:
         """Read server.tool(name, description?, schema?, annotations?, handler)"""
 
         rest = arguments[1:]
-        bodies = []
+        bodies: list[tuple[int, int]] = []
+        entries: list[RawCall] = []
         if rest and self._is_handler(rest[-1]):
-            handler_range = self._function_range(rest[-1])
-            if handler_range is not None:
-                bodies.append(handler_range)
+            bodies, entries = self._handler(rest[-1])
             rest = rest[:-1]
         description = TextValue()
         schema = None
@@ -701,7 +1045,7 @@ class _JavaScriptFile:
                 rest = rest[1:]
             if rest:
                 schema = rest[0]
-        self._add_tool(arguments[0], description, call.start_byte, DeclarationKind.SERVER_TOOL, schema, bodies)
+        self._add_tool(arguments[0], description, call.start_byte, DeclarationKind.SERVER_TOOL, schema, bodies, entries)
 
     def _register_tool(self, call: Node, arguments: list[Node]) -> None:
         """Read server.registerTool(name, { description, inputSchema }, handler)"""
@@ -716,12 +1060,13 @@ class _JavaScriptFile:
             if description_node is not None:
                 description = self.static_text(description_node)
             schema = self._object_value(config, "inputSchema")
-        bodies = []
+        bodies: list[tuple[int, int]] = []
+        entries: list[RawCall] = []
         if len(arguments) > 2:
-            handler_range = self._function_range(arguments[2])
-            if handler_range is not None:
-                bodies.append(handler_range)
-        tool = self._add_tool(arguments[0], description, call.start_byte, DeclarationKind.REGISTER_TOOL, schema, bodies)
+            bodies, entries = self._handler(arguments[2])
+        tool = self._add_tool(
+            arguments[0], description, call.start_byte, DeclarationKind.REGISTER_TOOL, schema, bodies, entries
+        )
         if config is None:
             tool.parameters_are_dynamic = True
 
@@ -735,11 +1080,7 @@ class _JavaScriptFile:
         description_node = self._object_value(config, "description")
         if description_node is not None:
             description = self.static_text(description_node)
-        bodies = []
-        execute = self._object_value(config, "execute")
-        handler_range = self._function_range(execute)
-        if handler_range is not None:
-            bodies.append(handler_range)
+        bodies, entries = self._handler(self._object_value(config, "execute"))
         return self._add_tool(
             self._object_value(config, "name"),
             description,
@@ -747,6 +1088,7 @@ class _JavaScriptFile:
             declaration,
             self._object_value(config, schema_key),
             bodies,
+            entries,
         )
 
     def _request_handler(self, arguments: list[Node]) -> None:
@@ -1049,12 +1391,12 @@ class JavaScriptAdapter(Adapter):
             return False
         return path.suffix.lower() in LANGUAGES_BY_SUFFIX
 
-    def analyze_file(self, relative_path: str, source: SourceText) -> FileReport:
+    def analyze_file(self, relative_path: str, source: SourceText, context: PackageContext) -> FileReport:
         """Analyze one JavaScript or TypeScript file with the matching grammar"""
 
         suffix = Path(relative_path).suffix.lower()
         language = LANGUAGES_BY_SUFFIX.get(suffix, JAVASCRIPT_LANGUAGE)
-        return _JavaScriptFile(relative_path, source, language).run()
+        return _JavaScriptFile(relative_path, source, language, context).run()
 
     def language_for(self, analyzed: list[str]) -> str:
         """Report typescript when at least one TypeScript file was analyzed"""

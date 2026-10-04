@@ -32,13 +32,13 @@
   "cli.tools.heading": "Tools ({count})",
   "cli.tools.none": "No tool declaration was recognized.",
   "cli.tool.parameters": "Parameters",
-  "cli.tool.capabilities": "Found inside this tool",
+  "cli.tool.capabilities": "Found for this tool",
   "cli.tool.no_capabilities": "nothing found",
   "cli.tool.dynamic_name": "name computed at runtime",
   "cli.tool.description_dynamic": "(description computed at runtime, not readable here)",
   "cli.tool.no_description": "(no description)",
   "cli.tool.description_partly_dynamic": "(partly computed at runtime)",
-  "cli.server_caps.heading": "Capabilities outside tool bodies",
+  "cli.server_caps.heading": "Capabilities not reached from any tool",
   "cli.not_counted.heading": "In tests, examples and build scripts (not counted in the verdict)",
   "cli.none": "none",
   "cli.places": "{count} place(s)",
@@ -232,5 +232,8 @@
   "cli.separator": ": ",
   "cli.source.linked": "{repository} (commit {revision})",
   "cli.ignored_arguments": "Ignored arguments (never run)",
-  "cli.source.version_requested": "{version} (asked: {requested})"
+  "cli.source.version_requested": "{version} (asked: {requested})",
+  "cli.directly": "directly ({place})",
+  "cli.via": "via {chain} ({place})",
+  "cli.others": "+{count} other place(s)"
 }

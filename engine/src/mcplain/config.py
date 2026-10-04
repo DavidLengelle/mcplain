@@ -39,6 +39,7 @@ class Limits:
     max_redirects: int = 5
     max_listed_servers: int = 50
     max_snippet_chars: int = 200
+    max_call_depth: int = 5
     minified_line_length: int = 1000
 
 

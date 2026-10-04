@@ -1,0 +1,89 @@
+"""Raw results of one analyzed file, with byte offsets not yet turned into lines"""
+
+from dataclasses import dataclass, field
+
+from mcplain.adapters.common import SourceText, TextValue
+from mcplain.capabilities import Capability
+from mcplain.models import DeclarationKind, ToolParameter
+
+
+@dataclass(frozen=True)
+class PackageContext:
+    """Class that lists the files of the analyzed package for import resolution"""
+
+    files: frozenset[str]
+    modules: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class RawFinding:
+    """Class that holds a capability seen at a byte offset"""
+
+    capability: Capability
+    offset: int
+    function: str | None = None
+    detail: str | None = None
+
+
+@dataclass(frozen=True)
+class RawCall:
+    """Class that holds a call or a function reference, by name and optional target file"""
+
+    offset: int
+    name: str
+    file: str | None = None
+
+
+@dataclass(frozen=True)
+class RawFunction:
+    """Class that holds a named function, its range and the scope where its name is visible"""
+
+    name: str
+    start: int
+    end: int
+    scope_start: int
+    scope_end: int
+    module_level: bool
+
+
+@dataclass
+class RawTool:
+    """Class that holds a tool declaration before positions are resolved"""
+
+    name: str
+    description: TextValue
+    offset: int
+    declaration: DeclarationKind
+    name_is_dynamic: bool = False
+    parameters: list[ToolParameter] = field(default_factory=list)
+    parameters_are_dynamic: bool = False
+    bodies: list[tuple[int, int]] = field(default_factory=list)
+    entries: list[RawCall] = field(default_factory=list)
+    text_ranges: list[tuple[int, int]] = field(default_factory=list)
+
+
+@dataclass
+class RawString:
+    """Class that holds one decoded string literal"""
+
+    value: TextValue
+    offset: int
+    sensitive: list[tuple[str, str]] = field(default_factory=list)
+
+
+@dataclass
+class FileReport:
+    """Class that holds everything an adapter found in one file"""
+
+    path: str
+    source: SourceText
+    findings: list[RawFinding] = field(default_factory=list)
+    tools: list[RawTool] = field(default_factory=list)
+    strings: list[RawString] = field(default_factory=list)
+    functions: list[RawFunction] = field(default_factory=list)
+    calls: list[RawCall] = field(default_factory=list)
+    imported_files: list[str] = field(default_factory=list)
+    reexports: dict[str, tuple[str, str]] = field(default_factory=dict)
+    star_exports: list[str] = field(default_factory=list)
+    default_export: str | None = None
+    error_offset: int | None = None
