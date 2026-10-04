@@ -1,0 +1,4 @@
+[project]
+name = "clean-server"
+version = "0.1.0"
+dependencies = ["mcp>=2"]

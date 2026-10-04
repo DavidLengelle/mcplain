@@ -1,0 +1,7 @@
+{
+  "name": "compiled-server",
+  "version": "1.0.0",
+  "bin": { "compiled-server": "bin/compiled-server" },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0" },
+  "optionalDependencies": { "@example/compiled-server-linux-x64": "1.0.0" }
+}

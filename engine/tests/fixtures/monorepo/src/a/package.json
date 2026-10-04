@@ -1,0 +1,5 @@
+{
+  "name": "server-a",
+  "version": "1.0.0",
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0" }
+}

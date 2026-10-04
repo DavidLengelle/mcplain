@@ -1,0 +1,5 @@
+{
+  "name": "servers-monorepo",
+  "private": true,
+  "workspaces": ["src/*"]
+}

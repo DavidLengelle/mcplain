@@ -1,0 +1,4 @@
+[project]
+name = "notes-server"
+version = "0.1.0"
+dependencies = ["fastmcp>=2", "requests"]
