@@ -59,6 +59,8 @@ uv run pytest -m network
 ```
 
 The first command runs offline (sockets are blocked). The second reaches the real registries.
+After changing a rule or its texts, regenerate the catalog (a test checks that it is up to date):
+`uv run mcplain --rules > ../docs/rules.md` and `uv run mcplain --rules --lang fr > ../docs/rules.fr.md`.
 Files under `engine/tests/fixtures/` are analyzed code: they are never imported or run, and a
 `pytest_ignore_collect` hook keeps pytest away from them whatever the working directory.
 Do not name fixture files `test_*.py`, `*_test.py` or `conftest.py`.

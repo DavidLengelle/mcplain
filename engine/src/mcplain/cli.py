@@ -1,4 +1,4 @@
-"""Command line interface: mcplain <input> | --local <folder> [--json] [--lang en|fr] [--select <path>]"""
+"""Command line interface: mcplain <input> | --local <folder> | --rules [--json] [--lang en|fr] [--select <path>]"""
 
 import argparse
 import inspect
@@ -10,6 +10,7 @@ from pathlib import Path
 
 from mcplain.adapters.common import TAG_BASE, hidden_tag_text, invisible_category
 from mcplain.analyze import analyze_directory, analyze_input, not_checked
+from mcplain.catalog import render_catalog
 from mcplain.fetch.osv import vulnerability_url
 from mcplain.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, Translator
 from mcplain.models import (
@@ -95,6 +96,7 @@ def build_parser(t: Translator) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mcplain", description=t("cli.help.description"))
     parser.add_argument("input", nargs="?", help=t("cli.help.input"))
     parser.add_argument("--local", metavar=t("cli.help.local_metavar"), help=t("cli.help.local"))
+    parser.add_argument("--rules", action="store_true", help=t("cli.help.rules"))
     parser.add_argument("--json", action="store_true", help=t("cli.help.json"))
     parser.add_argument("--lang", choices=SUPPORTED_LANGUAGES, default=DEFAULT_LANGUAGE, help=t("cli.help.lang"))
     parser.add_argument("--select", metavar=t("cli.help.select_metavar"), help=t("cli.help.select"))
@@ -110,6 +112,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser(Translator(_requested_language(arguments)))
     options = parser.parse_args(arguments)
     t = Translator(options.lang)
+    if options.rules:
+        print(render_catalog(t))
+        return EXIT_OK
     if (options.input is None) == (options.local is None):
         parser.error(t("cli.error.one_input"))
     if options.local is not None:
