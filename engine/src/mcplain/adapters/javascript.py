@@ -10,6 +10,8 @@ import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser
 
 from mcplain.adapters.base import Adapter
+from mcplain.adapters.javascript_flow import JavaScriptLowering
+from mcplain.adapters.javascript_syntax import WRAPPER_TYPES, call_arguments, property_name, unwrap
 from mcplain.adapters.common import (
     ANNOTATION_KEYS,
     BOOLEAN_NODES,
@@ -126,9 +128,6 @@ NAMED_FUNCTION_TYPES: frozenset[str] = frozenset(
     {"function_declaration", "generator_function_declaration", "method_definition"}
 )
 TEXT_TYPES: frozenset[str] = frozenset({"string", "template_string"})
-WRAPPER_TYPES: frozenset[str] = frozenset(
-    {"parenthesized_expression", "as_expression", "satisfies_expression", "non_null_expression"}
-)
 DECLARATION_TYPES: frozenset[str] = frozenset({"lexical_declaration", "variable_declaration"})
 FIELD_TYPES: frozenset[str] = frozenset({"field_definition", "public_field_definition"})
 NAME_REFERENCE_PATTERN = re.compile(r"name\b", re.IGNORECASE)
@@ -219,36 +218,6 @@ def decode_escape(text: str) -> str:
     except (ValueError, OverflowError):
         return body
     return body
-
-
-def call_arguments(node: Node) -> list[Node]:
-    """Return the argument nodes of a call or new expression"""
-
-    arguments = node.child_by_field_name("arguments")
-    if arguments is None or arguments.type != "arguments":
-        return []
-    return [child for child in arguments.named_children if child.type != "comment"]
-
-
-def unwrap(node: Node | None) -> Node | None:
-    """Remove parentheses and TypeScript casts around an expression"""
-
-    current = node
-    while current is not None and current.type in WRAPPER_TYPES and current.named_children:
-        current = current.named_children[0]
-    return current
-
-
-def property_name(node: Node | None) -> str | None:
-    """Return the name of an object key or member property"""
-
-    if node is None:
-        return None
-    if node.type in ("property_identifier", "identifier", "private_property_identifier", "shorthand_property_identifier"):
-        return node_text(node)
-    if node.type == "string":
-        return "".join(node_text(child) for child in node.named_children if child.type == "string_fragment")
-    return None
 
 
 def enclosing_function(node: Node) -> str | None:
@@ -411,6 +380,7 @@ class _JavaScriptFile:
         self._find_capabilities()
         self._find_calls()
         self._find_strings()
+        self.report.flow_functions = JavaScriptLowering(self).functions()
         return self.report
 
     def internal_file(self, specifier: str) -> str | None:
@@ -936,28 +906,38 @@ class _JavaScriptFile:
                 return None, None
         return None, TrackingGap.DICT_CALL
 
-    def _dynamic_call(self, call: Node, callee: Node | None) -> bool:
-        """Record calls through dispatch tables, and the calls that cannot be followed"""
+    def dispatch(self, call: Node, callee: Node | None) -> tuple[list[RawCall] | None, TrackingGap | None]:
+        """Return the handlers a call through a dispatch table reaches, or why the call cannot be followed"""
 
         current = unwrap(callee)
         if current is None:
-            return False
+            return None, None
         offset = call.start_byte
         lookup: Node | None = current
         if current.type == "identifier":
             name = node_text(current)
             if name in self.function_names or name in self.internal or name in self.aliases:
-                return False
+                return None, None
             lookup = innermost(self.lookups, name, offset)
         table, gap = self._lookup_kind(lookup, offset)
-        if table is not None:
-            for key, value in table:
-                target = self.call_target(value, offset)
-                if target is not None:
-                    self.report.calls.append(RawCall(offset, target.name, target.file, key))
+        if table is None:
+            return None, gap
+        targets = []
+        for key, value in table:
+            target = self.call_target(value, offset)
+            if target is not None:
+                targets.append(RawCall(offset, target.name, target.file, key))
+        return targets, None
+
+    def _dynamic_call(self, call: Node, callee: Node | None) -> bool:
+        """Record calls through dispatch tables, and the calls that cannot be followed"""
+
+        targets, gap = self.dispatch(call, callee)
+        if targets is not None:
+            self.report.calls.extend(targets)
             return True
         if gap is not None:
-            self.report.gaps.append(RawGap(offset, gap))
+            self.report.gaps.append(RawGap(call.start_byte, gap))
             return True
         return False
 
@@ -1389,6 +1369,8 @@ class _JavaScriptFile:
         tool = self._add_tool(
             arguments[0], description, call.start_byte, DeclarationKind.SERVER_TOOL, schema, bodies, entries
         )
+        if description.dynamic and len(arguments) > 1:
+            tool.description_range = (arguments[1].start_byte, arguments[1].end_byte)
         if len(rest) > 1:
             self._read_annotations(tool, rest[1], 0)
 
@@ -1398,12 +1380,14 @@ class _JavaScriptFile:
         config = self._as_object(arguments[1])
         description = TextValue()
         schema = None
+        description_range = (arguments[1].start_byte, arguments[1].end_byte)
         if config is None:
             description = dynamic_text()
         else:
             description_node = self._object_value(config, "description")
             if description_node is not None:
                 description = self.static_text(description_node)
+                description_range = (description_node.start_byte, description_node.end_byte)
             schema = self._object_value(config, "inputSchema")
         bodies: list[tuple[int, int]] = []
         entries: list[RawCall] = []
@@ -1412,6 +1396,8 @@ class _JavaScriptFile:
         tool = self._add_tool(
             arguments[0], description, call.start_byte, DeclarationKind.REGISTER_TOOL, schema, bodies, entries
         )
+        if description.dynamic:
+            tool.description_range = description_range
         if config is None:
             tool.parameters_are_dynamic = True
             return
@@ -1438,6 +1424,8 @@ class _JavaScriptFile:
             entries,
         )
         self._declare(tool, config)
+        if description_node is not None and description.dynamic:
+            tool.description_range = (description_node.start_byte, description_node.end_byte)
         return tool
 
     def _declare(self, tool: RawTool, config: Node) -> None:
@@ -1526,6 +1514,8 @@ class _JavaScriptFile:
             fields.get("schema"),
             [(definition.start_byte, definition.end_byte)],
         )
+        if "description" in fields and description.dynamic:
+            tool.description_range = (fields["description"].start_byte, fields["description"].end_byte)
         if TITLE_KEY in fields:
             tool.title = self.static_text(fields[TITLE_KEY])
         if "annotations" in fields:

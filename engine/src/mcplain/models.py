@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from mcplain.capabilities import Capability, PathKind
+from mcplain.flows import FlowSinkKind, FlowSourceKind
 
 
 class InputKind(StrEnum):
@@ -121,6 +122,36 @@ class Finding(BaseModel):
     shared_by_tools: bool = False
     outside: OutsideKind | None = None
     url_kind: UrlKind | None = None
+
+
+class FlowPoint(BaseModel):
+    """Class that locates one end of a data flow"""
+
+    file: str
+    line: int
+    function: str | None = None
+    snippet: str = ""
+
+
+class Flow(BaseModel):
+    """Class that describes a value that goes from a source to a sink, with the functions it crosses"""
+
+    source: FlowSourceKind
+    source_detail: str = ""
+    path_kinds: list[PathKind] = Field(default_factory=list)
+    source_point: FlowPoint
+    sink: FlowSinkKind
+    sink_role: str
+    sink_detail: str = ""
+    sink_point: FlowPoint
+    steps: list[CallStep] = Field(default_factory=list)
+    pasted: bool = False
+    decoded: bool = False
+    written_file: bool = False
+    tool: str | None = None
+    shared_by_tools: bool = False
+    outside: OutsideKind | None = None
+    location_kind: LocationKind
 
 
 class DeclarationKind(StrEnum):
@@ -253,6 +284,7 @@ class ServerAnalysis(BaseModel):
     sensitive_paths: list[SensitivePathRef] = Field(default_factory=list)
     install_scripts: list[InstallScript] = Field(default_factory=list)
     invisible_unicode: list[InvisibleUnicode] = Field(default_factory=list)
+    flows: list[Flow] = Field(default_factory=list)
     compiled_files: list[str] = Field(default_factory=list)
     minified_files: list[str] = Field(default_factory=list)
     parse_errors: list[ParseError] = Field(default_factory=list)

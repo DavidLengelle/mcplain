@@ -26,6 +26,15 @@ secrets...) with a provisional verdict.
 6. All limits live in `engine/src/mcplain/config.py`.
 7. Verdict colors are changed only on purpose, through the rule registry in `verdict.py`.
 
+## Data flow engine
+
+`engine/src/mcplain/flows.py` holds the only table of flow sources, sinks and propagators per language.
+The adapters lower code into a small intermediate form (`adapters/python_flow.py`,
+`adapters/javascript_flow.py`) and `adapters/dataflow.py` follows labels inside and across functions,
+with the same depth limit as the call graph. When in doubt, the engine drops the label (a missed flow)
+rather than inventing one: unknown library calls, reassigned variables, closures and anything too
+indirect lose their labels.
+
 ## Commits and push
 
 In this repository only, Claude may commit and push to `origin`, branch `main`.

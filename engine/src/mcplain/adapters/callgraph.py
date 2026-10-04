@@ -332,6 +332,35 @@ class CallGraph:
                 self._enqueue(file, call, chain, visited, queue, own_body)
         return result
 
+    def reach(
+        self,
+        roots: list[Region],
+        excluded: list[Region] | None = None,
+        skipped_keys: frozenset[str] = frozenset(),
+    ) -> list[tuple[Region, tuple[Step, ...]]]:
+        """Return the roots and every function region reachable from them, with the functions crossed"""
+
+        skipped = excluded or []
+        found: list[tuple[Region, tuple[Step, ...]]] = [(root, ()) for root in roots]
+        visited: set[tuple[str, int]] = set()
+        queue: deque[tuple[tuple[str, int], tuple[Step, ...], bool]] = deque()
+        for root in roots:
+            for call in self._calls_in(root, self._nested(root)):
+                if _inside(skipped, root.file, call.offset) or call.key in skipped_keys:
+                    continue
+                self._enqueue(root.file, call, (), visited, queue, root.own_body)
+        while queue:
+            target, chain, own_body = queue.popleft()
+            file, index = target
+            function = self.function(file, index)
+            region = Region(file, function.start, function.end, own_body)
+            found.append((region, chain))
+            if len(chain) >= self.max_depth:
+                continue
+            for call in self._calls_in(region, self._nested(region)):
+                self._enqueue(file, call, chain, visited, queue, own_body)
+        return found
+
     def _unvisited(self, file: str, call: RawCall, visited: set[tuple[str, int]]) -> bool:
         """Tell whether a call leads to a function not reached yet"""
 

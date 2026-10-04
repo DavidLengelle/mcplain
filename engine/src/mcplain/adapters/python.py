@@ -8,6 +8,8 @@ import tree_sitter_python
 from tree_sitter import Language, Node, Parser
 
 from mcplain.adapters.base import Adapter
+from mcplain.adapters.python_flow import PythonLowering
+from mcplain.adapters.python_syntax import dotted_parts, split_arguments
 from mcplain.adapters.common import (
     ANNOTATION_KEYS,
     BOOLEAN_NODES,
@@ -145,42 +147,6 @@ def decode_escape(text: str) -> str:
     return text
 
 
-def split_arguments(arguments: Node | None) -> tuple[list[Node], dict[str, Node]]:
-    """Split a call's arguments into positional nodes and keyword nodes"""
-
-    positional: list[Node] = []
-    keywords: dict[str, Node] = {}
-    if arguments is None:
-        return positional, keywords
-    for child in arguments.named_children:
-        if child.type == "keyword_argument":
-            name = child.child_by_field_name("name")
-            value = child.child_by_field_name("value")
-            if name is not None and value is not None:
-                keywords[node_text(name)] = value
-        elif child.type not in ("comment", "list_splat", "dictionary_splat"):
-            positional.append(child)
-    return positional, keywords
-
-
-def dotted_parts(node: Node | None) -> list[str] | None:
-    """Return the identifiers of a dotted name like a.b.c"""
-
-    parts: list[str] = []
-    current = node
-    while current is not None and current.type == "attribute":
-        attribute = current.child_by_field_name("attribute")
-        if attribute is None:
-            return None
-        parts.append(node_text(attribute))
-        current = current.child_by_field_name("object")
-    if current is None or current.type != "identifier":
-        return None
-    parts.append(node_text(current))
-    parts.reverse()
-    return parts
-
-
 def enclosing_function(node: Node) -> str | None:
     """Return the name of the innermost named function around a node, skipping lambdas"""
 
@@ -297,6 +263,7 @@ class _PythonFile:
         self._find_capabilities()
         self._find_calls()
         self._find_strings()
+        self.report.flow_functions = PythonLowering(self).functions()
         return self.report
 
     def _index_imports(self) -> None:
@@ -626,25 +593,35 @@ class _PythonFile:
         function = node.child_by_field_name("function")
         return function is not None and function.type == "identifier" and node_text(function) in NAMESPACE_FUNCTIONS
 
-    def _dynamic_call(self, call: Node, callee: Node) -> bool:
-        """Record calls through dispatch tables, and the calls that cannot be followed"""
+    def dispatch(self, call: Node, callee: Node) -> tuple[list[RawCall] | None, TrackingGap | None]:
+        """Return the handlers a call through a dispatch table reaches, or why the call cannot be followed"""
 
         offset = call.start_byte
         lookup = callee
         if callee.type == "identifier":
             assigned = innermost(self.lookups, node_text(callee), offset)
             if assigned is None or node_text(callee) in self.function_names:
-                return False
+                return None, None
             lookup = assigned
         table, gap = self._lookup_kind(lookup, offset)
-        if table is not None:
-            for key, value in table:
-                target = self.call_target(value, offset)
-                if target is not None:
-                    self.report.calls.append(RawCall(offset, target.name, target.file, key))
+        if table is None:
+            return None, gap
+        targets = []
+        for key, value in table:
+            target = self.call_target(value, offset)
+            if target is not None:
+                targets.append(RawCall(offset, target.name, target.file, key))
+        return targets, None
+
+    def _dynamic_call(self, call: Node, callee: Node) -> bool:
+        """Record calls through dispatch tables, and the calls that cannot be followed"""
+
+        targets, gap = self.dispatch(call, callee)
+        if targets is not None:
+            self.report.calls.extend(targets)
             return True
         if gap is not None:
-            self.report.gaps.append(RawGap(offset, gap))
+            self.report.gaps.append(RawGap(call.start_byte, gap))
             return True
         return False
 
@@ -840,7 +817,16 @@ class _PythonFile:
             text_ranges=description.ranges + parameter_ranges,
         )
         self._declare(tool, keywords)
+        tool.description_range = self._description_range(keywords, description)
         self.report.tools.append(tool)
+
+    def _description_range(self, keywords: dict[str, Node], description: TextValue) -> tuple[int, int] | None:
+        """Return where a description computed at runtime is written, so its origin can be traced"""
+
+        node = keywords.get("description")
+        if node is None or not description.dynamic:
+            return None
+        return node.start_byte, node.end_byte
 
     def _declare(self, tool: RawTool, keywords: dict[str, Node]) -> None:
         """Read the title and annotations the author declares for a tool"""
@@ -1098,6 +1084,7 @@ class _PythonFile:
             text_ranges=description.ranges,
         )
         self._declare(tool, keywords)
+        tool.description_range = self._description_range(keywords, description)
         self.report.tools.append(tool)
 
     def _find_low_level_tools(self) -> None:
@@ -1130,6 +1117,7 @@ class _PythonFile:
                 text_ranges=description.ranges + ranges,
             )
             self._declare(tool, keywords)
+            tool.description_range = self._description_range(keywords, description)
             self.report.tools.append(tool)
 
     def _schema_parameters(

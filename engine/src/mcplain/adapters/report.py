@@ -1,10 +1,14 @@
 """Raw results of one analyzed file, with byte offsets not yet turned into lines"""
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from mcplain.adapters.common import SourceText, TextValue
 from mcplain.capabilities import Capability
 from mcplain.models import AnnotationValue, DeclarationKind, ToolParameter, TrackingGap, UrlKind
+
+if TYPE_CHECKING:
+    from mcplain.adapters.dataflow import FlowFunction
 
 
 @dataclass(frozen=True)
@@ -92,6 +96,7 @@ class RawTool:
     title: TextValue | None = None
     annotations: dict[str, AnnotationValue] = field(default_factory=dict)
     annotations_are_dynamic: bool = False
+    description_range: tuple[int, int] | None = None
 
 
 @dataclass
@@ -124,3 +129,4 @@ class FileReport:
     star_exports: list[str] = field(default_factory=list)
     default_export: str | None = None
     error_offset: int | None = None
+    flow_functions: list["FlowFunction"] = field(default_factory=list)

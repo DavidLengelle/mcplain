@@ -14,6 +14,7 @@ from mcplain.adapters.common import (
     scan_invisible,
     source_offset,
 )
+from mcplain.adapters.flow_report import FlowAssembler, ToolScope
 from mcplain.adapters.report import FileReport, PackageContext, RawCall, RawHandler, RawString, RawTool
 from mcplain.capabilities import Capability, path_kinds
 from mcplain.config import DEFAULT_LIMITS, Limits
@@ -37,6 +38,9 @@ from mcplain.models import (
 from mcplain.paths import iter_files, location_kind
 
 TOO_LARGE_REASON = "too_large"
+FUNCTION_DECLARATIONS: frozenset[DeclarationKind] = frozenset(
+    {DeclarationKind.DECORATOR, DeclarationKind.ADD_TOOL, DeclarationKind.FROM_FUNCTION}
+)
 
 
 @dataclass
@@ -230,8 +234,9 @@ class Adapter(ABC):
                     model.title_is_dynamic = raw.title.dynamic
                 slots.append(_ToolSlot(path, raw, model))
                 analysis.tools.append(model)
-        shared = self._attach_handlers(graph, reports, slots)
+        shared, shared_scopes = self._attach_handlers(graph, reports, slots)
         reached: set[tuple[str, int]] = set()
+        scopes: list[ToolScope] = []
         for slot in slots:
             roots = [Region(slot.file, start, end) for start, end in slot.raw.bodies] + slot.regions
             for entry in slot.raw.entries:
@@ -239,6 +244,7 @@ class Adapter(ABC):
                 if target is not None:
                     function = graph.function(*target)
                     roots.append(Region(target[0], function.start, function.end))
+            scopes.append(ToolScope(slot.model.name, roots, _tool_parameters(slot)))
             walk = graph.walk(roots)
             slot.model.gaps = sorted(walk.gaps | slot.gaps)
             for reach in walk.reaches:
@@ -250,7 +256,10 @@ class Adapter(ABC):
                 slot.seen.add(key)
                 chain = _call_steps(reports, reach.chain)
                 slot.model.findings.append(finding.model_copy(update={"call_chain": chain}))
-        outside = self._outside(graph, reports, locations, starts)
+        startup_roots, install_roots = self._start_regions(graph, reports, locations, starts)
+        outside = self._outside(graph, startup_roots, install_roots)
+        assembler = FlowAssembler(reports, locations, graph, self.limits)
+        analysis.flows = assembler.build(scopes + shared_scopes, startup_roots, install_roots)
         server_seen: set[tuple[Capability, str, int]] = set()
         for path, report in reports.items():
             for index in range(len(report.findings)):
@@ -270,19 +279,16 @@ class Adapter(ABC):
             for raw_string in report.strings:
                 self._merge_string(analysis, report, raw_string, file_slots, locations[path])
 
-    def _outside(
+    def _start_regions(
         self,
         graph: CallGraph,
         reports: dict[str, FileReport],
         locations: dict[str, LocationKind],
         starts: _Starts,
-    ) -> dict[tuple[str, int], OutsideKind]:
-        """Tell which findings run at install time or at startup, from module-level code and entry points"""
+    ) -> tuple[list[Region], list[Region]]:
+        """Return the code that runs at startup (module level, entry points) and at install time"""
 
-        kinds: dict[tuple[str, int], OutsideKind] = {}
         install_roots = [Region(path, 0, len(reports[path].source.data) + 1) for path in sorted(starts.installs)]
-        for reach in graph.walk(install_roots).reaches:
-            kinds.setdefault((reach.file, reach.index), OutsideKind.INSTALL)
         startup_roots = [
             Region(path, 0, len(report.source.data) + 1, own_body=True)
             for path, report in reports.items()
@@ -293,6 +299,16 @@ class Adapter(ABC):
             if target is not None:
                 function = graph.function(*target)
                 startup_roots.append(Region(target[0], function.start, function.end, own_body=True))
+        return startup_roots, install_roots
+
+    def _outside(
+        self, graph: CallGraph, startup_roots: list[Region], install_roots: list[Region]
+    ) -> dict[tuple[str, int], OutsideKind]:
+        """Tell which findings run at install time or at startup"""
+
+        kinds: dict[tuple[str, int], OutsideKind] = {}
+        for reach in graph.walk(install_roots).reaches:
+            kinds.setdefault((reach.file, reach.index), OutsideKind.INSTALL)
         for reach in graph.walk(startup_roots).reaches:
             kinds.setdefault((reach.file, reach.index), OutsideKind.STARTUP)
         return kinds
@@ -302,13 +318,14 @@ class Adapter(ABC):
         graph: CallGraph,
         reports: dict[str, FileReport],
         slots: list[_ToolSlot],
-    ) -> dict[tuple[str, int], list[CallStep]]:
-        """Give low-level tools.call handlers to their tools and return the findings shared by all"""
+    ) -> tuple[dict[tuple[str, int], list[CallStep]], list[ToolScope]]:
+        """Give low-level tools.call handlers to their tools and return what is shared by all"""
 
         low_level = [slot for slot in slots if slot.raw.declaration is DeclarationKind.LOW_LEVEL]
         shared: dict[tuple[str, int], list[CallStep]] = {}
+        scopes: list[ToolScope] = []
         if not low_level:
-            return shared
+            return shared, scopes
         for path, report in reports.items():
             for handler in report.call_handlers:
                 region = _handler_region(graph, path, handler)
@@ -330,12 +347,13 @@ class Adapter(ABC):
                     owner.regions.append(branch)
                     branches.append(branch)
                 keys = self._attach_table_entries(graph, reports, region, by_name)
+                scopes.append(ToolScope(None, [region], None, branches, keys))
                 walk = graph.walk([region], branches, keys)
                 for slot in candidates:
                     slot.gaps |= walk.gaps
                 for reach in walk.reaches:
                     shared.setdefault((reach.file, reach.index), _call_steps(reports, reach.chain))
-        return shared
+        return shared, scopes
 
     def _attach_table_entries(
         self,
@@ -441,6 +459,14 @@ class Adapter(ABC):
                     location_kind=location,
                 )
             )
+
+
+def _tool_parameters(slot: _ToolSlot) -> tuple[str, ...] | None:
+    """Return the parameters the AI fills for a tool declared from a function, when they are known"""
+
+    if slot.raw.declaration not in FUNCTION_DECLARATIONS or slot.raw.parameters_are_dynamic:
+        return None
+    return tuple(parameter.name for parameter in slot.raw.parameters)
 
 
 def _handler_region(graph: CallGraph, path: str, handler: RawHandler) -> Region | None:
