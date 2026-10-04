@@ -74,3 +74,11 @@ def test_translator_falls_back_and_formats() -> None:
     assert Translator("de").language == "en"
     assert Translator("fr")("cli.places", count=3) == "3 endroit(s)"
     assert Translator("en")("no.such.key") == "no.such.key"
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_urls_are_never_called_contacted(language: str) -> None:
+    """No message claims that a server contacts a site: MCPlain only sees URLs quoted in the code"""
+
+    for text in catalog(language).values():
+        assert "contact" not in text.lower()

@@ -45,8 +45,8 @@
   "cli.in_function": "in {name}()",
   "cli.in_tool": "in tool {name}",
   "cli.more": "... and {count} more",
-  "cli.domains.heading": "Domains in literal URLs",
-  "cli.domains.not_counted": "{count} more URL(s) in tests, examples or build scripts.",
+  "cli.domains.heading": "URLs quoted in the code",
+  "cli.domains.not_counted": "{count} more URL(s) quoted in tests, examples or build scripts.",
   "cli.sensitive.heading": "Sensitive paths mentioned",
   "cli.install.heading": "Code run at install time",
   "cli.invisible.heading": "Invisible Unicode characters",
@@ -230,7 +230,6 @@
   "analyze.subdir_not_found": "The folder \"{path}\" does not exist in this source.",
   "analyze.not_a_directory": "\"{path}\" is not a folder.",
   "cli.separator": ": ",
-  "cli.source.linked": "{repository} (commit {revision})",
   "cli.ignored_arguments": "Ignored arguments (never run)",
   "cli.source.version_requested": "{version} (asked: {requested})",
   "cli.directly": "directly ({place})",
@@ -249,5 +248,8 @@
   "annotation.openWorldHint": "open world",
   "cli.value.true": "yes",
   "cli.value.false": "no",
-  "cli.value.computed": "computed"
+  "cli.value.computed": "computed",
+  "cli.tool.description": "Description",
+  "cli.source.linked_commit": "Commit consulted on branch {reference}",
+  "cli.source.linked_commit_note": "not necessarily the one used to build the package"
 }

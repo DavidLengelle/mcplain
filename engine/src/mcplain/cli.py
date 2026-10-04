@@ -1,6 +1,7 @@
 """Command line interface: mcplain <input> [--json] [--lang en|fr] [--select <path>]"""
 
 import argparse
+import inspect
 import json
 import sys
 import unicodedata
@@ -63,15 +64,6 @@ def _render_tags(tags: list[str]) -> str:
     if hidden is None:
         return "".join(f"<U+{ord(character):04X}>" for character in tags)
     return f'<tags:"{hidden}">'
-
-
-def first_line(text: str) -> str:
-    """Return the first non-empty line of a text"""
-
-    for line in text.splitlines():
-        if line.strip():
-            return line.strip()
-    return ""
 
 
 def _requested_language(argv: list[str]) -> str:
@@ -187,8 +179,11 @@ def _render_source(result: AnalysisResult, t: Translator, lines: list[str]) -> N
     if source.subdir:
         lines.append(f"{INDENT}{t('cli.source.subdir')}{t('cli.separator')}{_safe(source.subdir)}")
     if source.repository:
-        linked = t("cli.source.linked", repository=_safe(source.repository), revision=_safe(source.revision))
-        lines.append(f"{INDENT}{t('cli.source.repository')}{t('cli.separator')}{linked}")
+        lines.append(f"{INDENT}{t('cli.source.repository')}{t('cli.separator')}{_safe(source.repository)}")
+    if source.repository and source.revision:
+        commit = t("cli.source.linked_commit", reference=_safe(source.reference or "?"))
+        note = t("cli.source.linked_commit_note")
+        lines.append(f"{INDENT}{commit}{t('cli.separator')}{_safe(source.revision)} ({note})")
     if source.integrity:
         label = t("cli.source.integrity_verified")
         if source.kind is SourceKind.GITHUB:
@@ -254,7 +249,7 @@ def _render_tools(server: ServerAnalysis, t: Translator, lines: list[str]) -> No
         return
     for tool in server.tools:
         lines.append(f"{INDENT}- {_safe(tool.name)}  {_safe(tool.file)}:{tool.line}{_tool_marks(tool, t)}")
-        lines.append(f"{INDENT * 3}{_tool_description(tool, t)}")
+        _render_description(tool, t, lines)
         announced = _announced(tool, t)
         if announced:
             lines.append(f"{INDENT * 3}{t('cli.tool.announces')}{t('cli.separator')}{announced}")
@@ -337,18 +332,22 @@ def _tool_marks(tool: Tool, t: Translator) -> str:
     return "  [" + ", ".join(marks) + "]"
 
 
-def _tool_description(tool: Tool, t: Translator) -> str:
-    """Return the first line of a tool description, made safe for the terminal"""
+def _render_description(tool: Tool, t: Translator, lines: list[str]) -> None:
+    """Show the whole description, re-indented for reading and neutralized line by line"""
 
-    line = first_line(tool.description)
-    if not line and tool.description_is_dynamic:
-        return t("cli.tool.description_dynamic")
-    if not line:
-        return t("cli.tool.no_description")
-    text = f'"{_safe(line)}"'
+    text = inspect.cleandoc(tool.description)
+    if not text.strip() and tool.description_is_dynamic:
+        lines.append(f"{INDENT * 3}{t('cli.tool.description_dynamic')}")
+        return
+    if not text.strip():
+        lines.append(f"{INDENT * 3}{t('cli.tool.no_description')}")
+        return
+    heading = f"{INDENT * 3}{t('cli.tool.description')}{t('cli.separator')}"
     if tool.description_is_dynamic:
-        text = f"{text} {t('cli.tool.description_partly_dynamic')}"
-    return text
+        heading = f"{heading}{t('cli.tool.description_partly_dynamic')}"
+    lines.append(heading.rstrip())
+    for line in text.split("\n"):
+        lines.append(f"{INDENT * 4}{_safe(line)}".rstrip())
 
 
 def _render_findings(findings: list[Finding], t: Translator, lines: list[str]) -> None:
@@ -381,18 +380,20 @@ def _render_domains(server: ServerAnalysis, t: Translator, lines: list[str]) -> 
     counted = [item for item in server.domains if item.location_kind is LocationKind.SERVER_CODE]
     if not counted:
         lines.append(f"{INDENT}{t('cli.none')}")
-    grouped: dict[str, list[str]] = defaultdict(list)
+    grouped: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for item in counted:
         where = f"{_safe(item.file)}:{item.line}"
         if item.tool:
             where = f"{where} {t('cli.in_tool', name=_safe(item.tool))}"
-        grouped[item.domain].append(where)
+        grouped[item.domain].append((where, item.url))
     for index, domain in enumerate(sorted(grouped)):
         if index >= MAX_LISTED_ITEMS:
             lines.append(f"{INDENT}{t('cli.more', count=len(grouped) - MAX_LISTED_ITEMS)}")
             break
         places = grouped[domain]
-        lines.append(f"{INDENT}- {_safe(domain)} ({t('cli.places', count=len(places))}), {places[0]}")
+        where, url = places[0]
+        count = t("cli.places", count=len(places))
+        lines.append(f"{INDENT}- {_safe(domain)} ({count}), {where}{t('cli.separator')}{_safe(url)}")
     ignored = len(server.domains) - len(counted)
     if ignored:
         lines.append(f"{INDENT}{t('cli.domains.not_counted', count=ignored)}")

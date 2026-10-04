@@ -85,6 +85,7 @@ def _fetch_npm(
     reason: str = "source.requested_package",
     repository: str | None = None,
     revision: str | None = None,
+    reference: str | None = None,
 ) -> FetchedSource:
     """Download, verify and extract an npm package"""
 
@@ -101,6 +102,7 @@ def _fetch_npm(
         version=release.version,
         requested_version=requested_version,
         revision=revision,
+        reference=reference,
         integrity=release.integrity,
         url=release.tarball,
         artifact=NPM_ARTIFACT,
@@ -120,6 +122,7 @@ def _fetch_pypi(
     reason: str = "source.requested_package",
     repository: str | None = None,
     revision: str | None = None,
+    reference: str | None = None,
 ) -> FetchedSource:
     """Download, verify and extract a PyPI release"""
 
@@ -135,6 +138,7 @@ def _fetch_pypi(
         version=release.version,
         requested_version=requested_version,
         revision=revision,
+        reference=reference,
         integrity=f"sha256:{release.sha256}",
         url=release.url,
         artifact=release.artifact,
@@ -202,8 +206,8 @@ def _fetch_github(client: SafeClient, spec: InputSpec, workdir: Path, limits: Li
         return FetchedSource(root, spec.subdir, github_source.model_copy(update={"reason": outcome.reason}))
     repository = f"{owner}/{repo}"
     if candidate.registry == NPM_REGISTRY:
-        return _fetch_npm(client, candidate.name, None, workdir, limits, outcome.reason, repository, sha)
-    return _fetch_pypi(client, candidate.name, None, workdir, limits, outcome.reason, repository, sha)
+        return _fetch_npm(client, candidate.name, None, workdir, limits, outcome.reason, repository, sha, reference)
+    return _fetch_pypi(client, candidate.name, None, workdir, limits, outcome.reason, repository, sha, reference)
 
 
 def _join(first: str | None, second: str | None) -> str | None:

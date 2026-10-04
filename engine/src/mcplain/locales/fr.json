@@ -45,8 +45,8 @@
   "cli.in_function": "dans {name}()",
   "cli.in_tool": "dans l'outil {name}",
   "cli.more": "... et {count} de plus",
-  "cli.domains.heading": "Domaines dans les URL littérales",
-  "cli.domains.not_counted": "{count} autre(s) URL dans les tests, exemples ou scripts de build.",
+  "cli.domains.heading": "URL citées dans le code",
+  "cli.domains.not_counted": "{count} autre(s) URL citée(s) dans les tests, exemples ou scripts de build.",
   "cli.sensitive.heading": "Chemins sensibles cités",
   "cli.install.heading": "Code exécuté à l'installation",
   "cli.invisible.heading": "Caractères Unicode invisibles",
@@ -230,7 +230,6 @@
   "analyze.subdir_not_found": "Le dossier \"{path}\" n'existe pas dans cette source.",
   "analyze.not_a_directory": "\"{path}\" n'est pas un dossier.",
   "cli.separator": " : ",
-  "cli.source.linked": "{repository} (commit {revision})",
   "cli.ignored_arguments": "Arguments ignorés (jamais exécutés)",
   "cli.source.version_requested": "{version} (demandée : {requested})",
   "cli.directly": "directement ({place})",
@@ -249,5 +248,8 @@
   "annotation.openWorldHint": "monde ouvert",
   "cli.value.true": "oui",
   "cli.value.false": "non",
-  "cli.value.computed": "calculé"
+  "cli.value.computed": "calculé",
+  "cli.tool.description": "Description",
+  "cli.source.linked_commit": "Commit consulté sur la branche {reference}",
+  "cli.source.linked_commit_note": "pas forcément celui qui a servi à fabriquer le paquet"
 }

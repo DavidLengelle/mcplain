@@ -329,6 +329,23 @@ def test_github_prefers_matching_published_package() -> None:
         assert fetched.source.origin is SourceOrigin.PUBLISHED_PACKAGE
         assert fetched.source.reason == "source.published_matches_directory"
         assert fetched.source.repository == "demo/servers"
+        assert fetched.source.reference == "main"
+
+
+@respx.mock
+def test_linked_commit_is_explained_in_the_report() -> None:
+    """The report says which commit was consulted and that it may differ from the published build"""
+
+    files = {"src/demo/pyproject.toml": b'[project]\nname = "demo-server"\ndependencies = ["mcp"]\n'}
+    files["src/demo/server.py"] = SERVER_PY
+    mock_github(files, {"main": SHA})
+    wheel = wheel_bytes()
+    respx.get(PYPI_META).mock(return_value=httpx.Response(200, json=pypi_document(wheel, b"")))
+    respx.get(WHEEL_URL).mock(return_value=httpx.Response(200, content=wheel))
+    result = analyze_input("https://github.com/demo/servers/tree/main/src/demo")
+    text = render(result, Translator("fr"))
+    assert "Dépôt GitHub lié : demo/servers" in text
+    assert f"Commit consulté sur la branche main : {SHA} (pas forcément celui qui a servi à fabriquer le paquet)" in text
 
 
 @respx.mock
