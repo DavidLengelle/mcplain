@@ -160,6 +160,7 @@ def test_local_folder_is_analyzed_without_network(fixtures: Path, capsys: pytest
     output = capsys.readouterr().out
     assert "Dossier local (aucun accès réseau, réputation non vérifiée)" in output
     assert "Outils (2)" in output
+    assert "Réputation non vérifiée (analyse locale, sans réseau)." in output
 
 
 @pytest.mark.parametrize("arguments", [[], ["uvx x", "--local", "."]])

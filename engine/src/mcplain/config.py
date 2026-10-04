@@ -14,6 +14,7 @@ ALLOWED_HOSTS: frozenset[str] = frozenset(
         "registry.npmjs.org",
         "pypi.org",
         "files.pythonhosted.org",
+        "api.osv.dev",
     }
 )
 
@@ -40,6 +41,8 @@ class Limits:
     max_listed_servers: int = 50
     max_snippet_chars: int = 200
     max_call_depth: int = 5
+    max_reputation_queries: int = 200
+    max_reputation_details: int = 20
     minified_line_length: int = 1000
 
 

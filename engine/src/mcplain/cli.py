@@ -9,7 +9,8 @@ from collections import defaultdict
 from pathlib import Path
 
 from mcplain.adapters.common import TAG_BASE, hidden_tag_text, invisible_category
-from mcplain.analyze import analyze_directory, analyze_input
+from mcplain.analyze import analyze_directory, analyze_input, not_checked
+from mcplain.fetch.osv import vulnerability_url
 from mcplain.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, Translator
 from mcplain.models import (
     AnalysisResult,
@@ -17,6 +18,7 @@ from mcplain.models import (
     Finding,
     LocationKind,
     OutsideKind,
+    ReputationStatus,
     ServerAnalysis,
     SourceKind,
     Tool,
@@ -104,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     if (options.input is None) == (options.local is None):
         parser.error(t("cli.error.one_input"))
     if options.local is not None:
-        result = analyze_directory(Path(options.local), select=options.select)
+        result = analyze_directory(Path(options.local), select=options.select, reputation=not_checked())
         result.local_path = options.local
     else:
         result = analyze_input(options.input, select=options.select)
@@ -149,6 +151,7 @@ def render(result: AnalysisResult, t: Translator) -> str:
             lines.append(f"{INDENT}- {t('cli.limits.compiled')}{t('cli.separator')}{_safe(path)}")
     for server in result.servers:
         _render_server(server, t, lines)
+    _render_reputation(result, t, lines)
     _render_verdict(result, t, lines)
     return "\n".join(lines)
 
@@ -523,6 +526,37 @@ def _render_limits(server: ServerAnalysis, t: Translator, lines: list[str]) -> N
     _heading(lines, t("cli.limits.heading"))
     for entry in entries:
         lines.append(f"{INDENT}- {entry}")
+
+
+def _render_reputation(result: AnalysisResult, t: Translator, lines: list[str]) -> None:
+    """Say what OSV.dev reports about the package and its direct dependencies, identifiers only"""
+
+    reputation = result.reputation
+    if reputation is None:
+        return
+    _heading(lines, t("cli.reputation.heading"))
+    if reputation.status is ReputationStatus.UNAVAILABLE:
+        lines.append(f"{INDENT}{t('cli.reputation.unavailable')}")
+        return
+    if reputation.status is ReputationStatus.NOT_CHECKED:
+        lines.append(f"{INDENT}{t('cli.reputation.not_checked')}")
+        return
+    lines.append(f"{INDENT}{t('cli.reputation.checked', count=reputation.queried)}")
+    if not reputation.packages:
+        lines.append(f"{INDENT}{t('cli.reputation.clean')}")
+    for package in reputation.packages:
+        role = t("cli.reputation.package")
+        if package.dependency:
+            role = t("cli.reputation.dependency")
+        name = _safe(package.name)
+        if package.version:
+            name = f"{name} {_safe(package.version)}"
+        lines.append(f"{INDENT}- {name} ({role})")
+        for report in package.malicious:
+            entry = f"{INDENT * 3}{_safe(report.id)} {vulnerability_url(report.id)}"
+            if report.all_versions:
+                entry = f"{entry} ({t('cli.reputation.all_versions')})"
+            lines.append(entry)
 
 
 def _render_verdict(result: AnalysisResult, t: Translator, lines: list[str]) -> None:

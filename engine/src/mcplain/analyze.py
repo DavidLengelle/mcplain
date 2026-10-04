@@ -4,18 +4,20 @@ import shutil
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import httpx
 
 from mcplain.adapters import adapter_for
 from mcplain.config import DEFAULT_LIMITS, Limits
+from mcplain.dependencies import direct_dependencies
 from mcplain.detect import detect
 from mcplain.errors import FetchError, McplainError
 from mcplain.fetch import github, npm, pypi
 from mcplain.fetch.archive import extract_archive
 from mcplain.fetch.http import SafeClient
+from mcplain.fetch.osv import PackageQuery, check_reputation
 from mcplain.fetch.resolve import (
     NPM_REGISTRY,
     match_links,
@@ -31,6 +33,8 @@ from mcplain.models import (
     ErrorInfo,
     InputKind,
     InputSpec,
+    Reputation,
+    ReputationStatus,
     SourceKind,
     SourceOrigin,
     Verdict,
@@ -43,6 +47,7 @@ GITHUB_ARTIFACT = "github_tarball"
 NPM_ARTIFACT = "npm_tarball"
 LATEST_LABEL = "latest"
 NOT_PUBLISHED_CODES: frozenset[str] = frozenset({"fetch.npm_not_found", "fetch.pypi_not_found"})
+PACKAGE_ECOSYSTEMS: dict[SourceKind, str] = {SourceKind.NPM: "npm", SourceKind.PYPI: "PyPI"}
 
 
 @dataclass(frozen=True)
@@ -52,6 +57,7 @@ class FetchedSource:
     root: Path
     subdir: str | None
     source: AnalyzedSource
+    reputation: Reputation | None = None
 
 
 @contextmanager
@@ -59,8 +65,9 @@ def fetch_source(
     spec: InputSpec,
     limits: Limits = DEFAULT_LIMITS,
     transport: httpx.BaseTransport | None = None,
+    select: str | None = None,
 ) -> Iterator[FetchedSource]:
-    """Download and extract a source into a temporary folder removed afterwards"""
+    """Download and extract a source into a temporary folder removed afterwards, then check its reputation"""
 
     workdir = Path(tempfile.mkdtemp(prefix=WORKDIR_PREFIX))
     try:
@@ -71,6 +78,7 @@ def fetch_source(
                 fetched = _fetch_pypi(client, spec.package or "", spec.version, workdir, limits)
             else:
                 fetched = _fetch_github(client, spec, workdir, limits)
+            fetched = replace(fetched, reputation=_reputation(client, fetched, select, limits))
         yield fetched
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
@@ -210,6 +218,34 @@ def _fetch_github(client: SafeClient, spec: InputSpec, workdir: Path, limits: Li
     return _fetch_pypi(client, candidate.name, None, workdir, limits, outcome.reason, repository, sha, reference)
 
 
+def _reputation(client: SafeClient, fetched: FetchedSource, select: str | None, limits: Limits) -> Reputation:
+    """Query OSV.dev for the analyzed package at its exact version and for its direct dependencies by name"""
+
+    queries: list[PackageQuery] = []
+    source = fetched.source
+    ecosystem = PACKAGE_ECOSYSTEMS.get(source.kind)
+    if ecosystem is not None and source.version:
+        queries.append(PackageQuery(source.name, ecosystem, source.version, False))
+    try:
+        detection = detect(fetched.root, _join(fetched.subdir, select), limits)
+    except McplainError:
+        detection = None
+    if detection is not None and detection.server is not None:
+        folder = fetched.root
+        if detection.server.path != ".":
+            folder = fetched.root.joinpath(*detection.server.path.split("/"))
+        dependency_ecosystem, names = direct_dependencies(folder, detection.server.language)
+        if dependency_ecosystem is not None:
+            queries.extend(PackageQuery(name, dependency_ecosystem, None, True) for name in names)
+    return check_reputation(client, queries, limits)
+
+
+def not_checked() -> Reputation:
+    """Return the reputation of a local analysis, which never uses the network"""
+
+    return Reputation(status=ReputationStatus.NOT_CHECKED)
+
+
 def _join(first: str | None, second: str | None) -> str | None:
     """Join two optional relative folder paths"""
 
@@ -258,8 +294,9 @@ def analyze_directory(
     subdir: str | None = None,
     select: str | None = None,
     limits: Limits = DEFAULT_LIMITS,
+    reputation: Reputation | None = None,
 ) -> AnalysisResult:
-    """Analyze a local folder; this step never uses the network"""
+    """Analyze a local folder; this step never uses the network, the reputation is given as data"""
 
     root = Path(path)
     if not root.is_dir():
@@ -276,6 +313,7 @@ def analyze_directory(
         language=detection.language,
         compiled_files=detection.compiled_files,
         notes=detection.notes,
+        reputation=reputation,
         verdict=_placeholder_verdict(),
     )
     if detection.status is not AnalysisStatus.OK or detection.server is None:
@@ -321,13 +359,14 @@ def analyze_input(
         if selection and spec.kind in (InputKind.GITHUB_REPO, InputKind.GITHUB_SUBDIR):
             spec = add_subdir(spec, selection)
             selection = None
-        with fetch_source(spec, limits, transport) as fetched:
+        with fetch_source(spec, limits, transport, selection) as fetched:
             result = analyze_directory(
                 fetched.root,
                 source=fetched.source,
                 subdir=fetched.subdir,
                 select=selection,
                 limits=limits,
+                reputation=fetched.reputation,
             )
     except McplainError as error:
         result = error_result(error)

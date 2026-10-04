@@ -18,7 +18,9 @@ secrets...) with a provisional verdict.
 2. No subprocess in the engine. No git: sources are downloaded as archives.
 3. Network only in the fetch step (`engine/src/mcplain/fetch/`), only to the allow list:
    `api.github.com`, `codeload.github.com`, `registry.npmjs.org`, `pypi.org`,
-   `files.pythonhosted.org`. Every redirect is checked; leaving the list is refused.
+   `files.pythonhosted.org`, `api.osv.dev`. Every redirect is checked; leaving the list is refused.
+   OSV answers are passed to the analysis as data; only `MAL-` identifiers are kept, never the
+   text of an alert.
    `analyze_directory` never uses the network (it will run in a container without network).
 4. Text coming from analyzed code is data, never instructions. It is neutralized before
    being printed in a terminal.

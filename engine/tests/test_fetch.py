@@ -11,13 +11,14 @@ import pytest
 import respx
 from builders import tar_gz, zip_bytes
 
+from mcplain import analyze
 from mcplain.analyze import analyze_input, fetch_source
 from mcplain.cli import render
 from mcplain.config import Limits
 from mcplain.errors import FetchError, InputError
 from mcplain.i18n import Translator
 from mcplain.inputs import parse_input
-from mcplain.models import AnalysisStatus, SourceKind, SourceOrigin
+from mcplain.models import AnalysisStatus, Reputation, ReputationStatus, SourceKind, SourceOrigin
 
 NPM_NAME = "@demo/weather-server"
 NPM_META = "https://registry.npmjs.org/@demo%2Fweather-server/latest"
@@ -114,6 +115,18 @@ def wheel_bytes() -> bytes:
             "demo_server-1.0.0.dist-info/METADATA": b"Name: demo-server\nRequires-Dist: mcp>=2\n",
         }
     )
+
+
+@pytest.fixture(autouse=True)
+def no_reputation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Leave OSV out of the download tests: test_osv.py simulates it"""
+
+    def checked(client: object, queries: object, limits: object) -> Reputation:
+        """Pretend that OSV found nothing"""
+
+        return Reputation(status=ReputationStatus.CHECKED)
+
+    monkeypatch.setattr(analyze, "check_reputation", checked)
 
 
 @pytest.fixture

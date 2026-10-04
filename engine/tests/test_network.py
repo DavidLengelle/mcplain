@@ -4,7 +4,7 @@ import pytest
 
 from mcplain.analyze import analyze_input
 from mcplain.capabilities import Capability
-from mcplain.models import AnalysisStatus, SourceKind, SourceOrigin, UrlKind
+from mcplain.models import AnalysisStatus, ReputationStatus, SourceKind, SourceOrigin, UrlKind
 
 pytestmark = pytest.mark.network
 
@@ -60,3 +60,13 @@ def test_real_filesystem_tools_all_show_capabilities() -> None:
     assert [step.function for step in write[0].call_chain] == ["writeFileContent"]
     empty = sorted(name for name, tool in tools.items() if not tool.findings)
     assert empty == ["list_allowed_directories"]
+
+
+def test_reputation_is_checked_on_osv() -> None:
+    """The fetch server and its direct dependencies are checked on OSV.dev, with no malicious report"""
+
+    result = analyze_input("uvx mcp-server-fetch")
+    assert result.reputation is not None
+    assert result.reputation.status is ReputationStatus.CHECKED
+    assert result.reputation.queried >= 5
+    assert result.reputation.packages == []

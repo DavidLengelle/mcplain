@@ -109,16 +109,23 @@ class SafeClient:
         self._client.close()
 
     @contextmanager
-    def _open(self, url: str, headers: dict[str, str] | None) -> Iterator[httpx.Response]:
-        """Open a streamed response, following redirects one checked hop at a time"""
+    def _open(
+        self, url: str, headers: dict[str, str] | None, payload: object | None = None
+    ) -> Iterator[httpx.Response]:
+        """Open a streamed response, following GET redirects one checked hop at a time"""
 
         current = url
+        method = "GET"
+        if payload is not None:
+            method = "POST"
         for _ in range(self.limits.max_redirects + 1):
             host = check_url(current)
             request_headers = dict(self._host_headers.get(host, {}))
             request_headers.update(headers or {})
             timeout = min(self.limits.request_timeout_seconds, self.deadline.remaining())
-            request = self._client.build_request("GET", current, headers=request_headers, timeout=timeout)
+            request = self._client.build_request(
+                method, current, headers=request_headers, timeout=timeout, json=payload
+            )
             try:
                 response = self._client.send(request, stream=True)
             except httpx.TimeoutException as error:
@@ -128,7 +135,7 @@ class SafeClient:
             if response.status_code in REDIRECT_STATUSES:
                 location = response.headers.get("location", "")
                 response.close()
-                if not location:
+                if not location or payload is not None:
                     raise FetchError("fetch.bad_redirect", host=host)
                 current = urljoin(current, location)
                 continue
@@ -176,6 +183,16 @@ class SafeClient:
         """Download and decode a JSON document"""
 
         body = self.get_bytes(url, self.limits.max_json_bytes, headers)
+        try:
+            return json.loads(body)
+        except ValueError as error:
+            raise FetchError("fetch.invalid_json", host=urlsplit(url).hostname or "") from error
+
+    def post_json(self, url: str, payload: object) -> Any:
+        """Send a JSON document and decode the JSON answer; redirects are refused"""
+
+        with self._open(url, None, payload) as response:
+            body = b"".join(self._read_stream(response, self.limits.max_json_bytes))
         try:
             return json.loads(body)
         except ValueError as error:

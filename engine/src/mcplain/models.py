@@ -319,6 +319,39 @@ class Verdict(BaseModel):
     provisional: bool
 
 
+class ReputationStatus(StrEnum):
+    """Class that tells whether the reputation of the packages could be checked"""
+
+    CHECKED = "checked"
+    UNAVAILABLE = "unavailable"
+    NOT_CHECKED = "not_checked"
+
+
+class MaliciousReport(BaseModel):
+    """Class that holds one OSV malicious package identifier; the text of the alert is never kept"""
+
+    id: str
+    all_versions: bool = False
+
+
+class PackageReputation(BaseModel):
+    """Class that holds the malicious package reports of the analyzed package or of a direct dependency"""
+
+    name: str
+    ecosystem: str
+    version: str | None = None
+    dependency: bool = False
+    malicious: list[MaliciousReport] = Field(default_factory=list)
+
+
+class Reputation(BaseModel):
+    """Class that holds what OSV.dev says about the analyzed package and its direct dependencies"""
+
+    status: ReputationStatus
+    queried: int = 0
+    packages: list[PackageReputation] = Field(default_factory=list)
+
+
 class AnalysisStatus(StrEnum):
     """Class that lists the possible outcomes of an analysis"""
 
@@ -343,6 +376,7 @@ class AnalysisResult(BaseModel):
     status: AnalysisStatus
     source: AnalyzedSource | None = None
     local_path: str | None = None
+    reputation: Reputation | None = None
     ignored_arguments: list[str] = Field(default_factory=list)
     servers: list[ServerAnalysis] = Field(default_factory=list)
     available_servers: list[ServerCandidate] = Field(default_factory=list)
