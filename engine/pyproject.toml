@@ -29,6 +29,9 @@ dev = [
     "respx>=0.23.1",
 ]
 
+[tool.uv]
+exclude-newer = "7 days"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = ["fixtures"]

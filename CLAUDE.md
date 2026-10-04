@@ -35,6 +35,10 @@ The repository is public: never commit secrets or local files.
 - Push only when `uv run pytest` passes.
 - Never force push. Never rewrite history that is already pushed.
 
+## Dependencies
+
+Keep `exclude-newer = "7 days"` in `[tool.uv]` of `engine/pyproject.toml` and never add an `engine/uv.toml` (uv would then ignore `[tool.uv]`); to lift the delay for one package, follow the README "Security" section.
+
 ## Tests
 
 ```bash
