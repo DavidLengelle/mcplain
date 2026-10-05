@@ -2,7 +2,7 @@
 
 from mcplain.capabilities import POWERFUL_CAPABILITIES, Capability, find_sensitive_paths
 from mcplain.flows import ROLE_PROGRAM, FlowSinkKind, FlowSourceKind
-from mcplain.models import Alert, AlertKind, Finding, LocationKind, OutsideKind, UrlKind, VerdictColor
+from mcplain.models import Alert, AlertKind, Finding, Flow, LocationKind, OutsideKind, UrlKind, VerdictColor
 from mcplain.patterns import excerpt, transmit_request
 from mcplain.rules import sources
 from mcplain.rules.base import Rule, RuleContext
@@ -23,20 +23,66 @@ class OpenNetwork(Rule):
     sources = (sources.OWASP_MCP06, sources.LETHAL_TRIFECTA)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
-        """Raise one alert per tool that reaches a network call with a dynamic URL and no fixed host"""
+        """Raise alerts per tool on requests with a dynamic URL and no fixed host, the most direct one first"""
 
+        flows = [
+            flow
+            for flow in context.flows()
+            if flow.source is FlowSourceKind.TOOL_PARAMETER and flow.sink is FlowSinkKind.NETWORK
+        ]
         alerts = []
         for tool in context.tools():
+            ranked: list[tuple[tuple[int, int], Finding, Flow | None]] = []
+            places: set[tuple[str, int]] = set()
             for finding in tool.findings:
-                if (
-                    finding.capability is Capability.NETWORK
-                    and finding.url_kind is UrlKind.DYNAMIC
-                    and finding.url_host is None
-                    and finding.location_kind is LocationKind.SERVER_CODE
-                ):
+                if not _open_request(finding) or (finding.file, finding.line) in places:
+                    continue
+                places.add((finding.file, finding.line))
+                flow = _most_direct_flow(flows, tool.name, finding)
+                ranked.append((_directness(flow, finding), finding, flow))
+            ranked.sort(key=lambda item: item[0])
+            for _, finding, flow in ranked:
+                if flow is not None:
+                    alerts.append(self.flow_alert(flow, finding.detail))
+                    continue
+                if not any(alert.tool == tool.name for alert in alerts):
                     alerts.append(self.finding_alert(finding, tool.name, finding.detail))
-                    break
+                break
         return alerts
+
+
+def _open_request(finding: Finding) -> bool:
+    """Tell whether a finding is a network call of server code with a dynamic URL and no fixed host"""
+
+    return (
+        finding.capability is Capability.NETWORK
+        and finding.url_kind is UrlKind.DYNAMIC
+        and finding.url_host is None
+        and finding.location_kind is LocationKind.SERVER_CODE
+    )
+
+
+def _most_direct_flow(flows: list[Flow], tool: str, finding: Finding) -> Flow | None:
+    """Return the flow of a tool parameter that reaches the request of a finding with the fewest steps"""
+
+    matching = [
+        flow
+        for flow in flows
+        if flow.tool == tool and flow.sink_point.file == finding.file and flow.sink_point.line == finding.line
+    ]
+    if not matching:
+        return None
+    return min(matching, key=lambda flow: (flow.pasted, len(flow.steps)))
+
+
+def _directness(flow: Flow | None, finding: Finding) -> tuple[int, int]:
+    """Rank a request: a value from the AI given as is, then pasted into text, then no flow; fewer steps first"""
+
+    if flow is None:
+        return 2, len(finding.call_chain)
+    if flow.pasted:
+        return 1, len(flow.steps)
+    return 0, len(flow.steps)
 
 
 class AiChoosesTheCommand(Rule):

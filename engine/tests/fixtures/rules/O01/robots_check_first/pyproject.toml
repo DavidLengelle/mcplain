@@ -1,0 +1,4 @@
+[project]
+name = "o01-robots-check-first"
+version = "0.1.0"
+dependencies = ["mcp", "httpx"]

@@ -111,3 +111,13 @@ def test_closed_world_tool_that_only_reads_the_network(fixtures: Path) -> None:
     fired = [alert for alert in result.verdict.alerts if alert.rule == "O04"]
     assert [(alert.tool, alert.detail) for alert in fired] == [("status", "openWorldHint: network")]
 
+
+def test_open_network_cites_the_most_direct_request_first(fixtures: Path) -> None:
+    """The request that receives the AI value as is comes before the robots.txt request built from it"""
+
+    result = analyze_fixture(fixtures / "rules" / "O01" / "robots_check_first")
+    fired = [alert for alert in result.verdict.alerts if alert.rule == "O01"]
+    assert fired
+    assert fired[0].function == "fetch_url"
+    assert [step.function for step in fired[0].steps] == ["fetch_url"]
+    assert [alert.function for alert in fired[1:]] in ([], ["check_robots"])

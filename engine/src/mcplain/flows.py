@@ -51,6 +51,7 @@ RELEVANT_FLOWS: frozenset[tuple[FlowSourceKind, FlowSinkKind]] = frozenset(
         (FlowSourceKind.TOOL_PARAMETER, FlowSinkKind.SHELL),
         (FlowSourceKind.TOOL_PARAMETER, FlowSinkKind.CODE),
         (FlowSourceKind.TOOL_PARAMETER, FlowSinkKind.PROCESS),
+        (FlowSourceKind.TOOL_PARAMETER, FlowSinkKind.NETWORK),
     }
 )
 WRITTEN_FILE_SOURCES: frozenset[FlowSourceKind] = frozenset(

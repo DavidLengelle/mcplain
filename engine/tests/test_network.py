@@ -80,6 +80,8 @@ def test_fetch_is_orange_by_open_network() -> None:
     assert verdict.color is VerdictColor.ORANGE
     assert "O01" in rules
     assert not any(rule.startswith("R") for rule in rules)
+    open_network = [alert for alert in verdict.alerts if alert.rule == "O01"]
+    assert open_network[0].function == "fetch_url"
 
 
 def test_filesystem_is_orange_by_powerful_capability() -> None:
