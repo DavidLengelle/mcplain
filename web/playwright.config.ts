@@ -24,7 +24,7 @@ export default defineConfig({
       command: `pnpm exec next start --hostname localhost --port ${SITE_PORT}`,
       url: `http://127.0.0.1:${SITE_PORT}`,
       reuseExistingServer: false,
-      env: { MCPLAIN_API_URL: `http://127.0.0.1:${MESSAGES_PORT}` },
+      env: { MCPLAIN_API_URL: `http://127.0.0.1:${MESSAGES_PORT}`, NODE_OPTIONS: "--dns-result-order=ipv4first" },
     },
   ],
 });

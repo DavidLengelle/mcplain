@@ -105,7 +105,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then((response) => { if (!response.ok) process.exit(1); }, () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/icon.svg').then((response) => { if (!response.ok) process.exit(1); }, () => process.exit(1))"]
       interval: 3s
       timeout: 5s
       retries: 20
