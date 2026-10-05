@@ -10,7 +10,8 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "next build && playwright test"
+    "test:e2e": "next build && playwright test",
+    "test:stack": "playwright test --config playwright.stack.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",
