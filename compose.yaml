@@ -1,0 +1,90 @@
+name: mcplain
+
+services:
+  postgres:
+    image: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_USER: mcplain
+      POSTGRES_DB: mcplain
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcplain -d mcplain"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: mcplain-api:dev
+    command: ["mcplain-api"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://mcplain:${POSTGRES_PASSWORD}@postgres:5432/mcplain
+      MCPLAIN_MAX_QUEUED: ${MCPLAIN_MAX_QUEUED:-100}
+      MCPLAIN_CORS_ORIGINS: ${MCPLAIN_CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "127.0.0.1:8000:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # This service holds the Docker socket, so it holds the keys of the machine:
+  # anyone who controls it controls the host. It must never open an archive
+  # nor read third-party code: only the atelier containers it starts do that.
+  dispatcher:
+    image: mcplain-api:dev
+    pull_policy: never
+    command: ["mcplain-dispatcher"]
+    user: "${MCPLAIN_UID:-10002}:${MCPLAIN_GID:-10002}"
+    group_add:
+      - "${DOCKER_GID:?set DOCKER_GID in .env}"
+    environment:
+      DATABASE_URL: postgresql+psycopg://mcplain:${POSTGRES_PASSWORD}@postgres:5432/mcplain
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      MCPLAIN_JOBS_DIR: ${MCPLAIN_JOBS_DIR:?set MCPLAIN_JOBS_DIR in .env}
+      MCPLAIN_ATELIER_IMAGE: ${MCPLAIN_ATELIER_IMAGE:-mcplain-atelier:dev}
+      MCPLAIN_ATELIER_TIMEOUT: ${MCPLAIN_ATELIER_TIMEOUT:-120}
+      MCPLAIN_MAX_PARALLEL: ${MCPLAIN_MAX_PARALLEL:-2}
+      HOME: /tmp
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${MCPLAIN_JOBS_DIR}:${MCPLAIN_JOBS_DIR}
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  atelier:
+    build:
+      context: .
+      dockerfile: docker/atelier.Dockerfile
+    image: mcplain-atelier:dev
+    profiles:
+      - atelier
+
+volumes:
+  postgres_data:
