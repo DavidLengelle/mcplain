@@ -6,8 +6,8 @@ You paste a GitHub link, an `npx` command or a `uvx` command. MCPlain downloads 
 reads it without ever running it, and explains in plain words what the server can do:
 network access, reading or writing files, running commands, reading secrets, and more.
 
-**Status: under construction.** The analysis engine (`engine/`) and the HTTP API with its
-isolated analysis workers (`api/`) exist. The website will come later (`web/`).
+**Status: under construction.** The analysis engine (`engine/`), the HTTP API with its isolated
+analysis workers (`api/`) and a first version of the website (`web/`, in English and French) exist.
 
 ## Try the engine
 
@@ -26,10 +26,16 @@ Set `GITHUB_TOKEN` to raise the GitHub API limit (60 requests per hour without a
 ## Architecture
 
 ```text
- browser / curl
+ browser
+      |  http://127.0.0.1:3000  (pages, and /api/* passed on to the API)
+      v
+ +---------+   network "front": the website reaches the API only
+ | website |   never reads third-party code, never decides a color
+ +---------+
       |  POST /api/analyses {"input": "uvx mcp-server-fetch"}  ->  202 {"id": ...}
       v
- +---------+      +--------------------------+
+ +---------+      +--------------------------+   network "back": API, dispatcher, PostgreSQL
+ |   API   | ---> | PostgreSQL: analyses     |
  |   API   | ---> | PostgreSQL: analyses     |   the queue and the results
  +---------+      +--------------------------+
  never reads           ^            |  SELECT ... FOR UPDATE SKIP LOCKED
@@ -50,8 +56,9 @@ Set `GITHUB_TOKEN` to raise the GitHub API limit (60 requests per hour without a
 
 The atelier is the only place where the downloaded archive is opened and the code is read. It is a
 fresh container for each analysis, removed right after. Any error, timeout or unreadable report
-gives a gray verdict, never green. The same version of the same package is analyzed once: later
-requests reuse the result.
+gives a gray verdict, never green. OSV.dev is asked again at every request; the same version of the
+same package, with the same reputation, is analyzed once and later requests reuse the result. A new
+malicious report on OSV.dev means a new analysis.
 
 ## Run it locally
 
@@ -68,8 +75,23 @@ curl -s -X POST http://127.0.0.1:8000/api/analyses -H "Content-Type: application
 curl -s http://127.0.0.1:8000/api/analyses/<id>
 ```
 
-The API only listens on `127.0.0.1:8000`. `GITHUB_TOKEN` in `.env` is optional: it raises the GitHub
-API limit and only the dispatcher receives it.
+The website is then on http://127.0.0.1:3000, and the API on `127.0.0.1:8000`. Both only listen on
+`127.0.0.1`. `GITHUB_TOKEN` in `.env` is optional: it raises the GitHub API limit and only the
+dispatcher receives it.
+
+### The website in development
+
+You need Node 24 and pnpm 11 (not npm). With the stack running for the API:
+
+```bash
+cd web
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Open http://localhost:3000. The tests: `pnpm lint`, `pnpm typecheck`, `pnpm test` (Vitest) and
+`pnpm test:e2e` (Playwright with a simulated API). A guided tour of the code, in French, is in
+[docs/web.fr.md](docs/web.fr.md).
 
 ## What MCPlain checks
 
@@ -123,6 +145,19 @@ exclude-newer-package = { httpx = false }
 
 Then run `uv lock --upgrade-package httpx`. Remove the `exclude-newer-package` line once
 the fixed version is more than 7 days old.
+
+The website follows the same rule with pnpm 11, in `web/pnpm-workspace.yaml`:
+`minimumReleaseAge: 10080` (7 days, in minutes). An urgent fix is allowed at its exact version only,
+with a comment that says why:
+
+```yaml
+minimumReleaseAgeExclude:
+  - next@16.3.8
+```
+
+No install script of a dependency runs (`allowBuilds`), and the lockfile is committed.
+The website sends a strict Content Security Policy with a fresh nonce on every page, and shows every
+text that comes from analyzed code as plain text, with invisible characters made visible.
 
 ## License
 
