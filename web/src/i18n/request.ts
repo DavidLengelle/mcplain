@@ -7,6 +7,8 @@ import { engineMessages } from "@/lib/engine-messages";
 
 import { routing } from "./routing";
 
+export const TIME_ZONE = "UTC";
+
 export default getRequestConfig(async ({ locale }) => {
   let current = locale;
   if (!current) {
@@ -20,6 +22,7 @@ export default getRequestConfig(async ({ locale }) => {
   const engine = await engineMessages(current);
   return {
     locale: current,
+    timeZone: TIME_ZONE,
     messages: { ...interfaceMessages, engine: engine ?? {} },
   };
 });
