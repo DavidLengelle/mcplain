@@ -9,7 +9,7 @@ const FORBIDDEN: { name: string; pattern: RegExp }[] = [
   { name: "dangerouslySetInnerHTML", pattern: /dangerouslySetInnerHTML/ },
   { name: "innerHTML", pattern: /\b(innerHTML|outerHTML|insertAdjacentHTML)\b/ },
   { name: "use server", pattern: /["'`]use server["'`]/ },
-  { name: "eval", pattern: /\beval\b/ },
+  { name: "eval", pattern: /(?<!'unsafe-)\beval\b/ },
   { name: "new Function", pattern: /\bnew\s+Function\s*\(/ },
 ];
 
@@ -40,6 +40,8 @@ describe("technical inspection of the site", () => {
     expect(violations("window.eval(text)")).toEqual(["eval"]);
     expect(violations("new Function(text)")).toEqual(["new Function"]);
     expect(violations("retrieval and evaluation")).toEqual([]);
+    expect(violations("script-src 'unsafe-eval'")).toEqual([]);
+    expect(violations("unsafe-eval(text)")).toEqual(["eval"]);
   });
 
   it("finds none of them in src/", () => {
