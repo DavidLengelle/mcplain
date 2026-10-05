@@ -9,9 +9,9 @@ from docker import DockerClient
 from docker.errors import DockerException
 from docker.models.containers import Container
 from docker.types import LogConfig, Mount, Ulimit
+from mcplain.models import AnalysisResult
 from pydantic import ValidationError
 
-from mcplain.models import AnalysisResult
 from mcplain_api.settings import Settings
 
 ROLE_LABEL = "mcplain.role"

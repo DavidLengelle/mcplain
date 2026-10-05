@@ -11,8 +11,8 @@ import requests
 from docker.errors import APIError, ImageNotFound
 from docker.types import LogConfig, Mount, Ulimit
 from helpers import ENGINE_FIXTURES, make_settings
-
 from mcplain.analyze import analyze_directory
+
 from mcplain_api import launcher
 from mcplain_api.launcher import (
     ATELIER_ERROR,

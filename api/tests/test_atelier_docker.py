@@ -12,8 +12,8 @@ from docker import DockerClient
 from docker.errors import ImageNotFound, NotFound
 from docker.models.containers import Container
 from helpers import ENGINE_FIXTURES, build_job, make_settings
-
 from mcplain.models import VerdictColor
+
 from mcplain_api.launcher import ATELIER_INVALID_RESULT, ATELIER_TIMEOUT, atelier_options, run_atelier
 
 pytestmark = pytest.mark.docker

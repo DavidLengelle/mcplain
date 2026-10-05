@@ -19,6 +19,7 @@ from mcplain.models import (
     SourceOrigin,
 )
 from mcplain.verdict import RULES_VERSION
+
 from mcplain_api.settings import Settings
 
 ENGINE_FIXTURES = Path(__file__).resolve().parents[2] / "engine" / "tests" / "fixtures"
