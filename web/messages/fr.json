@@ -1,10 +1,14 @@
 {
   "metadata": {
     "title": "MCPlain",
-    "description": "Les serveurs MCP, expliqués avant de les installer."
+    "description": "Les serveurs MCP, expliqués avant de les installer.",
+    "analysisTitle": "Rapport d'analyse, MCPlain"
   },
   "a11y": {
     "skipToContent": "Aller au contenu"
+  },
+  "common": {
+    "colon": " : "
   },
   "header": {
     "brand": "MCPlain",
@@ -33,7 +37,151 @@
     "unavailable": "Texte indisponible (le service MCPlain ne répond pas)."
   },
   "home": {
-    "tagline": "Les serveurs MCP, expliqués avant de les installer."
+    "tagline": "Les serveurs MCP, expliqués avant de les installer.",
+    "staticAnalysis": "Analyse statique : MCPlain lit le code du serveur, il ne l'exécute jamais."
+  },
+  "form": {
+    "label": "Serveur MCP à vérifier",
+    "hint": "Un lien GitHub, une commande npx ou une commande uvx, 500 caractères au maximum.",
+    "submit": "Analyser",
+    "submitting": "Envoi…",
+    "examples": "Exemples :",
+    "exampleLabel": "Remplir le champ avec {example}",
+    "empty": "Colle un lien GitHub, une commande npx ou une commande uvx.",
+    "busy": "La file est pleine, réessaie dans une minute.",
+    "unavailable": "MCPlain ne répond pas pour l'instant. Réessaie dans quelques minutes."
+  },
+  "tracker": {
+    "heading": "Analyse en cours",
+    "loading": "Chargement de l'analyse…",
+    "current": "Étape en cours : {step}",
+    "steps": {
+      "queued": "En file d'attente",
+      "fetching": "Téléchargement du code",
+      "analyzing": "Lecture du code"
+    },
+    "stepState": {
+      "done": "terminée",
+      "current": "en cours",
+      "waiting": "à venir"
+    }
+  },
+  "verdict": {
+    "heading": "Verdict",
+    "notSafe": "Ça ne veut pas dire qu'il est sûr.",
+    "alertCount": "{count, plural, one {# alerte} other {# alertes}}",
+    "reasons": "Pourquoi ce verdict",
+    "red": {
+      "word": "Rouge",
+      "summary": "Ne l'installe pas : MCPlain a trouvé des signes de danger."
+    },
+    "orange": {
+      "word": "Orange",
+      "summary": "Ce serveur a des pouvoirs à connaître avant de l'installer."
+    },
+    "green": {
+      "word": "Vert",
+      "summary": "Rien d'alarmant dans le code que MCPlain a pu lire."
+    },
+    "gray": {
+      "word": "Gris",
+      "summary": "MCPlain ne peut pas conclure."
+    }
+  },
+  "grayStates": {
+    "unverified": {
+      "title": "Non vérifié",
+      "body": "Le service MCPlain n'a pas répondu, ou a répondu quelque chose d'anormal : rien n'est dit sur ce serveur."
+    },
+    "timeout": {
+      "title": "Trop long",
+      "body": "L'analyse prend trop de temps. Réessaie dans quelques minutes."
+    },
+    "failed": {
+      "title": "L'analyse a échoué"
+    },
+    "home": "Retour à l'accueil"
+  },
+  "status": {
+    "heading": "Ce que MCPlain a trouvé"
+  },
+  "candidates": {
+    "heading": "Plusieurs serveurs trouvés",
+    "intro": "Choisis le serveur à analyser. La même source est analysée à nouveau, pour ce serveur seulement.",
+    "truncated": "La liste est coupée : il y a d'autres serveurs.",
+    "language": "langage : {language}"
+  },
+  "report": {
+    "toolsHeading": "Ce que fait chaque outil",
+    "noTools": "Aucune déclaration d'outil n'a été reconnue.",
+    "otherAlerts": "Autres alertes"
+  },
+  "tool": {
+    "label": "Outil",
+    "dynamicName": "nom calculé quand le serveur tourne",
+    "place": "Déclaré dans",
+    "announces": "Ce qu'il annonce",
+    "byAuthor": "selon l'auteur",
+    "description": "Description",
+    "noDescription": "Pas de description.",
+    "dynamicDescription": "Description calculée quand le serveur tourne, illisible ici.",
+    "title": "Titre",
+    "annotations": "Annotations",
+    "dynamicAnnotations": "Certaines annotations sont calculées quand le serveur tourne.",
+    "parameters": "Paramètres",
+    "canDo": "Ce que son code peut faire",
+    "nothingFound": "Rien trouvé dans son code.",
+    "incomplete": "Suivi incomplet",
+    "alerts": "Ses alertes",
+    "noAlert": "Aucune alerte pour cet outil."
+  },
+  "alert": {
+    "kind": "Nature",
+    "meaning": "Ce que ça veut dire",
+    "place": "Où",
+    "path": "Chemin",
+    "detail": "Détail",
+    "quote": "Passage original",
+    "more": "… et {count} autres endroits."
+  },
+  "outside": {
+    "heading": "Trouvé hors des outils",
+    "capabilities": "Capacités",
+    "urls": "URL citées dans le code",
+    "urlsHint": "Texte simple, pas des liens. Être cité ne veut pas dire être contacté.",
+    "sensitive": "Chemins sensibles",
+    "install": "Scripts d'installation",
+    "invisible": "Caractères invisibles",
+    "hiddenText": "texte caché",
+    "none": "Aucun.",
+    "more": "… et {count} autres."
+  },
+  "source": {
+    "heading": "Source analysée",
+    "kind": "Type",
+    "name": "Nom",
+    "version": "Version",
+    "requested": "demandée",
+    "reference": "Référence",
+    "revision": "Commit (SHA)",
+    "folder": "Dossier",
+    "repository": "Dépôt GitHub lié",
+    "integrity": "Empreinte",
+    "artifact": "Fichier",
+    "what": "Ce qui a été analysé",
+    "why": "Pourquoi",
+    "date": "Date",
+    "rules": "Règles",
+    "rulesValue": "version {version}, {count} règles",
+    "input": "Tu as demandé",
+    "ignored": "Arguments ignorés (jamais exécutés)",
+    "reputation": "Réputation (OSV.dev)",
+    "allVersions": "toutes les versions"
+  },
+  "rawText": {
+    "invisible": "caractère invisible",
+    "showAll": "Afficher tout",
+    "showLess": "Afficher moins"
   },
   "notFound": {
     "title": "Page introuvable",

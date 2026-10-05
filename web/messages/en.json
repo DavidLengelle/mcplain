@@ -1,10 +1,14 @@
 {
   "metadata": {
     "title": "MCPlain",
-    "description": "MCP servers, explained before you install."
+    "description": "MCP servers, explained before you install.",
+    "analysisTitle": "Analysis report, MCPlain"
   },
   "a11y": {
     "skipToContent": "Skip to content"
+  },
+  "common": {
+    "colon": ": "
   },
   "header": {
     "brand": "MCPlain",
@@ -33,7 +37,151 @@
     "unavailable": "Text unavailable (the MCPlain service does not answer)."
   },
   "home": {
-    "tagline": "MCP servers, explained before you install."
+    "tagline": "MCP servers, explained before you install.",
+    "staticAnalysis": "Static analysis: MCPlain reads the code of the server, it never runs it."
+  },
+  "form": {
+    "label": "MCP server to check",
+    "hint": "A GitHub link, an npx command or a uvx command, 500 characters at most.",
+    "submit": "Analyze",
+    "submitting": "Sending…",
+    "examples": "Examples:",
+    "exampleLabel": "Fill the field with {example}",
+    "empty": "Paste a GitHub link, an npx command or a uvx command.",
+    "busy": "The queue is full, try again in a minute.",
+    "unavailable": "MCPlain does not answer right now. Try again in a few minutes."
+  },
+  "tracker": {
+    "heading": "Analysis in progress",
+    "loading": "Loading the analysis…",
+    "current": "Current step: {step}",
+    "steps": {
+      "queued": "Waiting in the queue",
+      "fetching": "Downloading the code",
+      "analyzing": "Reading the code"
+    },
+    "stepState": {
+      "done": "done",
+      "current": "in progress",
+      "waiting": "waiting"
+    }
+  },
+  "verdict": {
+    "heading": "Verdict",
+    "notSafe": "That does not mean it is safe.",
+    "alertCount": "{count, plural, one {# alert} other {# alerts}}",
+    "reasons": "Why this verdict",
+    "red": {
+      "word": "Red",
+      "summary": "Do not install: MCPlain found signs of danger."
+    },
+    "orange": {
+      "word": "Orange",
+      "summary": "This server has powers to know before you install it."
+    },
+    "green": {
+      "word": "Green",
+      "summary": "Nothing alarming was found in the code MCPlain could read."
+    },
+    "gray": {
+      "word": "Gray",
+      "summary": "MCPlain cannot conclude."
+    }
+  },
+  "grayStates": {
+    "unverified": {
+      "title": "Not verified",
+      "body": "The MCPlain service did not answer, or answered something it should not, so nothing is said about this server."
+    },
+    "timeout": {
+      "title": "Too long",
+      "body": "The analysis takes too long. Try again in a few minutes."
+    },
+    "failed": {
+      "title": "The analysis failed"
+    },
+    "home": "Back to the home page"
+  },
+  "status": {
+    "heading": "What MCPlain found"
+  },
+  "candidates": {
+    "heading": "Several servers were found",
+    "intro": "Choose the server to analyze. The same source is analyzed again, for this server only.",
+    "truncated": "The list is cut: there are more servers.",
+    "language": "language: {language}"
+  },
+  "report": {
+    "toolsHeading": "What each tool does",
+    "noTools": "No tool declaration was recognized.",
+    "otherAlerts": "Other alerts"
+  },
+  "tool": {
+    "label": "Tool",
+    "dynamicName": "name computed when the server runs",
+    "place": "Declared in",
+    "announces": "What it announces",
+    "byAuthor": "according to the author",
+    "description": "Description",
+    "noDescription": "No description.",
+    "dynamicDescription": "Description computed when the server runs, not readable here.",
+    "title": "Title",
+    "annotations": "Annotations",
+    "dynamicAnnotations": "Some annotations are computed when the server runs.",
+    "parameters": "Parameters",
+    "canDo": "What its code can do",
+    "nothingFound": "Nothing found in its code.",
+    "incomplete": "Incomplete tracking",
+    "alerts": "Its alerts",
+    "noAlert": "No alert for this tool."
+  },
+  "alert": {
+    "kind": "Kind",
+    "meaning": "What it means",
+    "place": "Where",
+    "path": "Path",
+    "detail": "Detail",
+    "quote": "Original passage",
+    "more": "… and {count} more places."
+  },
+  "outside": {
+    "heading": "Found outside the tools",
+    "capabilities": "Capabilities",
+    "urls": "URLs cited in the code",
+    "urlsHint": "Plain text, not links. Being cited does not mean being contacted.",
+    "sensitive": "Sensitive paths",
+    "install": "Install scripts",
+    "invisible": "Invisible characters",
+    "hiddenText": "hidden text",
+    "none": "None.",
+    "more": "… and {count} more."
+  },
+  "source": {
+    "heading": "Analyzed source",
+    "kind": "Type",
+    "name": "Name",
+    "version": "Version",
+    "requested": "asked",
+    "reference": "Reference",
+    "revision": "Commit (SHA)",
+    "folder": "Folder",
+    "repository": "Linked GitHub repository",
+    "integrity": "Fingerprint",
+    "artifact": "File",
+    "what": "What was analyzed",
+    "why": "Why",
+    "date": "Date",
+    "rules": "Rules",
+    "rulesValue": "version {version}, {count} rules",
+    "input": "You asked for",
+    "ignored": "Ignored arguments (never run)",
+    "reputation": "Reputation (OSV.dev)",
+    "allVersions": "every version"
+  },
+  "rawText": {
+    "invisible": "invisible character",
+    "showAll": "Show all",
+    "showLess": "Show less"
   },
   "notFound": {
     "title": "Page not found",
