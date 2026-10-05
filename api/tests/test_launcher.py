@@ -24,6 +24,7 @@ from mcplain_api.launcher import (
 )
 
 INPUT = Path("/srv/mcplain/jobs/1234/input")
+DISPATCHER = "main"
 FORBIDDEN_KEYS: tuple[str, ...] = ("privileged", "devices", "cap_add", "volumes", "volumes_from", "device_requests")
 SOCKET = "/var/run/docker.sock"
 
@@ -50,7 +51,7 @@ def expected_options(input_dir: Path) -> dict[str, Any]:
         "use_config_proxy": False,
         "mounts": [Mount(target="/job/input", source=str(input_dir), type="bind", read_only=True)],
         "log_config": LogConfig(type="json-file", config={"max-size": "5m", "max-file": "1"}),
-        "labels": {"mcplain.role": "atelier"},
+        "labels": {"mcplain.role": "atelier", "mcplain.dispatcher": DISPATCHER},
     }
 
 
@@ -70,7 +71,7 @@ def inspect_options(options: dict[str, Any], input_dir: Path) -> None:
 def test_atelier_options_pass_the_technical_inspection() -> None:
     """atelier_options gives exactly the expected options, nothing more, nothing less"""
 
-    inspect_options(atelier_options(INPUT), INPUT)
+    inspect_options(atelier_options(INPUT, DISPATCHER), INPUT)
 
 
 def _without(key: str) -> Callable[[dict[str, Any]], None]:
@@ -136,6 +137,7 @@ WEAKENINGS: dict[str, Callable[[dict[str, Any]], None]] = {
     "writable input": _writable_input,
     "other log driver": _setting("log_config", LogConfig(type="local")),
     "no label": _setting("labels", {}),
+    "no dispatcher label": _setting("labels", {"mcplain.role": "atelier"}),
     "docker socket": _added("mounts", Mount(target=SOCKET, source=SOCKET, type="bind", read_only=True)),
     "device": _setting("devices", ["/dev/kvm:/dev/kvm:rwm"]),
     "privileged": _setting("privileged", True),
@@ -150,7 +152,7 @@ WEAKENINGS: dict[str, Callable[[dict[str, Any]], None]] = {
 def test_any_weakening_fails_the_inspection(name: str) -> None:
     """Removing or weakening one option, or adding a way out, makes the inspection fail"""
 
-    options = copy.deepcopy(atelier_options(INPUT))
+    options = copy.deepcopy(atelier_options(INPUT, DISPATCHER))
     WEAKENINGS[name](options)
     with pytest.raises(AssertionError):
         inspect_options(options, INPUT)
@@ -166,10 +168,12 @@ class FakeContainer:
         exit_code: int = 0,
         times_out: bool = False,
         start_error: Exception | None = None,
+        labels: dict[str, str] | None = None,
     ) -> None:
         """Remember the planned behavior"""
 
         self.id = "fake"
+        self.labels = labels or {}
         self.stdout = stdout
         self.stderr = stderr
         self.exit_code = exit_code
@@ -218,6 +222,13 @@ class FakeContainer:
         self.removed = True
 
 
+def has_labels(container: FakeContainer, labels: list[str]) -> bool:
+    """Tell whether a container carries every key=value label"""
+
+    pairs = [label.split("=", 1) for label in labels]
+    return all(container.labels.get(key) == value for key, value in pairs)
+
+
 class FakeContainers:
     """Class that imitates client.containers"""
 
@@ -228,7 +239,7 @@ class FakeContainers:
         self.error = error
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self.listed: list[FakeContainer] = []
-        self.filters: dict[str, str] | None = None
+        self.filters: dict[str, list[str]] | None = None
 
     def create(self, image: str, **options: Any) -> FakeContainer:
         """Record the call and return the planned container"""
@@ -239,11 +250,11 @@ class FakeContainers:
         assert self.container is not None
         return self.container
 
-    def list(self, all: bool, filters: dict[str, str]) -> list[FakeContainer]:
-        """Return the planned leftover containers"""
+    def list(self, all: bool, filters: dict[str, list[str]]) -> list[FakeContainer]:
+        """Return the planned leftover containers that carry every label of the filter, as Docker does"""
 
         self.filters = filters
-        return self.listed
+        return [item for item in self.listed if has_labels(item, filters["label"])]
 
 
 class FakeClient:
@@ -276,7 +287,7 @@ def test_valid_result_is_returned_and_the_container_removed(engine_fixtures: Pat
     client = FakeClient(container)
     run = run_atelier(client, INPUT, make_settings())
     assert run.result is not None and run.error_code is None
-    assert client.containers.calls == [("mcplain-atelier:dev", atelier_options(INPUT))]
+    assert client.containers.calls == [("mcplain-atelier:dev", atelier_options(INPUT, DISPATCHER))]
     assert container.removed
 
 
@@ -352,15 +363,28 @@ def test_test_entrypoint_is_the_only_extra_option() -> None:
     client = FakeClient(FakeContainer(exit_code=1))
     run_atelier(client, INPUT, make_settings(), test_entrypoint=["sleep", "1"])
     [(_, options)] = client.containers.calls
-    assert options == {**atelier_options(INPUT), "entrypoint": ["sleep", "1"]}
+    assert options == {**atelier_options(INPUT, DISPATCHER), "entrypoint": ["sleep", "1"]}
 
 
-def test_orphans_are_found_by_their_label() -> None:
-    """Leftover ateliers are listed by the mcplain.role=atelier label and removed"""
+def test_orphans_of_this_dispatcher_only_are_removed() -> None:
+    """At startup a dispatcher removes its own leftover ateliers, never those of another dispatcher"""
 
     client = FakeClient(None)
-    leftovers = [FakeContainer(), FakeContainer()]
-    client.containers.listed = leftovers
-    assert remove_orphans(client) == 2
-    assert client.containers.filters == {"label": "mcplain.role=atelier"}
-    assert all(container.removed for container in leftovers)
+    ours = [FakeContainer(labels={"mcplain.role": "atelier", "mcplain.dispatcher": "main"}) for _ in range(2)]
+    other = FakeContainer(labels={"mcplain.role": "atelier", "mcplain.dispatcher": "blue"})
+    unlabeled = FakeContainer(labels={"mcplain.role": "atelier"})
+    stranger = FakeContainer(labels={"mcplain.dispatcher": "main"})
+    client.containers.listed = [*ours, other, unlabeled, stranger]
+    assert remove_orphans(client, "main") == 2
+    assert client.containers.filters == {"label": ["mcplain.role=atelier", "mcplain.dispatcher=main"]}
+    assert all(container.removed for container in ours)
+    assert not any(container.removed for container in (other, unlabeled, stranger))
+
+
+def test_ateliers_carry_the_dispatcher_identifier() -> None:
+    """run_atelier labels each atelier with the MCPLAIN_DISPATCHER_ID of its dispatcher"""
+
+    client = FakeClient(FakeContainer(exit_code=1))
+    run_atelier(client, INPUT, make_settings(dispatcher_id="blue"))
+    [(_, options)] = client.containers.calls
+    assert options["labels"] == {"mcplain.role": "atelier", "mcplain.dispatcher": "blue"}

@@ -62,6 +62,7 @@ services:
       MCPLAIN_ATELIER_IMAGE: ${MCPLAIN_ATELIER_IMAGE:-mcplain-atelier:dev}
       MCPLAIN_ATELIER_TIMEOUT: ${MCPLAIN_ATELIER_TIMEOUT:-120}
       MCPLAIN_MAX_PARALLEL: ${MCPLAIN_MAX_PARALLEL:-2}
+      MCPLAIN_DISPATCHER_ID: ${MCPLAIN_DISPATCHER_ID:-main}
       HOME: /tmp
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

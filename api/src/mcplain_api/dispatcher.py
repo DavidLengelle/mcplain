@@ -75,7 +75,7 @@ class DockerLauncher:
     def remove_orphans(self) -> int:
         """Remove the ateliers left behind"""
 
-        return remove_orphans(self.client)
+        return remove_orphans(self.client, self.settings.dispatcher_id)
 
 
 @dataclass(frozen=True)
@@ -358,7 +358,8 @@ def main() -> int:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     LOGGER.info(
-        "dispatcher started: %d in parallel, atelier %s, GitHub token %s",
+        "dispatcher %s started: %d in parallel, atelier %s, GitHub token %s",
+        settings.dispatcher_id,
         settings.max_parallel,
         safe_text(settings.atelier_image),
         settings.github_token is not None,

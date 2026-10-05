@@ -2,6 +2,7 @@
 
 import json
 import time
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,7 @@ from docker.models.containers import Container
 from helpers import ENGINE_FIXTURES, build_job, make_settings
 from mcplain.models import VerdictColor
 
-from mcplain_api.launcher import ATELIER_INVALID_RESULT, ATELIER_TIMEOUT, atelier_options, run_atelier
+from mcplain_api.launcher import ATELIER_INVALID_RESULT, ATELIER_TIMEOUT, atelier_options, remove_orphans, run_atelier
 
 pytestmark = pytest.mark.docker
 
@@ -92,7 +93,8 @@ def input_folder(tmp_path: Path) -> Path:
 def test_atelier_is_closed(client: DockerClient, tmp_path: Path) -> None:
     """Only lo, read-only root and input, noexec /work, uid 10001, no proxy, no socket, no capability, no driver"""
 
-    container = client.containers.create(IMAGE, entrypoint=["sh", "-c", PROBE], **atelier_options(input_folder(tmp_path)))
+    options = atelier_options(input_folder(tmp_path), "main")
+    container = client.containers.create(IMAGE, entrypoint=["sh", "-c", PROBE], **options)
     try:
         container.start()
         assert container.wait(timeout=60)["StatusCode"] == 0
@@ -148,6 +150,29 @@ def test_more_than_five_megabytes_on_stdout_is_invalid(client: DockerClient, tmp
     [identifier] = recording.containers.created
     with pytest.raises(NotFound):
         client.containers.get(identifier)
+
+
+def test_orphan_cleanup_spares_the_ateliers_of_another_dispatcher(client: DockerClient) -> None:
+    """With the real Docker filters, a dispatcher removes its own leftover ateliers and no other"""
+
+    ours = f"test-{uuid.uuid4().hex[:12]}"
+    other = f"test-{uuid.uuid4().hex[:12]}"
+    created: list[Container] = []
+    try:
+        for dispatcher_id in (ours, ours, other):
+            labels = {"mcplain.role": "atelier", "mcplain.dispatcher": dispatcher_id}
+            created.append(client.containers.create(IMAGE, entrypoint=["true"], network_mode="none", labels=labels))
+        assert remove_orphans(client, ours) == 2
+        for container in created[:2]:
+            with pytest.raises(NotFound):
+                client.containers.get(container.id)
+        assert client.containers.get(created[2].id).labels["mcplain.dispatcher"] == other
+    finally:
+        for container in created:
+            try:
+                container.remove(force=True)
+            except NotFound:
+                pass
 
 
 @pytest.mark.parametrize(

@@ -5,6 +5,8 @@ from pathlib import Path
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DISPATCHER_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$"
+
 
 class Settings(BaseSettings):
     """Class that holds every setting of the API and of the dispatcher"""
@@ -19,6 +21,7 @@ class Settings(BaseSettings):
     max_parallel: int = Field(default=2, ge=1, validation_alias="MCPLAIN_MAX_PARALLEL")
     max_queued: int = Field(default=100, ge=1, validation_alias="MCPLAIN_MAX_QUEUED")
     cors_origins: str = Field(default="http://localhost:3000", validation_alias="MCPLAIN_CORS_ORIGINS")
+    dispatcher_id: str = Field(default="main", pattern=DISPATCHER_ID_PATTERN, validation_alias="MCPLAIN_DISPATCHER_ID")
 
     @field_validator("github_token", mode="before")
     @classmethod

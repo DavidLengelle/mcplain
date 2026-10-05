@@ -16,6 +16,7 @@ from mcplain_api.settings import Settings
 
 ROLE_LABEL = "mcplain.role"
 ATELIER_ROLE = "atelier"
+DISPATCHER_LABEL = "mcplain.dispatcher"
 JOB_INPUT_TARGET = "/job/input"
 ATELIER_USER = "10001:10001"
 NANO_CPUS_PER_CPU = 1_000_000_000
@@ -38,7 +39,7 @@ class AtelierRun:
     exit_code: int | None = None
 
 
-def atelier_options(input_dir: Path) -> dict[str, Any]:
+def atelier_options(input_dir: Path, dispatcher_id: str) -> dict[str, Any]:
     """Return the only container options of an atelier: no network, no secret, read-only, one read-only folder"""
 
     return {
@@ -60,7 +61,7 @@ def atelier_options(input_dir: Path) -> dict[str, Any]:
         "use_config_proxy": False,
         "mounts": [Mount(target=JOB_INPUT_TARGET, source=str(input_dir), type="bind", read_only=True)],
         "log_config": LogConfig(type="json-file", config={"max-size": "5m", "max-file": "1"}),
-        "labels": {ROLE_LABEL: ATELIER_ROLE},
+        "labels": {ROLE_LABEL: ATELIER_ROLE, DISPATCHER_LABEL: dispatcher_id},
     }
 
 
@@ -72,7 +73,7 @@ def run_atelier(
 ) -> AtelierRun:
     """Run one atelier on a job folder, wait for it with a time limit, read its result, and always remove it"""
 
-    options = atelier_options(input_dir)
+    options = atelier_options(input_dir, settings.dispatcher_id)
     if test_entrypoint is not None:
         options["entrypoint"] = test_entrypoint
     try:
@@ -147,10 +148,16 @@ def _remove(container: Container) -> None:
         return
 
 
-def remove_orphans(client: DockerClient) -> int:
-    """Remove every atelier container left behind, for example by a dispatcher that stopped abruptly"""
+def orphan_filters(dispatcher_id: str) -> dict[str, list[str]]:
+    """Return the Docker filters of the ateliers of one dispatcher; every label must match"""
 
-    containers = client.containers.list(all=True, filters={"label": f"{ROLE_LABEL}={ATELIER_ROLE}"})
+    return {"label": [f"{ROLE_LABEL}={ATELIER_ROLE}", f"{DISPATCHER_LABEL}={dispatcher_id}"]}
+
+
+def remove_orphans(client: DockerClient, dispatcher_id: str) -> int:
+    """Remove the ateliers left behind by this dispatcher only, for example after it stopped abruptly"""
+
+    containers = client.containers.list(all=True, filters=orphan_filters(dispatcher_id))
     for container in containers:
         _remove(container)
     return len(containers)
