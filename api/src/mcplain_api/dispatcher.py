@@ -18,8 +18,9 @@ import httpx
 from docker import DockerClient
 from mcplain import __version__
 from mcplain.errors import McplainError
-from mcplain.fetch.source import ResolvedSource, download_source, resolve_source
+from mcplain.fetch.source import ResolvedSource, check_source_reputation, download_source, resolve_source
 from mcplain.inputs import parse_input, parse_selection
+from mcplain.job import reputation_sha256
 from mcplain.models import AnalysisResult, AnalysisStatus, InputKind, InputSpec
 from mcplain.verdict import RULES_VERSION
 from sqlalchemy import or_, select
@@ -216,7 +217,7 @@ class Dispatcher:
             shutil.rmtree(job_dir, ignore_errors=True)
 
     def _process(self, claimed: Claimed, job_dir: Path) -> None:
-        """Run the steps of one analysis"""
+        """Run the steps of one analysis; OSV is asked every time, even when the cache can serve"""
 
         LOGGER.info("analysis %s: start %s", claimed.id, safe_text(claimed.input_raw))
         spec = parse_input(claimed.input_raw)
@@ -224,8 +225,10 @@ class Dispatcher:
         if claimed.select:
             selection = parse_selection(claimed.select)
         resolved = resolve_source(spec, selection, transport=self.transport)
-        self._update(claimed.id, source_key=resolved.source_key)
-        cached = self._cached(claimed.id, resolved)
+        reputation = check_source_reputation(resolved, transport=self.transport)
+        fingerprint = reputation_sha256(reputation)
+        self._update(claimed.id, source_key=resolved.source_key, reputation_sha256=fingerprint)
+        cached = self._cached(claimed.id, resolved, fingerprint)
         if cached is not None:
             LOGGER.info("analysis %s: served from the cache for %s", claimed.id, safe_text(resolved.source_key))
             self._record_result(claimed.id, _reuse(cached, resolved, spec))
@@ -235,7 +238,7 @@ class Dispatcher:
         input_dir = job_dir / INPUT_FOLDER
         input_dir.mkdir(mode=INPUT_FOLDER_MODE)
         input_dir.chmod(INPUT_FOLDER_MODE)
-        job = download_source(resolved, input_dir, transport=self.transport)
+        job = download_source(resolved, input_dir, transport=self.transport, reputation=reputation)
         self._update(claimed.id, state=AnalysisState.ANALYZING.value)
         run = self.launcher.run(input_dir)
         if run.result is None:
@@ -256,14 +259,15 @@ class Dispatcher:
             return
         self._record_result(claimed.id, run.result)
 
-    def _cached(self, identifier: uuid.UUID, resolved: ResolvedSource) -> AnalysisResult | None:
-        """Return a finished analysis of the same source, selection, engine and rules, if there is one"""
+    def _cached(self, identifier: uuid.UUID, resolved: ResolvedSource, fingerprint: str) -> AnalysisResult | None:
+        """Return a finished analysis of the same source, selection, reputation, engine and rules, if there is one"""
 
         with self.sessions() as session:
             rows = session.scalars(
                 select(Analysis)
                 .where(Analysis.state == AnalysisState.DONE.value)
                 .where(Analysis.source_key == resolved.source_key)
+                .where(Analysis.reputation_sha256 == fingerprint)
                 .where(Analysis.engine_version == __version__)
                 .where(Analysis.rules_version == RULES_VERSION)
                 .where(Analysis.id != identifier)

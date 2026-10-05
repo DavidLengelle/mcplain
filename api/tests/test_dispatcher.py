@@ -19,7 +19,8 @@ from helpers import ENGINE_FIXTURES, make_settings
 from mcplain.analyze import analyze_directory
 from mcplain.fetch import archive
 from mcplain.fetch.osv import QUERYBATCH_URL
-from mcplain.models import AnalysisResult, VerdictColor
+from mcplain.job import read_reputation
+from mcplain.models import AnalysisResult, Reputation, VerdictColor
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import sessionmaker
 
@@ -33,6 +34,7 @@ META = f"https://registry.npmjs.org/{NAME}/latest"
 TARBALL = f"https://registry.npmjs.org/{NAME}/-/{NAME}-1.0.0.tgz"
 ARCHIVE = b"raw bytes the dispatcher must never open"
 JOB_FILES = ["job.json", "reputation.json", "source.tar.gz"]
+R11_FIXTURE = ENGINE_FIXTURES / "rules" / "R11" / "positive"
 
 
 class FakeLauncher:
@@ -68,14 +70,66 @@ def clean_result() -> AnalysisResult:
     return analyze_directory(ENGINE_FIXTURES / "python_fastmcp_clean")
 
 
-def mock_registry(status: int = 200) -> respx.Route:
+class Osv:
+    """Class that stands for OSV.dev: it answers with the MAL- identifiers chosen by the test and counts the calls"""
+
+    def __init__(self) -> None:
+        """Start with a clean package"""
+
+        self.identifiers: list[str] = []
+        self.calls = 0
+
+    def answer(self, request: httpx.Request) -> httpx.Response:
+        """Answer a querybatch about the one package of the registry mock"""
+
+        self.calls += 1
+        result: dict[str, object] = {}
+        if self.identifiers:
+            result = {"vulns": [{"id": identifier} for identifier in self.identifiers]}
+        return httpx.Response(200, json={"results": [result]})
+
+
+def mock_registry(status: int = 200, osv: Osv | None = None) -> respx.Route:
     """Mock the npm registry and OSV for one small package, and return the tarball route"""
 
     integrity = "sha512-" + base64.b64encode(hashlib.sha512(ARCHIVE).digest()).decode()
     document = {"name": NAME, "version": "1.0.0", "dist": {"tarball": TARBALL, "integrity": integrity}}
     respx.get(META).mock(return_value=httpx.Response(status, json=document))
-    respx.post(QUERYBATCH_URL).mock(return_value=httpx.Response(200, json={"results": [{}]}))
+    if osv is None:
+        osv = Osv()
+    respx.post(QUERYBATCH_URL).mock(side_effect=osv.answer)
     return respx.get(TARBALL).mock(return_value=httpx.Response(200, content=ARCHIVE))
+
+
+def r11_identifiers() -> list[str]:
+    """Return the MAL- identifiers of the R11 fixture, read from its reputation.json as data"""
+
+    path = R11_FIXTURE / "reputation.json"
+    reputation = Reputation.model_validate_json(path.read_text(encoding="utf-8"))
+    return [report.id for package in reputation.packages for report in package.malicious]
+
+
+class ReputationLauncher(FakeLauncher):
+    """Class that analyzes the R11 fixture with the reputation.json of each job, as the atelier would read it"""
+
+    def __init__(self) -> None:
+        """Start with no job seen"""
+
+        super().__init__()
+        self.fingerprints: list[str] = []
+
+    def run(self, input_dir: Path) -> AtelierRun:
+        """Record the job, then analyze the fixture code with the reputation written by the dispatcher"""
+
+        self.calls.append((input_dir, sorted(path.name for path in input_dir.iterdir())))
+        self.fingerprints.append(hashlib.sha256((input_dir / "reputation.json").read_bytes()).hexdigest())
+        return AtelierRun(analyze_directory(R11_FIXTURE, reputation=read_reputation(input_dir)), None)
+
+
+def rules(result: AnalysisResult) -> set[str]:
+    """Return the rules that raised an alert"""
+
+    return {alert.rule for alert in result.verdict.alerts}
 
 
 def forbid_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -184,6 +238,47 @@ def test_same_package_is_served_from_the_cache(sessions: sessionmaker, jobs: Pat
     result = AnalysisResult.model_validate(cached.result)
     assert result.ignored_arguments == ["~/Desktop", "--port", "3000"]
     assert result.verdict == clean_result().verdict
+
+
+@respx.mock
+def test_osv_is_asked_again_and_an_unchanged_reputation_uses_the_cache(sessions: sessionmaker, jobs: Path) -> None:
+    """OSV is asked at each request; with the same answer the cache serves, keyed by the reputation.json sha256"""
+
+    osv = Osv()
+    tarball = mock_registry(osv=osv)
+    launcher = ReputationLauncher()
+    dispatcher = make_dispatcher(sessions, jobs, launcher)
+    first = queue(sessions)
+    second = queue(sessions)
+    assert dispatcher.run_once() and dispatcher.run_once()
+    assert osv.calls == 2
+    assert (len(launcher.calls), tarball.call_count) == (1, 1)
+    rows = [load(sessions, first), load(sessions, second)]
+    assert [row.state for row in rows] == ["done", "done"]
+    assert [row.reputation_sha256 for row in rows] == launcher.fingerprints * 2
+    assert AnalysisResult.model_validate(rows[1].result).verdict == AnalysisResult.model_validate(rows[0].result).verdict
+
+
+@respx.mock
+def test_new_malicious_report_gives_a_new_analysis_and_r11(sessions: sessionmaker, jobs: Path) -> None:
+    """When OSV starts listing the version as malicious, the cache is skipped and the new verdict is red R11"""
+
+    osv = Osv()
+    tarball = mock_registry(osv=osv)
+    launcher = ReputationLauncher()
+    dispatcher = make_dispatcher(sessions, jobs, launcher)
+    first = queue(sessions)
+    assert dispatcher.run_once()
+    osv.identifiers = r11_identifiers()
+    second = queue(sessions)
+    assert dispatcher.run_once()
+    assert osv.calls == 2
+    assert (len(launcher.calls), tarball.call_count) == (2, 2)
+    before = AnalysisResult.model_validate(load(sessions, first).result)
+    after = AnalysisResult.model_validate(load(sessions, second).result)
+    assert before.verdict.color is not VerdictColor.RED and "R11" not in rules(before)
+    assert after.verdict.color is VerdictColor.RED and "R11" in rules(after)
+    assert load(sessions, second).reputation_sha256 == launcher.fingerprints[1] != launcher.fingerprints[0]
 
 
 @respx.mock

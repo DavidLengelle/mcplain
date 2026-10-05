@@ -14,6 +14,7 @@ from sqlalchemy.pool import StaticPool
 INPUT_MAX_CHARS = 500
 SELECT_MAX_CHARS = 500
 SOURCE_KEY_MAX_CHARS = 600
+SHA256_HEX_CHARS = 64
 SQLITE_PREFIX = "sqlite"
 MEMORY_SQLITE_URLS: frozenset[str] = frozenset({"sqlite://", "sqlite:///:memory:"})
 
@@ -57,6 +58,7 @@ class Analysis(Base):
     select: Mapped[str | None] = mapped_column(String(SELECT_MAX_CHARS))
     state: Mapped[str] = mapped_column(String(16), default=AnalysisState.QUEUED.value)
     source_key: Mapped[str | None] = mapped_column(String(SOURCE_KEY_MAX_CHARS))
+    reputation_sha256: Mapped[str | None] = mapped_column(String(SHA256_HEX_CHARS))
     error_code: Mapped[str | None] = mapped_column(String(64))
     result: Mapped[dict[str, Any] | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     engine_version: Mapped[str | None] = mapped_column(String(32))
