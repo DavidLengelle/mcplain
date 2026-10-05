@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     max_queued: int = Field(default=100, ge=1, validation_alias="MCPLAIN_MAX_QUEUED")
     cors_origins: str = Field(default="http://localhost:3000", validation_alias="MCPLAIN_CORS_ORIGINS")
 
+    @field_validator("github_token", mode="before")
+    @classmethod
+    def empty_token_is_none(cls, value: object) -> object:
+        """Treat an empty GITHUB_TOKEN, as compose passes it when unset, as no token"""
+
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @field_validator("jobs_dir")
     @classmethod
     def jobs_dir_is_absolute(cls, value: Path) -> Path:

@@ -338,6 +338,7 @@ def main() -> int:
     """Run the dispatcher until SIGTERM or SIGINT"""
 
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     settings = Settings()
     settings.jobs_dir.mkdir(parents=True, exist_ok=True)
     engine = make_engine(settings.database_url)
