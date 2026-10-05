@@ -92,3 +92,11 @@ def test_every_source_url_answers() -> None:
             if status >= 400 and status != 429:
                 failures.append((url, str(status)))
     assert failures == []
+
+
+@pytest.mark.parametrize("rule", RULES, ids=[rule.identifier for rule in RULES])
+def test_orange_rules_are_powers_to_know(rule: object) -> None:
+    """Every orange rule is a power to be aware of; no red rule is"""
+
+    assert (rule.kind is AlertKind.POWER_TO_KNOW) is (rule.color is VerdictColor.ORANGE)
+

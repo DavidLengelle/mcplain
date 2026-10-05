@@ -351,10 +351,11 @@ class VerdictColor(StrEnum):
 
 
 class AlertKind(StrEnum):
-    """Class that tells whether an alert points to a suspicious use or to a serious flaw of an honest author"""
+    """Class that tells whether an alert points to a suspicious use, a serious flaw or a power to be aware of"""
 
     SUSPICIOUS_USE = "suspicious_use"
     SERIOUS_FLAW = "serious_flaw"
+    POWER_TO_KNOW = "power_to_know"
 
 
 class Alert(BaseModel):

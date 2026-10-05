@@ -189,7 +189,7 @@ A string, a comment or a description speaks to an analysis tool ("ignore previou
 
 ## O01 open-network
 
-**Can contact any address**: ORANGE, suspicious use.
+**Can contact any address**: ORANGE, a power to be aware of (nothing suspicious found).
 
 A tool sends requests to an address the AI gives it. It can contact any address the AI gives it, and what it brings back from the Internet can contain traps (hidden instructions for the AI).
 
@@ -202,7 +202,7 @@ A tool sends requests to an address the AI gives it. It can contact any address 
 
 ## O02 ai-chooses-the-command
 
-**The AI chooses the command**: ORANGE, suspicious use.
+**The AI chooses the command**: ORANGE, a power to be aware of (nothing suspicious found).
 
 A tool parameter is run as a whole command, as the program to start, or as code to evaluate (also after decoding). This is maximum power: the AI can run anything.
 
@@ -215,7 +215,7 @@ A tool parameter is run as a whole command, as the program to start, or as code 
 
 ## O03 description-from-internet
 
-**Description downloaded from the Internet**: ORANGE, suspicious use.
+**Description downloaded from the Internet**: ORANGE, a power to be aware of (nothing suspicious found).
 
 A tool description is computed from a network response. The AI reads it, and it can change at any time without a new version of the package.
 
@@ -228,7 +228,7 @@ A tool description is computed from a network response. The AI reads it, and it 
 
 ## O04 annotation-mismatch
 
-**Hints contradicted by the code**: ORANGE, suspicious use.
+**Hints contradicted by the code**: ORANGE, a power to be aware of (nothing suspicious found).
 
 The tool says it is read-only (readOnlyHint) or closed to the outside world (openWorldHint set to false), but its code writes files, runs commands or code, sends data, or uses the network. AI clients do not check these hints.
 
@@ -240,7 +240,7 @@ The tool says it is read-only (readOnlyHint) or closed to the outside world (ope
 
 ## O05 mentions-sensitive-path
 
-**Mentions a sensitive path**: ORANGE, suspicious use.
+**Mentions a sensitive path**: ORANGE, a power to be aware of (nothing suspicious found).
 
 A description names a sensitive path (SSH keys, credentials, startup files, settings of other tools) without asking for its content. Check why the tool needs it.
 
@@ -252,7 +252,7 @@ A description names a sensitive path (SSH keys, credentials, startup files, sett
 
 ## O06 dependency-was-malicious
 
-**A dependency had malicious versions**: ORANGE, suspicious use.
+**A dependency had malicious versions**: ORANGE, a power to be aware of (nothing suspicious found).
 
 OSV.dev lists some versions of a direct dependency as malicious (MAL- identifier). Check that the version installed with this server is not one of them.
 
@@ -264,7 +264,7 @@ OSV.dev lists some versions of a direct dependency as malicious (MAL- identifier
 
 ## O07 lone-invisible-char
 
-**Lone invisible character**: ORANGE, suspicious use.
+**Lone invisible character**: ORANGE, a power to be aware of (nothing suspicious found).
 
 A tool name or description contains one invisible character that its context does not explain. It is often harmless, but invisible characters can carry hidden text.
 
@@ -276,7 +276,7 @@ A tool name or description contains one invisible character that its context doe
 
 ## O08 powerful-capability
 
-**Powerful capability**: ORANGE, suspicious use.
+**Powerful capability**: ORANGE, a power to be aware of (nothing suspicious found).
 
 This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does.
 

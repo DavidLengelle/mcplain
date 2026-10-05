@@ -118,6 +118,7 @@
   "cli.alert.more": "... and {count} more place(s)",
   "kind.suspicious_use": "suspicious use",
   "kind.serious_flaw": "serious flaw: the author is probably honest, but the flaw is serious",
+  "kind.power_to_know": "a power to be aware of (nothing suspicious found)",
   "hidden.tag": "Unicode tags that hide text",
   "hidden.variation_selector": "variation selectors",
   "hidden.invisible_operator": "invisible operators",

@@ -251,6 +251,24 @@ def test_command_injection_is_a_serious_flaw(fixtures: Path, language: str, expe
     assert expected in text
 
 
+@pytest.mark.parametrize(
+    ("language", "orange", "red"),
+    [
+        ("en", "Kind: a power to be aware of (nothing suspicious found)", "Kind: suspicious use"),
+        ("fr", "Nature : pouvoir à connaître (rien de suspect trouvé)", "Nature : usage suspect"),
+    ],
+)
+def test_orange_alerts_are_powers_to_know(fixtures: Path, language: str, orange: str, red: str) -> None:
+    """An orange rule is shown as a power to be aware of, a red rule keeps its suspicious use label"""
+
+    text = render(analyze_directory(fixtures / "python_fastmcp_poisoned"), Translator(language))
+    orange_part = text[text.index(" O07 ") : text.rindex("== ")]
+    red_part = text[text.index(" R04 ") : text.index(" O07 ")]
+    assert orange in orange_part
+    assert red in red_part
+    assert red not in orange_part
+
+
 def test_quotes_are_cut_at_two_hundred_characters(tmp_path: Path) -> None:
     """A quoted passage is neutralized and never longer than 200 characters"""
 

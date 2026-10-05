@@ -189,7 +189,7 @@ Une chaîne, un commentaire ou une description s'adresse à un outil d'analyse (
 
 ## O01 open-network
 
-**Peut contacter n'importe quelle adresse** : ORANGE, usage suspect.
+**Peut contacter n'importe quelle adresse** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
 Un outil envoie des requêtes à une adresse que l'IA lui donne. Il peut contacter n'importe quelle adresse que l'IA lui donne, et ce qu'il rapporte d'Internet peut contenir des pièges (des instructions cachées pour l'IA).
 
@@ -202,7 +202,7 @@ Un outil envoie des requêtes à une adresse que l'IA lui donne. Il peut contact
 
 ## O02 ai-chooses-the-command
 
-**L'IA choisit la commande** : ORANGE, usage suspect.
+**L'IA choisit la commande** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
 Un paramètre d'outil est lancé comme commande entière, comme programme à démarrer ou comme code à évaluer (y compris après décodage). C'est le pouvoir maximal : l'IA peut lancer n'importe quoi.
 
@@ -215,7 +215,7 @@ Un paramètre d'outil est lancé comme commande entière, comme programme à dé
 
 ## O03 description-from-internet
 
-**Description téléchargée sur Internet** : ORANGE, usage suspect.
+**Description téléchargée sur Internet** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
 La description d'un outil est calculée à partir d'une réponse réseau. L'IA la lit, et elle peut changer à tout moment sans nouvelle version du paquet.
 
@@ -228,7 +228,7 @@ La description d'un outil est calculée à partir d'une réponse réseau. L'IA l
 
 ## O04 annotation-mismatch
 
-**Annonce contredite par le code** : ORANGE, usage suspect.
+**Annonce contredite par le code** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
 L'outil annonce qu'il est en lecture seule (readOnlyHint) ou fermé au monde extérieur (openWorldHint à false), mais son code écrit des fichiers, lance des commandes ou du code, envoie des données, ou utilise le réseau. Les clients IA ne vérifient pas ces indices.
 
@@ -240,7 +240,7 @@ L'outil annonce qu'il est en lecture seule (readOnlyHint) ou fermé au monde ext
 
 ## O05 mentions-sensitive-path
 
-**Cite un chemin sensible** : ORANGE, usage suspect.
+**Cite un chemin sensible** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
 Une description cite un chemin sensible (clés SSH, identifiants, fichiers de démarrage, réglages d'autres outils) sans demander d'en transmettre le contenu. Vérifie pourquoi l'outil en a besoin.
 
@@ -252,7 +252,7 @@ Une description cite un chemin sensible (clés SSH, identifiants, fichiers de d�
 
 ## O06 dependency-was-malicious
 
-**Une dépendance a eu des versions malveillantes** : ORANGE, usage suspect.
+**Une dépendance a eu des versions malveillantes** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
 OSV.dev classe certaines versions d'une dépendance directe comme malveillantes (identifiant MAL-). Vérifie que la version installée avec ce serveur n'en fait pas partie.
 
@@ -264,7 +264,7 @@ OSV.dev classe certaines versions d'une dépendance directe comme malveillantes 
 
 ## O07 lone-invisible-char
 
-**Caractère invisible isolé** : ORANGE, usage suspect.
+**Caractère invisible isolé** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
 Le nom ou la description d'un outil contient un caractère invisible que le contexte n'explique pas. C'est souvent sans danger, mais les caractères invisibles peuvent porter du texte caché.
 
@@ -276,7 +276,7 @@ Le nom ou la description d'un outil contient un caractère invisible que le cont
 
 ## O08 powerful-capability
 
-**Capacité puissante** : ORANGE, usage suspect.
+**Capacité puissante** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
 Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin.
 

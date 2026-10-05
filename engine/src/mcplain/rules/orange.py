@@ -2,7 +2,7 @@
 
 from mcplain.capabilities import POWERFUL_CAPABILITIES, Capability, find_sensitive_paths
 from mcplain.flows import ROLE_PROGRAM, FlowSinkKind, FlowSourceKind
-from mcplain.models import Alert, Finding, LocationKind, OutsideKind, UrlKind, VerdictColor
+from mcplain.models import Alert, AlertKind, Finding, LocationKind, OutsideKind, UrlKind, VerdictColor
 from mcplain.patterns import excerpt, transmit_request
 from mcplain.rules import sources
 from mcplain.rules.base import Rule, RuleContext
@@ -19,6 +19,7 @@ class OpenNetwork(Rule):
     identifier = "O01"
     slug = "open-network"
     color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
     sources = (sources.OWASP_MCP06, sources.LETHAL_TRIFECTA)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
@@ -44,6 +45,7 @@ class AiChoosesTheCommand(Rule):
     identifier = "O02"
     slug = "ai-chooses-the-command"
     color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
     sources = (sources.OWASP_MCP05, sources.OWASP_LLM06)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
@@ -66,6 +68,7 @@ class DescriptionFromInternet(Rule):
     identifier = "O03"
     slug = "description-from-internet"
     color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
     sources = (sources.OWASP_MCP03, sources.INVARIANT_POISONING)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
@@ -84,6 +87,7 @@ class AnnotationMismatch(Rule):
     identifier = "O04"
     slug = "annotation-mismatch"
     color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
     sources = (sources.MCP_ANNOTATIONS,)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
@@ -112,6 +116,7 @@ class MentionsSensitivePath(Rule):
     identifier = "O05"
     slug = "mentions-sensitive-path"
     color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
     sources = (sources.INVARIANT_POISONING,)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
@@ -148,6 +153,7 @@ class DependencyWasMalicious(Rule):
     identifier = "O06"
     slug = "dependency-was-malicious"
     color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
     sources = (sources.OSV,)
     visible_in_code = False
 
@@ -172,6 +178,7 @@ class LoneInvisibleCharacter(Rule):
     identifier = "O07"
     slug = "lone-invisible-char"
     color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
     sources = (sources.REHBERGER_TAGS,)
     visible_in_code = False
 
@@ -197,6 +204,7 @@ class PowerfulCapability(Rule):
     identifier = "O08"
     slug = "powerful-capability"
     color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
     sources = (sources.OWASP_LLM06, sources.OWASP_MCP02)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
