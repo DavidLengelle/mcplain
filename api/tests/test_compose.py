@@ -70,6 +70,34 @@ finally:
     admin.dispose()
 """
 
+REACH_SCRIPT = """
+const net = require("node:net");
+const targets = JSON.parse(process.argv[1]);
+const REACHED = new Set(["ECONNREFUSED", "ECONNRESET"]);
+
+function probe(host, port) {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host, port, timeout: 3000 });
+    socket.on("connect", () => { socket.destroy(); resolve("reachable"); });
+    socket.on("timeout", () => { socket.destroy(); resolve("unreachable"); });
+    socket.on("error", (error) => {
+      if (REACHED.has(error.code)) { resolve("reachable"); } else { resolve("unreachable"); }
+    });
+  });
+}
+
+async function main() {
+  const report = {};
+  const health = await fetch("http://api:8000/api/health").catch(() => null);
+  report.api = 0;
+  if (health !== null) { report.api = health.status; }
+  for (const [name, host, port] of targets) { report[name] = await probe(host, port); }
+  console.log(JSON.stringify(report));
+}
+
+main();
+"""
+
 
 @pytest.fixture
 def client() -> Iterator[DockerClient]:
@@ -130,6 +158,53 @@ def test_two_dispatchers_never_claim_the_same_analysis(client: DockerClient) -> 
     assert len(first) + len(second) == CLAIM_COUNT
     assert len(set(first) | set(second)) == CLAIM_COUNT
     assert first and second
+
+
+def network_address(container: Container, suffix: str) -> str:
+    """Return the IP address of a container on the compose network whose name ends with suffix"""
+
+    for name, settings in container.attrs["NetworkSettings"]["Networks"].items():
+        if name.endswith(suffix):
+            return settings["IPAddress"]
+    pytest.fail(f"{container.name} is not on the {suffix} network")
+
+
+def test_web_reaches_the_api_and_nothing_behind_it(client: DockerClient) -> None:
+    """From the web container the API answers; PostgreSQL and the dispatcher cannot be reached, by name or address"""
+
+    web = compose_container(client, "web")
+    postgres = compose_container(client, "postgres")
+    dispatcher = compose_container(client, "dispatcher")
+    targets = [
+        ["postgres_by_name", "postgres", 5432],
+        ["postgres_by_address", network_address(postgres, "_back"), 5432],
+        ["dispatcher_by_name", "dispatcher", 1],
+        ["dispatcher_by_address", network_address(dispatcher, "_back"), 1],
+        ["api_port", "api", 8000],
+    ]
+    exit_code, (stdout, stderr) = web.exec_run(["node", "-e", REACH_SCRIPT, json.dumps(targets)], demux=True)
+    assert exit_code == 0, stderr
+    assert json.loads(stdout) == {
+        "api": 200,
+        "api_port": "reachable",
+        "postgres_by_name": "unreachable",
+        "postgres_by_address": "unreachable",
+        "dispatcher_by_name": "unreachable",
+        "dispatcher_by_address": "unreachable",
+    }
+
+
+def test_web_container_is_closed(client: DockerClient) -> None:
+    """The web container is only on the front network, read-only, not root, and without the Docker socket"""
+
+    web = compose_container(client, "web")
+    attrs = web.attrs
+    assert [name.split("_")[-1] for name in attrs["NetworkSettings"]["Networks"]] == ["front"]
+    assert attrs["HostConfig"]["ReadonlyRootfs"] is True
+    assert attrs["HostConfig"]["CapDrop"] == ["ALL"]
+    assert attrs["Config"]["User"] == "10003:10003"
+    assert all("docker.sock" not in mount["Source"] for mount in attrs["Mounts"])
+    assert attrs["HostConfig"]["PortBindings"] == {"3000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "3000"}]}
 
 
 @pytest.mark.network
