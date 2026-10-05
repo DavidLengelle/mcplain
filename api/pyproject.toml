@@ -19,6 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
+mcplain-api = "mcplain_api.server:main"
 mcplain-dispatcher = "mcplain_api.dispatcher:main"
 
 [build-system]
