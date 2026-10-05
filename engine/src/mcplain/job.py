@@ -2,6 +2,7 @@
 
 import hashlib
 import hmac
+import json
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -9,7 +10,7 @@ from pydantic import ValidationError
 from mcplain import __version__
 from mcplain.config import DEFAULT_LIMITS, Limits
 from mcplain.errors import JobError
-from mcplain.models import ArchiveFormat, JobFile, Reputation, ReputationStatus
+from mcplain.models import ArchiveFormat, JobFile, PackageReputation, Reputation, ReputationStatus
 from mcplain.verdict import RULES_VERSION
 
 JOB_FILE = "job.json"
@@ -25,11 +26,37 @@ def archive_name(archive_format: ArchiveFormat) -> str:
     return f"{ARCHIVE_STEM}.{archive_format.value}"
 
 
+def reputation_json(reputation: Reputation) -> str:
+    """Return the normalized text of reputation.json: packages and reports sorted, keys sorted, no spaces"""
+
+    packages = sorted(
+        (
+            package.model_copy(update={"malicious": sorted(package.malicious, key=lambda report: report.id)})
+            for package in reputation.packages
+        ),
+        key=_package_order,
+    )
+    document = reputation.model_copy(update={"packages": packages}).model_dump(mode="json")
+    return json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+
+def _package_order(package: PackageReputation) -> tuple[str, str, str, bool]:
+    """Return the sort key of one package in the normalized reputation"""
+
+    return (package.ecosystem, package.name, package.version or "", package.dependency)
+
+
+def reputation_sha256(reputation: Reputation) -> str:
+    """Return the sha256 of the normalized reputation.json; a new MAL- report changes it"""
+
+    return hashlib.sha256(reputation_json(reputation).encode("ascii")).hexdigest()
+
+
 def write_job(folder: Path, job: JobFile, reputation: Reputation) -> None:
-    """Write job.json and reputation.json next to the archive, all readable by the analysis user"""
+    """Write job.json and the normalized reputation.json next to the archive, all readable by the analysis user"""
 
     _write(folder / JOB_FILE, job.model_dump_json())
-    _write(folder / REPUTATION_FILE, reputation.model_dump_json())
+    _write(folder / REPUTATION_FILE, reputation_json(reputation))
     (folder / job.archive).chmod(FILE_MODE)
 
 

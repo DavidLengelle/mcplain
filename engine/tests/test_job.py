@@ -9,7 +9,7 @@ from builders import tar_gz_folder
 
 from mcplain import __version__, atelier
 from mcplain.analyze import analyze_directory, analyze_job
-from mcplain.job import write_job
+from mcplain.job import reputation_json, reputation_sha256, write_job
 from mcplain.models import (
     AnalysisResult,
     AnalysisStatus,
@@ -18,6 +18,8 @@ from mcplain.models import (
     InputKind,
     InputSpec,
     JobFile,
+    MaliciousReport,
+    PackageReputation,
     Reputation,
     ReputationStatus,
     SourceKind,
@@ -121,6 +123,48 @@ def test_reputation_file_feeds_r11(fixtures: Path, tmp_path: Path) -> None:
     assert result.reputation == reputation
     assert result.verdict.color is VerdictColor.RED
     assert "R11" in {alert.rule for alert in result.verdict.alerts}
+
+
+def r11_reputation(fixtures: Path) -> Reputation:
+    """Return the reputation.json of the R11 fixture, read as data"""
+
+    folder = fixtures / "rules" / "R11" / "positive"
+    return Reputation.model_validate_json((folder / REPUTATION_FILE).read_text(encoding="utf-8"))
+
+
+def test_reputation_json_does_not_depend_on_the_order() -> None:
+    """The order of the packages and of the reports changes neither the normalized text nor its sha256"""
+
+    reports = [MaliciousReport(id="MAL-2026-2"), MaliciousReport(id="MAL-2026-1")]
+    package = PackageReputation(name="alpha", ecosystem="npm", version="1.0.0", malicious=reports)
+    dependency = PackageReputation(name="beta", ecosystem="PyPI", dependency=True)
+    reversed_package = package.model_copy(update={"malicious": list(reversed(reports))})
+    one = Reputation(status=ReputationStatus.CHECKED, queried=2, packages=[package, dependency])
+    other = Reputation(status=ReputationStatus.CHECKED, queried=2, packages=[dependency, reversed_package])
+    assert reputation_json(one) == reputation_json(other)
+    assert reputation_sha256(one) == reputation_sha256(other)
+    assert Reputation.model_validate_json(reputation_json(one)) == other.model_copy(
+        update={"packages": [dependency, package.model_copy(update={"malicious": sorted(reports, key=str)})]}
+    )
+
+
+def test_new_malicious_report_changes_the_fingerprint(fixtures: Path) -> None:
+    """A MAL- report, or an unreachable OSV, gives another sha256 than a clean reputation"""
+
+    flagged = r11_reputation(fixtures)
+    clean = flagged.model_copy(update={"packages": []})
+    unavailable = Reputation(status=ReputationStatus.UNAVAILABLE)
+    assert len({reputation_sha256(flagged), reputation_sha256(clean), reputation_sha256(unavailable)}) == 3
+
+
+def test_reputation_file_is_the_normalized_text(fixtures: Path, tmp_path: Path) -> None:
+    """write_job writes the normalized text, so the sha256 of reputation.json is the fingerprint"""
+
+    reputation = r11_reputation(fixtures)
+    build_job(tmp_path / "input", fixtures / "rules" / "R11" / "positive", reputation=reputation)
+    data = (tmp_path / "input" / REPUTATION_FILE).read_bytes()
+    assert data.decode("ascii") == reputation_json(reputation)
+    assert hashlib.sha256(data).hexdigest() == reputation_sha256(reputation)
 
 
 def test_missing_reputation_file_is_unavailable(fixtures: Path, tmp_path: Path) -> None:

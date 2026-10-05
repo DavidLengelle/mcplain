@@ -36,6 +36,7 @@ from mcplain.models import (
     InputKind,
     InputSpec,
     JobFile,
+    Reputation,
     SourceKind,
     SourceOrigin,
 )
@@ -90,13 +91,25 @@ def resolve_source(
         return _resolve_github(client, spec, limits)
 
 
+def check_source_reputation(
+    resolved: ResolvedSource,
+    limits: Limits = DEFAULT_LIMITS,
+    transport: httpx.BaseTransport | None = None,
+) -> Reputation:
+    """Ask OSV.dev about the resolved package and its direct dependencies, without downloading anything"""
+
+    with SafeClient(limits, github.github_host_headers(), transport) as client:
+        return check_reputation(client, list(resolved.queries), limits)
+
+
 def download_source(
     resolved: ResolvedSource,
     job_input_dir: Path,
     limits: Limits = DEFAULT_LIMITS,
     transport: httpx.BaseTransport | None = None,
+    reputation: Reputation | None = None,
 ) -> JobFile:
-    """Stream the raw archive into a job folder, check its digest, ask OSV, and write job.json; never extracts"""
+    """Stream the raw archive into a job folder, check its digest, ask OSV unless given, write job.json; never extracts"""
 
     archive = job_input_dir / archive_name(resolved.archive_format)
     with SafeClient(limits, github.github_host_headers(), transport) as client:
@@ -106,7 +119,8 @@ def download_source(
         except FetchError:
             archive.unlink(missing_ok=True)
             raise
-        reputation = check_reputation(client, list(resolved.queries), limits)
+        if reputation is None:
+            reputation = check_reputation(client, list(resolved.queries), limits)
     source = resolved.source
     if source.integrity is None:
         source = source.model_copy(update={"integrity": f"sha256:{download.sha256}"})

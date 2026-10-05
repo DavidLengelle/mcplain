@@ -22,9 +22,11 @@ from mcplain.config import DEFAULT_LIMITS, Limits
 from mcplain.errors import DetectionError, FetchError, InputError
 from mcplain.fetch import archive, source
 from mcplain.fetch.archive import extract_archive
-from mcplain.fetch.source import ResolvedSource, download_source, resolve_source
+from mcplain.fetch.osv import PackageQuery
+from mcplain.fetch.source import ResolvedSource, check_source_reputation, download_source, resolve_source
 from mcplain.i18n import Translator
 from mcplain.inputs import parse_input
+from mcplain.job import read_reputation
 from mcplain.models import (
     AnalysisStatus,
     ArchiveFormat,
@@ -228,6 +230,48 @@ def test_job_folder_holds_the_raw_archive_and_its_files(tmp_path: Path) -> None:
     assert JobFile.model_validate_json((tmp_path / "job.json").read_text(encoding="utf-8")) == job
     for path in tmp_path.iterdir():
         assert stat.S_IMODE(path.stat().st_mode) == 0o644
+
+
+@respx.mock
+def test_given_reputation_is_written_without_asking_osv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """download_source writes the reputation it is given and does not ask OSV a second time"""
+
+    data = npm_package()
+    respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data)))
+    respx.get(NPM_TARBALL).mock(return_value=httpx.Response(200, content=data))
+
+    def refuse(client: object, queries: object, limits: object) -> Reputation:
+        """Fail the test if OSV is asked"""
+
+        raise AssertionError("OSV must not be asked again")
+
+    monkeypatch.setattr(source, "check_reputation", refuse)
+    reputation = Reputation(status=ReputationStatus.UNAVAILABLE)
+    download_source(resolve(f"npx -y {NPM_NAME}"), tmp_path, reputation=reputation)
+    assert read_reputation(tmp_path) == reputation
+
+
+@respx.mock
+def test_source_reputation_asks_osv_and_downloads_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """check_source_reputation sends the queries of the resolved source and never fetches the archive"""
+
+    data = npm_package()
+    respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data)))
+    tarball = respx.get(NPM_TARBALL).mock(return_value=httpx.Response(200, content=data))
+    seen: list[PackageQuery] = []
+
+    def checked(client: object, queries: list[PackageQuery], limits: object) -> Reputation:
+        """Record the queries and pretend that OSV found nothing"""
+
+        seen.extend(queries)
+        return Reputation(status=ReputationStatus.CHECKED, queried=len(queries))
+
+    monkeypatch.setattr(source, "check_reputation", checked)
+    resolved = resolve(f"npx -y {NPM_NAME}")
+    reputation = check_source_reputation(resolved)
+    assert seen == list(resolved.queries)
+    assert reputation.queried == len(resolved.queries) >= 1
+    assert tarball.call_count == 0
 
 
 @respx.mock
