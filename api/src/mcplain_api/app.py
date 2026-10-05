@@ -200,13 +200,15 @@ def _enqueue(sessions: sessionmaker, settings: Settings, text_input: str, select
 
 
 def analysis_view(row: Analysis) -> dict[str, Any]:
-    """Return the public view of an analysis; a failed one always carries a gray result"""
+    """Return the public view of an analysis, with what was asked; a failed one always carries a gray result"""
 
     result = row.result
     if row.state == AnalysisState.FAILED.value:
         result = stored_failure(row.error_code, row.result)
     return {
         "id": str(row.id),
+        "input": row.input_raw,
+        "select": row.select,
         "state": row.state,
         "created_at": _iso(row.created_at),
         "finished_at": _iso(row.finished_at),

@@ -172,6 +172,15 @@ def test_queued_analysis_has_no_result_yet(client: TestClient) -> None:
     assert body["created_at"].endswith("+00:00")
 
 
+def test_analysis_gives_back_what_was_asked(client: TestClient) -> None:
+    """The view repeats the input and the selection, so the site can ask again with another selection"""
+
+    sent = {"input": "npx -y @modelcontextprotocol/server-filesystem", "select": "src/a"}
+    identifier = client.post("/api/analyses", json=sent).json()["id"]
+    body = client.get(f"/api/analyses/{identifier}").json()
+    assert (body["input"], body["select"]) == (sent["input"], sent["select"])
+
+
 def test_failed_analysis_always_has_a_gray_result(client: TestClient, sessions: sessionmaker) -> None:
     """A failed analysis gives a gray verdict and the code of its reason"""
 
