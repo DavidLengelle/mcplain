@@ -1,0 +1,26 @@
+minimumReleaseAge: 10080
+
+minimumReleaseAgeExclude:
+  # Next.js 16.3.8 (2026-09-30) is the September 2026 security release
+  # (GHSA-cjq9-62q9-8jv4 image optimizer SSRF, and six cache and disclosure fixes).
+  # It is younger than 7 days, so it and the packages published with it, at the
+  # exact same version, are allowed. Remove these lines once they are 7 days old.
+  - next@16.3.8
+  - "@next/env@16.3.8"
+  - "@next/swc-darwin-arm64@16.3.8"
+  - "@next/swc-darwin-x64@16.3.8"
+  - "@next/swc-linux-arm64-gnu@16.3.8"
+  - "@next/swc-linux-arm64-musl@16.3.8"
+  - "@next/swc-linux-x64-gnu@16.3.8"
+  - "@next/swc-linux-x64-musl@16.3.8"
+  - "@next/swc-win32-arm64-msvc@16.3.8"
+  - "@next/swc-win32-x64-msvc@16.3.8"
+
+# No install script runs. Each package below has one and is refused on purpose:
+# sharp: optional image library of Next.js; its prebuilt binaries come from
+#   @img/sharp-* packages, and the site serves no remote image.
+# unrs-resolver: used by eslint import resolvers; its prebuilt binaries come
+#   from @unrs/resolver-binding-* packages.
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
