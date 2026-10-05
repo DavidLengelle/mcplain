@@ -6,8 +6,8 @@ You paste a GitHub link, an `npx` command or a `uvx` command. MCPlain downloads 
 reads it without ever running it, and explains in plain words what the server can do:
 network access, reading or writing files, running commands, reading secrets, and more.
 
-**Status: under construction.** Only the analysis engine exists for now (`engine/`).
-The website will come later (`web/`).
+**Status: under construction.** The analysis engine (`engine/`) and the HTTP API with its
+isolated analysis workers (`api/`) exist. The website will come later (`web/`).
 
 ## Try the engine
 
@@ -22,6 +22,54 @@ uv run mcplain --rules --lang fr
 
 Set `GITHUB_TOKEN` to raise the GitHub API limit (60 requests per hour without a token).
 `--local` reads a folder on your disk without any network access.
+
+## Architecture
+
+```text
+ browser / curl
+      |  POST /api/analyses {"input": "uvx mcp-server-fetch"}  ->  202 {"id": ...}
+      v
+ +---------+      +--------------------------+
+ |   API   | ---> | PostgreSQL: analyses     |   the queue and the results
+ +---------+      +--------------------------+
+ never reads           ^            |  SELECT ... FOR UPDATE SKIP LOCKED
+ third-party code      |  result    v
+                  +------------------------------+
+                  | dispatcher                   |  network (allow list only), Docker socket
+                  |  1. resolve: exact version   |  never opens an archive,
+                  |  2. download raw archive,    |  never reads third-party code
+                  |     check digest, ask OSV    |
+                  +------------------------------+
+                         |  job folder, read-only        ^  one JSON line on stdout
+                         v                               |
+                  +------------------------------+
+                  | atelier (one per analysis)   |  no network, no secret, read-only,
+                  |  extract, read, apply rules  |  uid 10001, no capability, 1 GB, 120 s
+                  +------------------------------+
+```
+
+The atelier is the only place where the downloaded archive is opened and the code is read. It is a
+fresh container for each analysis, removed right after. Any error, timeout or unreadable report
+gives a gray verdict, never green. The same version of the same package is analyzed once: later
+requests reuse the result.
+
+## Run it locally
+
+You need Docker with Docker Compose. Copy the settings, then fill in `.env`: a database password,
+the absolute path of `var/jobs`, your user and group ids (`id -u`, `id -g`), and the group of the
+Docker socket as seen from a container (`DOCKER_GID`).
+
+```bash
+cp .env.example .env
+mkdir -p var/jobs
+docker compose build atelier
+docker compose up -d --build
+curl -s -X POST http://127.0.0.1:8000/api/analyses -H "Content-Type: application/json" -d '{"input": "uvx mcp-server-fetch"}'
+curl -s http://127.0.0.1:8000/api/analyses/<id>
+```
+
+The API only listens on `127.0.0.1:8000`. `GITHUB_TOKEN` in `.env` is optional: it raises the GitHub
+API limit and only the dispatcher receives it.
 
 ## What MCPlain checks
 
