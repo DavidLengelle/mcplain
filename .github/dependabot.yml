@@ -10,6 +10,8 @@ updates:
     ignore:
       - dependency-name: pnpm
         update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: uv
     directories:
