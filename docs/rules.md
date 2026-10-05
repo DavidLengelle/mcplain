@@ -230,7 +230,7 @@ A tool description is computed from a network response. The AI reads it, and it 
 
 **Hints contradicted by the code**: ORANGE, a power to be aware of (nothing suspicious found).
 
-The tool says it is read-only (readOnlyHint) or closed to the outside world (openWorldHint set to false), but its code writes files, runs commands or code, sends data, or uses the network. AI clients do not check these hints.
+The tool says it is read-only (readOnlyHint), but its code writes files, runs commands or code, or sends data. Or it says it is closed to the outside world (openWorldHint set to false), but its code uses the network, even for a simple read. AI clients do not check these hints.
 
 - Visible when reading the code: yes
 - Known false positive: A read-only search tool that writes a cache.

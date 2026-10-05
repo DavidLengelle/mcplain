@@ -369,7 +369,7 @@
   "rule.O03.explanation": "La description d'un outil est calculée à partir d'une réponse réseau. L'IA la lit, et elle peut changer à tout moment sans nouvelle version du paquet.",
   "rule.O03.false_positive": "Un serveur qui fabrique ses outils depuis la doc OpenAPI en ligne de l'API qu'il emballe (FastMCP.from_openapi).",
   "rule.O04.title": "Annonce contredite par le code",
-  "rule.O04.explanation": "L'outil annonce qu'il est en lecture seule (readOnlyHint) ou fermé au monde extérieur (openWorldHint à false), mais son code écrit des fichiers, lance des commandes ou du code, envoie des données, ou utilise le réseau. Les clients IA ne vérifient pas ces indices.",
+  "rule.O04.explanation": "L'outil annonce qu'il est en lecture seule (readOnlyHint), mais son code écrit des fichiers, lance des commandes ou du code, ou envoie des données. Ou il annonce qu'il est fermé au monde extérieur (openWorldHint à false), mais son code utilise le réseau, même pour une simple lecture. Les clients IA ne vérifient pas ces indices.",
   "rule.O04.false_positive": "Un outil de recherche « lecture seule » qui écrit un cache.",
   "rule.O05.title": "Cite un chemin sensible",
   "rule.O05.explanation": "Une description cite un chemin sensible (clés SSH, identifiants, fichiers de démarrage, réglages d'autres outils) sans demander d'en transmettre le contenu. Vérifie pourquoi l'outil en a besoin.",

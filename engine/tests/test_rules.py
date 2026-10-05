@@ -100,3 +100,14 @@ def test_orange_rules_are_powers_to_know(rule: object) -> None:
 
     assert (rule.kind is AlertKind.POWER_TO_KNOW) is (rule.color is VerdictColor.ORANGE)
 
+
+def test_closed_world_tool_that_only_reads_the_network(fixtures: Path) -> None:
+    """A tool that says openWorldHint false and only makes a GET request still fires O04"""
+
+    result = analyze_fixture(fixtures / "rules" / "O04" / "closed_world_get")
+    [tool] = result.servers[0].tools
+    [finding] = tool.findings
+    assert finding.sends is False
+    fired = [alert for alert in result.verdict.alerts if alert.rule == "O04"]
+    assert [(alert.tool, alert.detail) for alert in fired] == [("status", "openWorldHint: network")]
+

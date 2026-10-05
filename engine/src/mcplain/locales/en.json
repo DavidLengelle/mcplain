@@ -369,7 +369,7 @@
   "rule.O03.explanation": "A tool description is computed from a network response. The AI reads it, and it can change at any time without a new version of the package.",
   "rule.O03.false_positive": "A server that builds its tools from the online OpenAPI document of the API it wraps (FastMCP.from_openapi).",
   "rule.O04.title": "Hints contradicted by the code",
-  "rule.O04.explanation": "The tool says it is read-only (readOnlyHint) or closed to the outside world (openWorldHint set to false), but its code writes files, runs commands or code, sends data, or uses the network. AI clients do not check these hints.",
+  "rule.O04.explanation": "The tool says it is read-only (readOnlyHint), but its code writes files, runs commands or code, or sends data. Or it says it is closed to the outside world (openWorldHint set to false), but its code uses the network, even for a simple read. AI clients do not check these hints.",
   "rule.O04.false_positive": "A read-only search tool that writes a cache.",
   "rule.O05.title": "Mentions a sensitive path",
   "rule.O05.explanation": "A description names a sensitive path (SSH keys, credentials, startup files, settings of other tools) without asking for its content. Check why the tool needs it.",

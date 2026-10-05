@@ -230,7 +230,7 @@ La description d'un outil est calculée à partir d'une réponse réseau. L'IA l
 
 **Annonce contredite par le code** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
-L'outil annonce qu'il est en lecture seule (readOnlyHint) ou fermé au monde extérieur (openWorldHint à false), mais son code écrit des fichiers, lance des commandes ou du code, envoie des données, ou utilise le réseau. Les clients IA ne vérifient pas ces indices.
+L'outil annonce qu'il est en lecture seule (readOnlyHint), mais son code écrit des fichiers, lance des commandes ou du code, ou envoie des données. Ou il annonce qu'il est fermé au monde extérieur (openWorldHint à false), mais son code utilise le réseau, même pour une simple lecture. Les clients IA ne vérifient pas ces indices.
 
 - Visible en lisant le code : oui
 - Faux positif connu : Un outil de recherche « lecture seule » qui écrit un cache.
