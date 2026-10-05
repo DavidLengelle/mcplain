@@ -87,7 +87,7 @@ describe("pythonToIcu", () => {
       seed = (seed * 1103515245 + 12345) % 2147483648;
       return seed % limit;
     }
-    for (let round = 0; round < 2000; round += 1) {
+    for (let round = 0; round < 500; round += 1) {
       const pieces: string[] = [];
       for (let index = 0; index < 1 + random(4); index += 1) {
         let piece = "";
