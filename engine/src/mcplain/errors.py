@@ -26,3 +26,7 @@ class ArchiveError(McplainError):
 
 class DetectionError(McplainError):
     """Class for a source folder that cannot be inspected"""
+
+
+class JobError(McplainError):
+    """Class for a job folder that cannot be analyzed as it is"""

@@ -1,9 +1,13 @@
 """Tests for the download step against simulated registries"""
 
 import base64
+import gzip
 import hashlib
 import json
+import stat
+import tarfile
 import tempfile
+import zipfile
 from pathlib import Path
 
 import httpx
@@ -12,13 +16,24 @@ import respx
 from builders import tar_gz, zip_bytes
 
 from mcplain import analyze
-from mcplain.analyze import analyze_input, fetch_source
+from mcplain.analyze import analyze_input
 from mcplain.cli import render
-from mcplain.config import Limits
-from mcplain.errors import FetchError, InputError
+from mcplain.config import DEFAULT_LIMITS, Limits
+from mcplain.errors import DetectionError, FetchError, InputError
+from mcplain.fetch import archive, source
+from mcplain.fetch.archive import extract_archive
+from mcplain.fetch.source import ResolvedSource, download_source, resolve_source
 from mcplain.i18n import Translator
 from mcplain.inputs import parse_input
-from mcplain.models import AnalysisStatus, Reputation, ReputationStatus, SourceKind, SourceOrigin
+from mcplain.models import (
+    AnalysisStatus,
+    ArchiveFormat,
+    JobFile,
+    Reputation,
+    ReputationStatus,
+    SourceKind,
+    SourceOrigin,
+)
 
 NPM_NAME = "@demo/weather-server"
 NPM_META = "https://registry.npmjs.org/@demo%2Fweather-server/latest"
@@ -71,6 +86,7 @@ def npm_document(data: bytes, tarball: str = NPM_TARBALL, integrity: str | None 
     document: dict[str, object] = {
         "name": NPM_NAME,
         "version": "1.2.3",
+        "dependencies": {"@modelcontextprotocol/sdk": "^1.30.0", "zod": "^3"},
         "dist": {"tarball": tarball, "integrity": integrity},
     }
     if repository is not None:
@@ -88,6 +104,7 @@ def pypi_document(wheel: bytes, sdist: bytes, wheel_sha: str | None = None) -> d
             "name": "demo-server",
             "version": "1.0.0",
             "project_urls": {"Repository": "https://github.com/demo/servers/tree/main/src/demo"},
+            "requires_dist": ["mcp>=2", "pytest; extra == \"test\""],
         },
         "urls": [
             {
@@ -126,12 +143,12 @@ def no_reputation(monkeypatch: pytest.MonkeyPatch) -> None:
 
         return Reputation(status=ReputationStatus.CHECKED)
 
-    monkeypatch.setattr(analyze, "check_reputation", checked)
+    monkeypatch.setattr(source, "check_reputation", checked)
 
 
 @pytest.fixture
 def workdirs(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
-    """Record the temporary folders created by fetch_source"""
+    """Record the temporary folders created by analyze_input"""
 
     created: list[Path] = []
     original = tempfile.mkdtemp
@@ -147,48 +164,124 @@ def workdirs(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     return created
 
 
+def forbid_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every way of opening an archive fail from now on"""
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        """Fail the test if an archive is opened"""
+
+        raise AssertionError("the download step must never open an archive")
+
+    monkeypatch.setattr(archive, "extract_archive", refuse)
+    monkeypatch.setattr(analyze, "extract_archive", refuse)
+    monkeypatch.setattr(tarfile, "open", refuse)
+    monkeypatch.setattr(zipfile, "ZipFile", refuse)
+    monkeypatch.setattr(gzip, "GzipFile", refuse)
+
+
+def resolve(text: str, limits: Limits = DEFAULT_LIMITS, select: str | None = None) -> ResolvedSource:
+    """Resolve a pasted input from the simulated registries"""
+
+    return resolve_source(parse_input(text), select, limits)
+
+
+def prepare(folder: Path, text: str, limits: Limits = DEFAULT_LIMITS) -> JobFile:
+    """Resolve a pasted input and download it into a job folder"""
+
+    return download_source(resolve(text, limits), folder, limits)
+
+
+def extracted(folder: Path, job: JobFile) -> Path:
+    """Extract the archive of a job folder, as the atelier does, to look at its files"""
+
+    return extract_archive(folder / job.archive, folder.parent / "extracted")
+
+
 @respx.mock
-def test_npm_package_is_downloaded_verified_and_cleaned(workdirs: list[Path]) -> None:
-    """Download an npm package, check sha512, extract it and remove the folder afterwards"""
+def test_npm_package_is_analyzed_and_cleaned(workdirs: list[Path]) -> None:
+    """The whole pipeline downloads, checks sha512, analyzes and removes its temporary folder"""
 
     data = npm_package()
     respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data)))
     respx.get(NPM_TARBALL).mock(return_value=httpx.Response(200, content=data))
-    with fetch_source(parse_input(f"npx -y {NPM_NAME}")) as fetched:
-        assert (fetched.root / "package.json").is_file()
-        assert fetched.source.kind is SourceKind.NPM
-        assert fetched.source.version == "1.2.3"
-        assert fetched.source.integrity == sri(data)
-        assert fetched.source.origin is SourceOrigin.PUBLISHED_PACKAGE
+    result = analyze_input(f"npx -y {NPM_NAME}")
+    assert result.source is not None
+    assert result.source.kind is SourceKind.NPM
+    assert result.source.version == "1.2.3"
+    assert result.source.integrity == sri(data)
+    assert result.source.origin is SourceOrigin.PUBLISHED_PACKAGE
     assert workdirs and not workdirs[0].exists()
 
 
 @respx.mock
-def test_wrong_npm_integrity_is_refused(workdirs: list[Path]) -> None:
-    """Refuse a tarball whose sha512 does not match the registry"""
+def test_job_folder_holds_the_raw_archive_and_its_files(tmp_path: Path) -> None:
+    """download_source writes the archive as downloaded, job.json and reputation.json, readable by everyone"""
+
+    data = npm_package()
+    respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data)))
+    respx.get(NPM_TARBALL).mock(return_value=httpx.Response(200, content=data))
+    job = prepare(tmp_path, f"npx -y {NPM_NAME}")
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["job.json", "reputation.json", "source.tar.gz"]
+    assert (tmp_path / "source.tar.gz").read_bytes() == data
+    assert job.archive_sha256 == hashlib.sha256(data).hexdigest()
+    assert job.source_key == f"npm:{NPM_NAME}@1.2.3"
+    assert JobFile.model_validate_json((tmp_path / "job.json").read_text(encoding="utf-8")) == job
+    for path in tmp_path.iterdir():
+        assert stat.S_IMODE(path.stat().st_mode) == 0o644
+
+
+@respx.mock
+def test_download_never_opens_the_archive(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Downloading an npm tarball, a wheel or a GitHub archive never extracts it"""
+
+    data = npm_package()
+    respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data)))
+    respx.get(NPM_TARBALL).mock(return_value=httpx.Response(200, content=data))
+    wheel = wheel_bytes()
+    respx.get(PYPI_META).mock(return_value=httpx.Response(200, json=pypi_document(wheel, b"")))
+    respx.get(WHEEL_URL).mock(return_value=httpx.Response(200, content=wheel))
+    files = {"src/demo/pyproject.toml": b'[project]\nname = "other-server"\ndependencies = ["mcp"]\n'}
+    mock_github(files, {"main": SHA})
+    respx.get("https://pypi.org/pypi/other-server/json").mock(return_value=httpx.Response(404))
+    forbid_extraction(monkeypatch)
+    for index, text in enumerate(
+        [f"npx {NPM_NAME}", "uvx demo-server", "https://github.com/demo/servers/tree/main/src/demo"]
+    ):
+        folder = tmp_path / str(index)
+        folder.mkdir()
+        job = prepare(folder, text)
+        assert sorted(path.name for path in folder.iterdir()) == sorted(["job.json", "reputation.json", job.archive])
+
+
+@respx.mock
+def test_wrong_npm_integrity_is_refused(tmp_path: Path, workdirs: list[Path]) -> None:
+    """Refuse a tarball whose sha512 does not match the registry, and delete it"""
 
     data = npm_package()
     respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data, integrity=sri(b"other"))))
     respx.get(NPM_TARBALL).mock(return_value=httpx.Response(200, content=data))
-    with pytest.raises(FetchError) as error, fetch_source(parse_input(f"npx {NPM_NAME}")):
-        pytest.fail("the package must not be extracted")
+    with pytest.raises(FetchError) as error:
+        prepare(tmp_path, f"npx {NPM_NAME}")
     assert error.value.code == "fetch.integrity_mismatch"
+    assert list(tmp_path.iterdir()) == []
+    result = analyze_input(f"npx {NPM_NAME}")
+    assert result.error is not None and result.error.code == "fetch.integrity_mismatch"
     assert workdirs and not workdirs[0].exists()
 
 
 @respx.mock
 def test_missing_npm_integrity_is_refused() -> None:
-    """Refuse a package that has no sha512 integrity"""
+    """Refuse a package that has no sha512 integrity, before any download"""
 
     data = npm_package()
     respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data, integrity="sha1-abc")))
-    with pytest.raises(FetchError) as error, fetch_source(parse_input(f"npx {NPM_NAME}")):
-        pytest.fail("the package must not be extracted")
+    with pytest.raises(FetchError) as error:
+        resolve(f"npx {NPM_NAME}")
     assert error.value.code == "fetch.integrity_missing"
 
 
 @respx.mock
-def test_redirect_to_other_host_is_refused() -> None:
+def test_redirect_to_other_host_is_refused(tmp_path: Path) -> None:
     """Refuse a redirect that leaves the allow list, without contacting the other host"""
 
     data = npm_package()
@@ -197,14 +290,14 @@ def test_redirect_to_other_host_is_refused() -> None:
     respx.get(NPM_TARBALL).mock(
         return_value=httpx.Response(302, headers={"Location": "https://evil.example/pkg.tgz"})
     )
-    with pytest.raises(FetchError) as error, fetch_source(parse_input(f"npx {NPM_NAME}")):
-        pytest.fail("the package must not be extracted")
+    with pytest.raises(FetchError) as error:
+        prepare(tmp_path, f"npx {NPM_NAME}")
     assert error.value.code == "fetch.host_not_allowed"
     assert not evil.called
 
 
 @respx.mock
-def test_redirect_inside_allow_list_is_followed() -> None:
+def test_redirect_inside_allow_list_is_followed(tmp_path: Path) -> None:
     """Follow a redirect hop when the next host is allowed"""
 
     data = npm_package()
@@ -212,44 +305,43 @@ def test_redirect_inside_allow_list_is_followed() -> None:
     respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data)))
     respx.get(NPM_TARBALL).mock(return_value=httpx.Response(301, headers={"Location": moved}))
     respx.get(moved).mock(return_value=httpx.Response(200, content=data))
-    with fetch_source(parse_input(f"npx {NPM_NAME}")) as fetched:
-        assert (fetched.root / "index.js").is_file()
+    job = prepare(tmp_path, f"npx {NPM_NAME}")
+    assert (extracted(tmp_path, job) / "index.js").is_file()
 
 
 @respx.mock
-def test_tarball_on_other_host_is_refused() -> None:
+def test_tarball_on_other_host_is_refused(tmp_path: Path) -> None:
     """Refuse a tarball URL that points outside the allow list"""
 
     data = npm_package()
     document = npm_document(data, tarball="https://cdn.evil.example/pkg.tgz")
     respx.get(NPM_META).mock(return_value=httpx.Response(200, json=document))
-    with pytest.raises(FetchError) as error, fetch_source(parse_input(f"npx {NPM_NAME}")):
-        pytest.fail("the package must not be extracted")
+    with pytest.raises(FetchError) as error:
+        prepare(tmp_path, f"npx {NPM_NAME}")
     assert error.value.code == "fetch.host_not_allowed"
 
 
 @respx.mock
-def test_plain_http_tarball_is_refused() -> None:
+def test_plain_http_tarball_is_refused(tmp_path: Path) -> None:
     """Refuse a tarball URL without HTTPS"""
 
     data = npm_package()
     document = npm_document(data, tarball="http://registry.npmjs.org/pkg.tgz")
     respx.get(NPM_META).mock(return_value=httpx.Response(200, json=document))
-    with pytest.raises(FetchError) as error, fetch_source(parse_input(f"npx {NPM_NAME}")):
-        pytest.fail("the package must not be extracted")
+    with pytest.raises(FetchError) as error:
+        prepare(tmp_path, f"npx {NPM_NAME}")
     assert error.value.code == "fetch.insecure_url"
 
 
 @respx.mock
-def test_download_over_size_limit_is_stopped() -> None:
+def test_download_over_size_limit_is_stopped(tmp_path: Path) -> None:
     """Stop a download as soon as it passes the size limit"""
 
     data = npm_package()
     respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data)))
     respx.get(NPM_TARBALL).mock(return_value=httpx.Response(200, content=data))
-    spec = parse_input(f"npx {NPM_NAME}")
-    with pytest.raises(FetchError) as error, fetch_source(spec, Limits(max_download_bytes=50)):
-        pytest.fail("the package must not be extracted")
+    with pytest.raises(FetchError) as error:
+        prepare(tmp_path, f"npx {NPM_NAME}", Limits(max_download_bytes=50))
     assert error.value.code == "fetch.too_large"
 
 
@@ -258,13 +350,28 @@ def test_unknown_npm_package() -> None:
     """Report a package that the registry does not know"""
 
     respx.get(NPM_META).mock(return_value=httpx.Response(404, json={"error": "Not found"}))
-    with pytest.raises(FetchError) as error, fetch_source(parse_input(f"npx {NPM_NAME}")):
-        pytest.fail("nothing must be extracted")
+    with pytest.raises(FetchError) as error:
+        resolve(f"npx {NPM_NAME}")
     assert error.value.code == "fetch.npm_not_found"
 
 
 @respx.mock
-def test_pypi_prefers_pure_wheel_and_checks_sha256() -> None:
+def test_npm_reputation_queries_come_from_the_registry() -> None:
+    """The package is checked at its exact version and its dependencies by name, read from the registry"""
+
+    data = npm_package()
+    respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data)))
+    resolved = resolve(f"npx {NPM_NAME}")
+    queries = [(query.name, query.ecosystem, query.version, query.dependency) for query in resolved.queries]
+    assert queries == [
+        (NPM_NAME, "npm", "1.2.3", False),
+        ("@modelcontextprotocol/sdk", "npm", None, True),
+        ("zod", "npm", None, True),
+    ]
+
+
+@respx.mock
+def test_pypi_prefers_pure_wheel_and_checks_sha256(tmp_path: Path) -> None:
     """Choose the pure Python wheel over the sdist and verify its sha256"""
 
     wheel = wheel_bytes()
@@ -272,29 +379,43 @@ def test_pypi_prefers_pure_wheel_and_checks_sha256() -> None:
     respx.get(PYPI_META).mock(return_value=httpx.Response(200, json=pypi_document(wheel, sdist)))
     wheel_route = respx.get(WHEEL_URL).mock(return_value=httpx.Response(200, content=wheel))
     sdist_route = respx.get(SDIST_URL).mock(return_value=httpx.Response(200, content=sdist))
-    with fetch_source(parse_input("uvx demo-server")) as fetched:
-        assert fetched.source.artifact == "wheel"
-        assert fetched.source.integrity == "sha256:" + hashlib.sha256(wheel).hexdigest()
-        assert (fetched.root / "demo_server" / "server.py").is_file()
+    resolved = resolve("uvx demo-server")
+    assert resolved.archive_format is ArchiveFormat.ZIP
+    assert resolved.source_key == "pypi:demo-server==1.0.0"
+    assert [query.name for query in resolved.queries] == ["demo-server", "mcp"]
+    job = download_source(resolved, tmp_path)
+    assert job.archive == "source.zip"
+    assert job.source.artifact == "wheel"
+    assert job.source.integrity == "sha256:" + hashlib.sha256(wheel).hexdigest()
+    assert (extracted(tmp_path, job) / "demo_server" / "server.py").is_file()
     assert wheel_route.called
     assert not sdist_route.called
 
 
 @respx.mock
-def test_wrong_pypi_sha256_is_refused() -> None:
+def test_wrong_pypi_sha256_is_refused(tmp_path: Path) -> None:
     """Refuse a wheel whose sha256 does not match PyPI"""
 
     wheel = wheel_bytes()
     document = pypi_document(wheel, b"", wheel_sha=hashlib.sha256(b"other").hexdigest())
     respx.get(PYPI_META).mock(return_value=httpx.Response(200, json=document))
     respx.get(WHEEL_URL).mock(return_value=httpx.Response(200, content=wheel))
-    with pytest.raises(FetchError) as error, fetch_source(parse_input("uvx demo-server")):
-        pytest.fail("the wheel must not be extracted")
+    with pytest.raises(FetchError) as error:
+        prepare(tmp_path, "uvx demo-server")
     assert error.value.code == "fetch.integrity_mismatch"
+    assert list(tmp_path.iterdir()) == []
 
 
-def mock_github(repo_files: dict[str, bytes], refs: dict[str, str | None]) -> None:
-    """Mock the GitHub API and codeload for the demo/servers repository"""
+def contents_url(path: str) -> str:
+    """Return the simulated contents API URL of a path of demo/servers at the test commit"""
+
+    if not path:
+        return f"https://api.github.com/repos/demo/servers/contents?ref={SHA}"
+    return f"https://api.github.com/repos/demo/servers/contents/{path}?ref={SHA}"
+
+
+def mock_github(repo_files: dict[str, bytes], refs: dict[str, str | None]) -> respx.Route:
+    """Mock the GitHub API, the contents API and codeload for the demo/servers repository"""
 
     respx.get("https://api.github.com/repos/demo/servers").mock(
         return_value=httpx.Response(200, json={"full_name": "demo/servers", "default_branch": "main", "size": 10})
@@ -305,44 +426,91 @@ def mock_github(repo_files: dict[str, bytes], refs: dict[str, str | None]) -> No
             route.mock(return_value=httpx.Response(422, json={"message": "No commit found"}))
         else:
             route.mock(return_value=httpx.Response(200, text=sha))
-    respx.get(f"https://codeload.github.com/demo/servers/tar.gz/{SHA}").mock(
+    listings: dict[str, list[dict[str, object]]] = {"": []}
+    for name, content in repo_files.items():
+        folder, _, base = name.rpartition("/")
+        listings.setdefault(folder, []).append({"name": base, "type": "file", "size": len(content)})
+        respx.get(contents_url(name)).mock(return_value=httpx.Response(200, content=content))
+        parts = folder.split("/")
+        for depth in range(1, len(parts)):
+            parent = "/".join(parts[: depth - 1])
+            entry = {"name": parts[depth - 1], "type": "dir", "size": 0}
+            if entry not in listings.setdefault(parent, []):
+                listings[parent].append(entry)
+    for folder, listing in listings.items():
+        respx.get(contents_url(folder)).mock(return_value=httpx.Response(200, json=listing))
+    return respx.get(f"https://codeload.github.com/demo/servers/tar.gz/{SHA}").mock(
         return_value=httpx.Response(200, content=tar_gz(repo_files, prefix=f"servers-{SHA}/"))
     )
 
 
 @respx.mock
-def test_github_tree_reference_with_slash() -> None:
+def test_github_tree_reference_with_slash(tmp_path: Path) -> None:
     """Resolve feature/x as the reference and keep src/demo as the folder"""
 
     files = {"src/demo/pyproject.toml": b'[project]\nname = "demo-server"\ndependencies = ["mcp"]\n'}
     files["src/demo/server.py"] = SERVER_PY
-    mock_github(files, {"feature": None, "feature%2Fx": SHA})
+    codeload = mock_github(files, {"feature": None, "feature%2Fx": SHA})
     respx.get(PYPI_META).mock(return_value=httpx.Response(404))
-    with fetch_source(parse_input("https://github.com/demo/servers/tree/feature/x/src/demo")) as fetched:
-        assert fetched.source.kind is SourceKind.GITHUB
-        assert fetched.source.reference == "feature/x"
-        assert fetched.source.revision == SHA
-        assert fetched.subdir == "src/demo"
-        assert fetched.source.origin is SourceOrigin.GITHUB_CODE
-        assert fetched.source.reason == "source.package_not_published"
+    resolved = resolve("https://github.com/demo/servers/tree/feature/x/src/demo")
+    assert resolved.source.kind is SourceKind.GITHUB
+    assert resolved.source.reference == "feature/x"
+    assert resolved.source.revision == SHA
+    assert resolved.source.subdir == "src/demo"
+    assert resolved.source.origin is SourceOrigin.GITHUB_CODE
+    assert resolved.source.reason == "source.package_not_published"
+    assert resolved.source_key == f"github:demo/servers@{SHA}:src/demo"
+    assert [(query.name, query.ecosystem) for query in resolved.queries] == [("mcp", "PyPI")]
+    assert not codeload.called
+    job = download_source(resolved, tmp_path)
+    assert codeload.called
+    assert job.source.integrity == "sha256:" + job.archive_sha256
 
 
 @respx.mock
-def test_github_prefers_matching_published_package() -> None:
-    """Analyze the published package when its metadata points back to the same folder"""
+def test_github_prefers_matching_published_package(tmp_path: Path) -> None:
+    """Analyze the published package when its metadata points back to the same folder, without the GitHub archive"""
 
     files = {"src/demo/pyproject.toml": b'[project]\nname = "demo-server"\ndependencies = ["mcp"]\n'}
     files["src/demo/server.py"] = SERVER_PY
-    mock_github(files, {"main": SHA})
+    codeload = mock_github(files, {"main": SHA})
     wheel = wheel_bytes()
     respx.get(PYPI_META).mock(return_value=httpx.Response(200, json=pypi_document(wheel, b"")))
     respx.get(WHEEL_URL).mock(return_value=httpx.Response(200, content=wheel))
-    with fetch_source(parse_input("https://github.com/demo/servers/tree/main/src/demo")) as fetched:
-        assert fetched.source.kind is SourceKind.PYPI
-        assert fetched.source.origin is SourceOrigin.PUBLISHED_PACKAGE
-        assert fetched.source.reason == "source.published_matches_directory"
-        assert fetched.source.repository == "demo/servers"
-        assert fetched.source.reference == "main"
+    job = prepare(tmp_path, "https://github.com/demo/servers/tree/main/src/demo")
+    assert job.source.kind is SourceKind.PYPI
+    assert job.source.origin is SourceOrigin.PUBLISHED_PACKAGE
+    assert job.source.reason == "source.published_matches_directory"
+    assert job.source.repository == "demo/servers"
+    assert job.source.reference == "main"
+    assert job.source_key == "pypi:demo-server==1.0.0"
+    assert not codeload.called
+
+
+@respx.mock
+def test_missing_github_folder_is_reported_before_download() -> None:
+    """A folder that does not exist at the commit is refused from the contents API"""
+
+    codeload = mock_github({"README.md": b"demo"}, {"main": SHA})
+    respx.get(contents_url("src/nope")).mock(return_value=httpx.Response(404, json={"message": "Not Found"}))
+    with pytest.raises(DetectionError) as error:
+        resolve("https://github.com/demo/servers/tree/main/src/nope")
+    assert error.value.code == "analyze.subdir_not_found"
+    assert not codeload.called
+
+
+@respx.mock
+def test_large_manifest_is_not_read() -> None:
+    """A manifest over 1 MB is ignored and the GitHub code is analyzed"""
+
+    codeload = mock_github({"package.json": b"{}"}, {"main": SHA})
+    big = [{"name": "package.json", "type": "file", "size": 2 * 1024 * 1024}]
+    respx.get(contents_url("")).mock(return_value=httpx.Response(200, json=big))
+    manifest = respx.get(contents_url("package.json"))
+    resolved = resolve("https://github.com/demo/servers")
+    assert resolved.source.reason == "source.no_package_manifest"
+    assert not manifest.called
+    assert not codeload.called
 
 
 @respx.mock
@@ -371,10 +539,26 @@ def test_github_keeps_code_when_package_points_elsewhere() -> None:
     other = {"type": "git", "url": "git+https://github.com/someone-else/servers.git"}
     data = npm_package(other)
     respx.get(NPM_META).mock(return_value=httpx.Response(200, json=npm_document(data, repository=other)))
-    with fetch_source(parse_input("https://github.com/demo/servers")) as fetched:
-        assert fetched.source.kind is SourceKind.GITHUB
-        assert fetched.source.origin is SourceOrigin.GITHUB_CODE
-        assert fetched.source.reason == "source.package_repository_mismatch"
+    resolved = resolve("https://github.com/demo/servers")
+    assert resolved.source.kind is SourceKind.GITHUB
+    assert resolved.source.origin is SourceOrigin.GITHUB_CODE
+    assert resolved.source.reason == "source.package_repository_mismatch"
+    assert resolved.source_key == f"github:demo/servers@{SHA}"
+    assert [(query.name, query.ecosystem) for query in resolved.queries] == [("@modelcontextprotocol/sdk", "npm")]
+
+
+@respx.mock
+def test_github_code_is_analyzed_end_to_end() -> None:
+    """A GitHub folder without a published package is downloaded from codeload and analyzed"""
+
+    files = {"src/demo/pyproject.toml": b'[project]\nname = "demo-server"\ndependencies = ["mcp"]\n'}
+    files["src/demo/server.py"] = SERVER_PY
+    mock_github(files, {"main": SHA})
+    respx.get(PYPI_META).mock(return_value=httpx.Response(404))
+    result = analyze_input("https://github.com/demo/servers/tree/main/src/demo")
+    assert result.status is AnalysisStatus.OK
+    assert result.source is not None and result.source.subdir == "src/demo"
+    assert [tool.name for tool in result.servers[0].tools] == ["hello"]
 
 
 @respx.mock
@@ -384,8 +568,8 @@ def test_github_rate_limit_is_reported() -> None:
     respx.get("https://api.github.com/repos/demo/servers").mock(
         return_value=httpx.Response(403, headers={"x-ratelimit-remaining": "0"}, json={"message": "rate limit"})
     )
-    with pytest.raises(FetchError) as error, fetch_source(parse_input("https://github.com/demo/servers")):
-        pytest.fail("nothing must be downloaded")
+    with pytest.raises(FetchError) as error:
+        resolve("https://github.com/demo/servers")
     assert error.value.code == "fetch.github_rate_limited"
 
 
@@ -394,9 +578,8 @@ def test_unknown_tree_reference_becomes_input_error() -> None:
     """Report a tree path whose reference does not exist"""
 
     mock_github({}, {"nope": None, "nope%2Fsrc": None})
-    spec = parse_input("https://github.com/demo/servers/tree/nope/src")
-    with pytest.raises(InputError) as error, fetch_source(spec):
-        pytest.fail("nothing must be downloaded")
+    with pytest.raises(InputError) as error:
+        resolve("https://github.com/demo/servers/tree/nope/src")
     assert error.value.code == "input.reference_not_found"
 
 

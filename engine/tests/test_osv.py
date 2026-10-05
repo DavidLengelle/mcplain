@@ -3,7 +3,6 @@
 import base64
 import hashlib
 import json
-from pathlib import Path
 
 import httpx
 import pytest
@@ -13,7 +12,7 @@ from builders import tar_gz
 from mcplain.analyze import analyze_input
 from mcplain.cli import render
 from mcplain.config import DEFAULT_LIMITS, Limits
-from mcplain.dependencies import npm_dependencies, python_dependencies
+from mcplain.dependencies import npm_dependency_names, pypi_dependency_names, pyproject_dependency_names
 from mcplain.fetch.http import SafeClient, check_url
 from mcplain.fetch.osv import QUERYBATCH_URL, PackageQuery, check_reputation, covers_all_versions
 from mcplain.i18n import Translator
@@ -132,22 +131,15 @@ def test_nothing_to_query_sends_nothing() -> None:
     assert (reputation.status, reputation.queried) == (ReputationStatus.CHECKED, 0)
 
 
-def test_direct_dependencies_are_read_from_manifests(tmp_path: Path) -> None:
-    """dependencies of package.json, Requires-Dist without extras, and pyproject dependencies"""
+def test_direct_dependencies_are_read_from_metadata() -> None:
+    """dependencies of an npm manifest, Requires-Dist without extras, and pyproject dependencies"""
 
-    (tmp_path / "package.json").write_text(
-        json.dumps({"dependencies": {"@scope/lib": "1", "zod": "3"}, "devDependencies": {"vitest": "1"}}),
-        encoding="utf-8",
-    )
-    assert npm_dependencies(tmp_path) == ["@scope/lib", "zod"]
-    dist_info = tmp_path / "demo-1.0.dist-info"
-    dist_info.mkdir()
-    (dist_info / "METADATA").write_text(
-        "Name: demo\nRequires-Dist: httpx>=0.27\nRequires-Dist: Mcp<2,>=1.0\nRequires-Dist: pytest; extra == \"test\"\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "pyproject.toml").write_text('[project]\nname = "demo"\ndependencies = ["Pydantic_Core"]\n', encoding="utf-8")
-    assert python_dependencies(tmp_path) == ["httpx", "mcp", "pydantic-core"]
+    manifest = {"dependencies": {"@scope/lib": "1", "zod": "3"}, "devDependencies": {"vitest": "1"}}
+    assert npm_dependency_names(manifest) == ["@scope/lib", "zod"]
+    info = {"requires_dist": ["httpx>=0.27", "Mcp<2,>=1.0", 'pytest; extra == "test"']}
+    assert pypi_dependency_names(info) == ["httpx", "mcp"]
+    assert pypi_dependency_names({"requires_dist": None}) == []
+    assert pyproject_dependency_names({"project": {"dependencies": ["Pydantic_Core"]}}) == ["pydantic-core"]
 
 
 def sri(data: bytes) -> str:
@@ -167,7 +159,12 @@ def test_reputation_reaches_the_report_without_alert_text() -> None:
     respx.get("https://registry.npmjs.org/evil-mcp/latest").mock(
         return_value=httpx.Response(
             200,
-            json={"name": "evil-mcp", "version": "1.0.16", "dist": {"tarball": tarball, "integrity": sri(data)}},
+            json={
+                "name": "evil-mcp",
+                "version": "1.0.16",
+                "dependencies": manifest["dependencies"],
+                "dist": {"tarball": tarball, "integrity": sri(data)},
+            },
         )
     )
     respx.get(tarball).mock(return_value=httpx.Response(200, content=data))

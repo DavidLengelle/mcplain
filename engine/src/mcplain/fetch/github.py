@@ -2,12 +2,11 @@
 
 import re
 from dataclasses import dataclass
-from pathlib import Path
 from urllib.parse import quote
 
 from mcplain.config import github_token
 from mcplain.errors import FetchError
-from mcplain.fetch.http import Download, SafeClient
+from mcplain.fetch.http import SafeClient
 
 API_ROOT = "https://api.github.com"
 CODELOAD_ROOT = "https://codeload.github.com"
@@ -21,6 +20,11 @@ SHA_HEADERS: dict[str, str] = {
     "Accept": "application/vnd.github.sha",
     "X-GitHub-Api-Version": "2022-11-28",
 }
+RAW_HEADERS: dict[str, str] = {
+    "Accept": "application/vnd.github.raw+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+}
+FILE_ENTRY = "file"
 MAX_SHA_RESPONSE_BYTES = 1024
 MISSING_REF_STATUSES: frozenset[str] = frozenset({"404", "409", "422"})
 
@@ -101,8 +105,44 @@ class GitHubSource:
         self._commits[key] = sha
         return sha
 
-    def download(self, owner: str, repo: str, sha: str, destination: Path) -> Download:
-        """Download the tar.gz archive of one commit"""
+    def folder_files(self, owner: str, repo: str, sha: str, folder: str) -> dict[str, int] | None:
+        """Return the regular files of one folder at one commit with their sizes, or None if it is not a folder"""
 
-        url = f"{CODELOAD_ROOT}/{quote(owner, safe='')}/{quote(repo, safe='')}/tar.gz/{sha}"
-        return self.client.download(url, destination)
+        try:
+            data = self.client.get_json(contents_url(owner, repo, sha, folder), API_HEADERS)
+        except FetchError as error:
+            if error.code == "fetch.not_found":
+                return None
+            raise
+        if not isinstance(data, list):
+            return None
+        files: dict[str, int] = {}
+        for entry in data:
+            if not isinstance(entry, dict) or entry.get("type") != FILE_ENTRY:
+                continue
+            name = entry.get("name")
+            size = entry.get("size")
+            if isinstance(name, str) and isinstance(size, int):
+                files[name] = size
+        return files
+
+    def file_text(self, owner: str, repo: str, sha: str, path: str, max_bytes: int) -> str:
+        """Read one small file of one commit as text, without downloading the repository"""
+
+        body = self.client.get_bytes(contents_url(owner, repo, sha, path), max_bytes, RAW_HEADERS)
+        return body.decode("utf-8", errors="replace")
+
+
+def contents_url(owner: str, repo: str, sha: str, path: str) -> str:
+    """Return the contents API URL of a file or folder at one commit; an empty path is the root"""
+
+    url = f"{API_ROOT}/repos/{quote(owner, safe='')}/{quote(repo, safe='')}/contents"
+    if path:
+        url = f"{url}/{quote(path, safe='/')}"
+    return f"{url}?ref={quote(sha, safe='')}"
+
+
+def archive_url(owner: str, repo: str, sha: str) -> str:
+    """Return the codeload URL of the tar.gz archive of one commit"""
+
+    return f"{CODELOAD_ROOT}/{quote(owner, safe='')}/{quote(repo, safe='')}/tar.gz/{sha}"

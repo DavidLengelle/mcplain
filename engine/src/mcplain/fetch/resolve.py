@@ -1,13 +1,13 @@
 """Choice between the published package and the GitHub code of a server"""
 
 import re
+from configparser import ConfigParser
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from mcplain.inputs import NPM_NAME_PATTERN, PYPI_NAME_PATTERN, normalize_pypi_name
-from mcplain.manifests import load_json_object, load_setup_cfg, load_toml, table
+from mcplain.manifests import table
 
 GITHUB_HOSTS: frozenset[str] = frozenset({"github.com", "www.github.com"})
 SHORTHAND_PATTERN = re.compile(r"^(?:github:)?([A-Za-z0-9-]+)/([A-Za-z0-9._-]+)$")
@@ -34,6 +34,15 @@ class PackageCandidate:
 
     registry: str
     name: str
+
+
+@dataclass(frozen=True)
+class ManifestFiles:
+    """Class that holds the manifests of one folder, already decoded as plain data"""
+
+    package_json: dict[str, Any] | None = None
+    pyproject: dict[str, Any] | None = None
+    setup_cfg: ConfigParser | None = None
 
 
 @dataclass(frozen=True)
@@ -164,30 +173,30 @@ def _directory_matches(link: RepositoryLink, wanted: str) -> bool:
     return tree_path.endswith("/" + wanted)
 
 
-def published_candidate(server_dir: Path) -> tuple[PackageCandidate | None, str]:
+def published_candidate(manifests: ManifestFiles) -> tuple[PackageCandidate | None, str]:
     """Return the package a server folder publishes, or the reason there is none"""
 
-    manifest = load_json_object(server_dir / "package.json")
+    manifest = manifests.package_json
     if manifest is not None:
         if manifest.get("private") is True:
             return None, "source.package_private"
         name = manifest.get("name")
         if isinstance(name, str) and NPM_NAME_PATTERN.match(name):
             return PackageCandidate(NPM_REGISTRY, name), ""
-    name = _python_project_name(server_dir)
+    name = _python_project_name(manifests)
     if name is not None:
         return PackageCandidate(PYPI_REGISTRY, normalize_pypi_name(name)), ""
     return None, "source.no_package_manifest"
 
 
-def _python_project_name(server_dir: Path) -> str | None:
+def _python_project_name(manifests: ManifestFiles) -> str | None:
     """Read the project name from pyproject.toml or setup.cfg"""
 
-    pyproject = load_toml(server_dir / "pyproject.toml")
+    pyproject = manifests.pyproject
     for name in (table(pyproject, "project").get("name"), table(pyproject, "tool", "poetry").get("name")):
         if isinstance(name, str) and PYPI_NAME_PATTERN.match(name):
             return name
-    setup_cfg = load_setup_cfg(server_dir / "setup.cfg")
+    setup_cfg = manifests.setup_cfg
     if setup_cfg is not None:
         name = setup_cfg.get("metadata", "name", fallback=None)
         if name and PYPI_NAME_PATTERN.match(name):

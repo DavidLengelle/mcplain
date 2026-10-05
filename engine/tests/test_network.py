@@ -4,6 +4,8 @@ import pytest
 
 from mcplain.analyze import analyze_input
 from mcplain.capabilities import Capability
+from mcplain.fetch.source import resolve_source
+from mcplain.inputs import parse_input
 from mcplain.models import AnalysisStatus, ReputationStatus, SourceKind, SourceOrigin, UrlKind, VerdictColor
 
 pytestmark = pytest.mark.network
@@ -18,6 +20,16 @@ def test_github_subfolder_resolves_to_published_package() -> None:
     assert result.source.kind is SourceKind.PYPI
     assert result.source.origin is SourceOrigin.PUBLISHED_PACKAGE
     assert [tool.name for tool in result.servers[0].tools] == ["fetch"]
+
+
+def test_github_manifests_are_read_through_the_contents_api() -> None:
+    """The repository root has a private package.json: the GitHub code is kept, pinned to one commit"""
+
+    resolved = resolve_source(parse_input("https://github.com/modelcontextprotocol/servers"))
+    assert resolved.source.kind is SourceKind.GITHUB
+    assert resolved.source.reason == "source.package_private"
+    assert resolved.source_key == f"github:modelcontextprotocol/servers@{resolved.source.revision}"
+    assert resolved.download_url.startswith("https://codeload.github.com/modelcontextprotocol/servers/tar.gz/")
 
 
 def test_npm_filesystem_server() -> None:

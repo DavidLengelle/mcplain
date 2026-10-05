@@ -29,6 +29,12 @@ def load_json_object(path: Path) -> dict[str, Any] | None:
     text = read_text(path)
     if text is None:
         return None
+    return parse_json_object(text)
+
+
+def parse_json_object(text: str) -> dict[str, Any] | None:
+    """Decode a JSON object, or None when the text is not one"""
+
     try:
         data = json.loads(text)
     except ValueError:
@@ -44,6 +50,12 @@ def load_toml(path: Path) -> dict[str, Any] | None:
     text = read_text(path)
     if text is None:
         return None
+    return parse_toml(text)
+
+
+def parse_toml(text: str) -> dict[str, Any] | None:
+    """Decode a TOML document, or None when the text is not valid TOML"""
+
     try:
         return tomllib.loads(text)
     except tomllib.TOMLDecodeError:
@@ -56,6 +68,12 @@ def load_setup_cfg(path: Path) -> ConfigParser | None:
     text = read_text(path)
     if text is None:
         return None
+    return parse_setup_cfg(text)
+
+
+def parse_setup_cfg(text: str) -> ConfigParser | None:
+    """Decode a setup.cfg document without interpolation, or None when it is invalid"""
+
     parser = ConfigParser(interpolation=None)
     try:
         parser.read_string(text)

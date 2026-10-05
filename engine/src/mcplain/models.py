@@ -438,6 +438,28 @@ class ErrorInfo(BaseModel):
     params: dict[str, str] = Field(default_factory=dict)
 
 
+class ArchiveFormat(StrEnum):
+    """Class that lists the archive formats a job can carry"""
+
+    TAR_GZ = "tar.gz"
+    ZIP = "zip"
+    TAR = "tar"
+
+
+class JobFile(BaseModel):
+    """Class that describes a job folder: what was asked, what was downloaded, and for which engine"""
+
+    spec: InputSpec
+    source: AnalyzedSource
+    select: str | None = None
+    archive: str
+    archive_format: ArchiveFormat
+    archive_sha256: str
+    source_key: str
+    engine_version: str
+    rules_version: str
+
+
 class AnalysisResult(BaseModel):
     """Class that holds the complete result of one analysis"""
 

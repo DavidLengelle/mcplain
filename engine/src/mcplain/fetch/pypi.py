@@ -1,14 +1,12 @@
-"""PyPI JSON API metadata and verified file download"""
+"""PyPI JSON API metadata: version, chosen file and expected sha256"""
 
-import hmac
 import re
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from mcplain.errors import FetchError
-from mcplain.fetch.http import Download, SafeClient
+from mcplain.fetch.http import SafeClient
 
 PYPI_ROOT = "https://pypi.org/pypi"
 PYPI_HOST = "pypi.org"
@@ -98,13 +96,3 @@ def fetch_release(client: SafeClient, name: str, version: str | None) -> PypiRel
         info=info,
     )
 
-
-def download_release(client: SafeClient, release: PypiRelease, destination: Path) -> Download:
-    """Download the chosen file and refuse it unless its sha256 matches"""
-
-    if not SHA256_PATTERN.match(release.sha256):
-        raise FetchError("fetch.integrity_missing")
-    download = client.download(release.url, destination)
-    if not hmac.compare_digest(release.sha256, download.sha256):
-        raise FetchError("fetch.integrity_mismatch", package=release.name)
-    return download

@@ -29,6 +29,7 @@ class Limits:
 
     max_download_bytes: int = 50 * MEGABYTE
     max_json_bytes: int = 10 * MEGABYTE
+    max_manifest_bytes: int = 1 * MEGABYTE
     max_extract_total_bytes: int = 200 * MEGABYTE
     max_extract_files: int = 20_000
     max_extract_file_bytes: int = 10 * MEGABYTE

@@ -1,15 +1,13 @@
-"""npm registry metadata and verified tarball download"""
+"""npm registry metadata: version, tarball URL and expected sha512"""
 
 import base64
 import binascii
-import hmac
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from mcplain.errors import FetchError
-from mcplain.fetch.http import Download, SafeClient
+from mcplain.fetch.http import SafeClient
 
 REGISTRY_ROOT = "https://registry.npmjs.org"
 REGISTRY_HOST = "registry.npmjs.org"
@@ -70,12 +68,3 @@ def expected_sha512(integrity: str) -> bytes:
                 raise FetchError("fetch.integrity_missing") from error
     raise FetchError("fetch.integrity_missing")
 
-
-def download_release(client: SafeClient, release: NpmRelease, destination: Path) -> Download:
-    """Download the tarball and refuse it unless its sha512 matches"""
-
-    expected = expected_sha512(release.integrity)
-    download = client.download(release.tarball, destination)
-    if not hmac.compare_digest(expected, download.sha512):
-        raise FetchError("fetch.integrity_mismatch", package=release.name)
-    return download
