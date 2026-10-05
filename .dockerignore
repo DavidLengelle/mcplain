@@ -12,3 +12,8 @@ var
 !.env.example
 web/node_modules
 web/.next
+web/test-results
+web/playwright-report
+web/blob-report
+web/next-env.d.ts
+web/*.tsbuildinfo
