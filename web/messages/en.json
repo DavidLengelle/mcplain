@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "title": "MCPlain",
+    "description": "MCP servers, explained before you install."
+  },
+  "a11y": {
+    "skipToContent": "Skip to content"
+  },
+  "header": {
+    "brand": "MCPlain",
+    "home": "MCPlain, home page"
+  },
+  "localeSwitcher": {
+    "label": "Language",
+    "short": {
+      "en": "EN",
+      "fr": "FR"
+    },
+    "name": {
+      "en": "English",
+      "fr": "Français"
+    }
+  },
+  "footer": {
+    "license": "Free software, AGPL-3.0",
+    "sourceCode": "Source code"
+  },
+  "engineNotice": {
+    "title": "Detailed explanations are unavailable",
+    "body": "The MCPlain service does not answer right now, so some texts cannot be shown. Try again in a few minutes."
+  },
+  "engineText": {
+    "unavailable": "Text unavailable (the MCPlain service does not answer)."
+  },
+  "home": {
+    "tagline": "MCP servers, explained before you install."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "This page does not exist, or the analysis was not found.",
+    "home": "Back to the home page"
+  }
+}

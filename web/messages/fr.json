@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "title": "MCPlain",
+    "description": "Les serveurs MCP, expliqués avant de les installer."
+  },
+  "a11y": {
+    "skipToContent": "Aller au contenu"
+  },
+  "header": {
+    "brand": "MCPlain",
+    "home": "MCPlain, page d'accueil"
+  },
+  "localeSwitcher": {
+    "label": "Langue",
+    "short": {
+      "en": "EN",
+      "fr": "FR"
+    },
+    "name": {
+      "en": "English",
+      "fr": "Français"
+    }
+  },
+  "footer": {
+    "license": "Logiciel libre AGPL-3.0",
+    "sourceCode": "Code source"
+  },
+  "engineNotice": {
+    "title": "Explications détaillées indisponibles",
+    "body": "Le service MCPlain ne répond pas pour l'instant, certains textes ne peuvent pas s'afficher. Réessaie dans quelques minutes."
+  },
+  "engineText": {
+    "unavailable": "Texte indisponible (le service MCPlain ne répond pas)."
+  },
+  "home": {
+    "tagline": "Les serveurs MCP, expliqués avant de les installer."
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "body": "Cette page n'existe pas, ou l'analyse est introuvable.",
+    "home": "Retour à l'accueil"
+  }
+}

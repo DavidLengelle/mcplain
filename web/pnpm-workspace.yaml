@@ -21,6 +21,11 @@ minimumReleaseAgeExclude:
 #   @img/sharp-* packages, and the site serves no remote image.
 # unrs-resolver: used by eslint import resolvers; its prebuilt binaries come
 #   from @unrs/resolver-binding-* packages.
+# @swc/core and @parcel/watcher: used only by the message extractor of
+#   next-intl (useExtracted), which the site does not use; their prebuilt
+#   binaries come from @swc/core-* and @parcel/watcher-* packages.
 allowBuilds:
+  "@parcel/watcher": false
+  "@swc/core": false
   sharp: false
   unrs-resolver: false
