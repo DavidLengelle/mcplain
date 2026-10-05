@@ -4,6 +4,7 @@ import io
 import stat
 import tarfile
 import zipfile
+from pathlib import Path
 
 
 def tar_gz(files: dict[str, bytes], prefix: str = "") -> bytes:
@@ -43,3 +44,14 @@ def zip_bytes(files: dict[str, bytes], symlink: str | None = None) -> bytes:
             info.external_attr = (stat.S_IFLNK | 0o777) << 16
             archive.writestr(info, "/etc/passwd")
     return buffer.getvalue()
+
+
+def tar_gz_folder(folder: Path, prefix: str = "package/") -> bytes:
+    """Build a tar.gz archive of every file below a folder, read as bytes and never imported"""
+
+    files = {
+        path.relative_to(folder).as_posix(): path.read_bytes()
+        for path in sorted(folder.rglob("*"))
+        if path.is_file() and "__pycache__" not in path.parts
+    }
+    return tar_gz(files, prefix=prefix)
