@@ -7,7 +7,7 @@ import { renderWithIntl } from "./intl";
 describe("EngineText", () => {
   it("shows an engine text with its parameters as raw third-party text", () => {
     const { container } = renderWithIntl(
-      <EngineText code="input.unsupported_host" params={{ host: "<b>gitlab.example</b>‮" }} />,
+      <EngineText code="input.unsupported_host" params={{ host: "<b>gitlab.example</b>\u202E" }} />,
     );
     expect(container.querySelector("b")).toBeNull();
     expect(container.textContent).toContain('Only github.com links are accepted (got "<b>gitlab.example</b>');

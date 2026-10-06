@@ -53,7 +53,7 @@ test("a red report shows the original passage and its place", async ({ page }) =
   const passage = alert.locator("bdi").filter({ hasText: "Returns the forecast for a city." }).last();
   await expect(passage).toBeVisible();
   await expect(passage.locator('[data-invisible="U+200B"]')).toHaveCount(2);
-  expect(await passage.textContent()).not.toContain("​");
+  expect(await passage.textContent()).not.toContain("\u200B");
 });
 
 test("a failed analysis is gray, says why, and says it is not safe", async ({ page }) => {

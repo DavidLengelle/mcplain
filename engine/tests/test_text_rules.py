@@ -13,11 +13,11 @@ FETCH_DESCRIPTION = (
     "user know that."
 )
 SCOTLAND = "\U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f"
-DEVELOPER = "\U0001f469‍\U0001f4bb"
-PERSIAN = "می‌خواهم"
+DEVELOPER = "\U0001f469\u200d\U0001f4bb"
+PERSIAN = "می\u200cخواهم"
 
 
-@pytest.mark.parametrize("text", [f"Go {SCOTLAND}!", f"By a {DEVELOPER}", PERSIAN, "﻿Starts with a BOM", "plain"])
+@pytest.mark.parametrize("text", [f"Go {SCOTLAND}!", f"By a {DEVELOPER}", PERSIAN, "\ufeffStarts with a BOM", "plain"])
 def test_justified_invisible_characters_are_quiet(text: str) -> None:
     """Flags, emoji joined with ZWJ, Persian with ZWNJ and a leading BOM are normal"""
 
@@ -27,9 +27,9 @@ def test_justified_invisible_characters_are_quiet(text: str) -> None:
 def test_lone_and_repeated_zero_width_spaces() -> None:
     """One zero-width space is a lone character, two in a row are a run"""
 
-    red, lone = hidden_characters("a​b")
+    red, lone = hidden_characters("a\u200bb")
     assert (red, [item.kind for item in lone]) == ([], ["lone_zero_width"])
-    red, lone = hidden_characters("a​​b")
+    red, lone = hidden_characters("a\u200b\u200bb")
     assert ([item.kind for item in red], lone) == (["zero_width_run"], [])
 
 

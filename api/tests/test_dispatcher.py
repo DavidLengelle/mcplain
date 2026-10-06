@@ -496,8 +496,8 @@ def test_at_most_max_parallel_analyses_run_together(tmp_path: Path, jobs: Path) 
 def test_third_party_text_is_cut_and_escaped() -> None:
     """Escape sequences, line breaks and invisible characters never reach the log as they are"""
 
-    text = safe_text("evil\x1b[2J\nnext line‮" + "x" * 1000)
-    assert "\x1b" not in text and "\n" not in text and "‮" not in text
+    text = safe_text("evil\x1b[2J\nnext line\u202e" + "x" * 1000)
+    assert "\x1b" not in text and "\n" not in text and "\u202e" not in text
     assert len(text) < 260
 
 

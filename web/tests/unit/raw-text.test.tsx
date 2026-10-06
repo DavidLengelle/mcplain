@@ -5,7 +5,7 @@ import { RawText } from "@/components/raw-text";
 
 import { renderWithIntl } from "./intl";
 
-const RIGHT_TO_LEFT_OVERRIDE = "‮";
+const RIGHT_TO_LEFT_OVERRIDE = "\u202E";
 const TAG_A = "\u{E0041}";
 const TAG_B = "\u{E0042}";
 
@@ -49,7 +49,7 @@ describe("RawText", () => {
   });
 
   it("names the badge in French", () => {
-    const { container } = renderWithIntl(<RawText value={"a​b"} />, "fr");
+    const { container } = renderWithIntl(<RawText value={"a\u200Bb"} />, "fr");
     expect(container.querySelector("[data-invisible]")?.getAttribute("title")).toBe("caractère invisible");
   });
 

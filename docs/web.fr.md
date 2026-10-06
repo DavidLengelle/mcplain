@@ -177,7 +177,7 @@ uv run python -m mcplain.invisible_ranges > ../web/src/lib/invisible-characters.
 
 Un test du moteur et un test du site vérifient que les deux listes sont identiques.
 
-Dans les tests, un texte piégé s'écrit toujours en échappement (`"‮"`), jamais en
+Dans les tests, un texte piégé s'écrit toujours en échappement (`"\u202E"`), jamais en
 caractère brut dans un fichier.
 
 ## 7. Dépendances et sécurité

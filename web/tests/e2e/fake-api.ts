@@ -2,7 +2,7 @@ import type { Page, Route } from "@playwright/test";
 
 export const ID = "5b0c6f2e-8d3a-4c1b-9e7f-0a1b2c3d4e5f";
 export const SECOND_ID = "9c8b7a65-4321-4fed-8cba-987654321000";
-export const ZERO_WIDTH_SPACE = "​";
+export const ZERO_WIDTH_SPACE = "\u200B";
 
 type Json = Record<string, unknown>;
 

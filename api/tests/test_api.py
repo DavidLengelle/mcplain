@@ -217,7 +217,7 @@ def test_texts_from_analyzed_code_are_returned_as_they_are(client: TestClient, s
     """A description with markup and invisible characters comes back unchanged, as JSON text, never as HTML"""
 
     result = analyze_directory(ENGINE_FIXTURES / "python_fastmcp_poisoned").model_dump(mode="json")
-    description = '<img src=x onerror="alert(1)">​'
+    description = '<img src=x onerror="alert(1)">\u200b'
     result["servers"][0]["tools"][0]["description"] = description
     identifier = add_row(sessions, state=AnalysisState.DONE.value, result=result)
     response = client.get(f"/api/analyses/{identifier}")

@@ -234,7 +234,7 @@ def test_alerts_are_shown_red_first_with_their_place_path_and_quote(fixtures: Pa
     assert "      Path: from server.py:16 -> to server.py:18\n" in alerts
     assert '      Quoted: "requests.post(' in alerts
     assert "<U+200B>" in alerts
-    assert "​" not in alerts
+    assert "\u200b" not in alerts
 
 
 @pytest.mark.parametrize(
