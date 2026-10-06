@@ -3,6 +3,7 @@
 import re
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -169,7 +170,47 @@ def test_queued_analysis_has_no_result_yet(client: TestClient) -> None:
     body = client.get(f"/api/analyses/{identifier}").json()
     assert body["id"] == identifier
     assert (body["state"], body["result"], body["finished_at"], body["error_code"]) == ("queued", None, None, None)
+    assert (body["analyzed_at"], body["from_cache"]) == (None, False)
     assert body["created_at"].endswith("+00:00")
+
+
+def test_view_gives_the_date_of_the_real_analysis_and_the_cache_mark(client: TestClient, sessions: sessionmaker) -> None:
+    """A result served from the cache carries the date of the analysis that produced it, and says it comes from the cache"""
+
+    result = analyze_directory(ENGINE_FIXTURES / "python_fastmcp_clean").model_dump(mode="json")
+    real = datetime(2026, 10, 1, 8, 30, tzinfo=UTC)
+    finished = datetime(2026, 10, 6, 9, 0, tzinfo=UTC)
+    cached = add_row(
+        sessions,
+        state=AnalysisState.DONE.value,
+        result=result,
+        finished_at=finished,
+        analyzed_at=real,
+        from_cache=True,
+    )
+    body = client.get(f"/api/analyses/{cached}").json()
+    assert (body["analyzed_at"], body["finished_at"], body["from_cache"]) == (real.isoformat(), finished.isoformat(), True)
+    older = add_row(sessions, state=AnalysisState.DONE.value, result=result, finished_at=finished)
+    body = client.get(f"/api/analyses/{older}").json()
+    assert (body["analyzed_at"], body["from_cache"]) == (finished.isoformat(), False)
+
+
+def test_retry_with_the_same_input_and_selection_gives_a_new_analysis(client: TestClient, sessions: sessionmaker) -> None:
+    """After a failure, the same input and selection are queued again as a new analysis"""
+
+    sent = {"input": "npx -y @modelcontextprotocol/server-filesystem", "select": "src/a"}
+    first = client.post("/api/analyses", json=sent).json()["id"]
+    with sessions.begin() as session:
+        row = session.get(Analysis, uuid.UUID(first))
+        assert row is not None
+        row.state = AnalysisState.FAILED.value
+        row.error_code = "atelier_timeout"
+    response = client.post("/api/analyses", json=sent)
+    assert response.status_code == 202
+    second = response.json()["id"]
+    assert second != first
+    body = client.get(f"/api/analyses/{second}").json()
+    assert (body["state"], body["input"], body["select"]) == ("queued", sent["input"], sent["select"])
 
 
 def test_analysis_gives_back_what_was_asked(client: TestClient) -> None:
@@ -233,6 +274,18 @@ def test_messages_are_the_engine_texts(client: TestClient, language: str) -> Non
     response = client.get(f"/api/messages/{language}")
     assert response.status_code == 200
     assert response.json() == load_catalog(language)
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_messages_hold_the_plain_texts_and_the_lamps(client: TestClient, language: str) -> None:
+    """The plain texts of every rule, the lamps and the gray cases are served to the site"""
+
+    texts = client.get(f"/api/messages/{language}").json()
+    for rule in ("R01", "R05", "R12", "O01", "O08"):
+        for field in ("plain_title", "plain_found", "plain_advice"):
+            assert texts[f"rule.{rule}.{field}"].strip()
+    assert texts["lamp.files_read.name"] and texts["lamp.hidden_text.phrase"]
+    assert texts["gray.timeout.reason"] and texts["verdict.gray.not_safe"]
 
 
 def test_unknown_language_gives_404(client: TestClient) -> None:

@@ -8,7 +8,7 @@ import threading
 import uuid
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import FrameType
 from typing import Any, Protocol
@@ -22,7 +22,7 @@ from mcplain.fetch.source import ResolvedSource, check_source_reputation, downlo
 from mcplain.inputs import parse_input, parse_selection
 from mcplain.job import reputation_sha256
 from mcplain.models import AnalysisResult, AnalysisStatus, InputKind, InputSpec
-from mcplain.verdict import RULES_VERSION
+from mcplain.verdict import RULES_VERSION, has_lamps
 from sqlalchemy import or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
@@ -76,6 +76,14 @@ class DockerLauncher:
         """Remove the ateliers left behind"""
 
         return remove_orphans(self.client, self.settings.dispatcher_id)
+
+
+@dataclass(frozen=True)
+class CachedResult:
+    """Class that holds a reusable result and the date of the analysis that really produced it"""
+
+    result: AnalysisResult
+    analyzed_at: datetime | None
 
 
 @dataclass(frozen=True)
@@ -142,6 +150,7 @@ class Dispatcher:
                 row.error_code = INTERRUPTED
                 row.result = gray
                 row.finished_at = now
+                row.analyzed_at = now
         for identifier in identifiers:
             shutil.rmtree(self.settings.jobs_dir / str(identifier), ignore_errors=True)
         removed = self.launcher.remove_orphans()
@@ -231,7 +240,7 @@ class Dispatcher:
         cached = self._cached(claimed.id, resolved, fingerprint)
         if cached is not None:
             LOGGER.info("analysis %s: served from the cache for %s", claimed.id, safe_text(resolved.source_key))
-            self._record_result(claimed.id, _reuse(cached, resolved, spec))
+            self._record_result(claimed.id, _reuse(cached.result, resolved, spec), cached.analyzed_at, True)
             return
         job_dir.mkdir(mode=JOB_FOLDER_MODE)
         job_dir.chmod(JOB_FOLDER_MODE)
@@ -259,8 +268,8 @@ class Dispatcher:
             return
         self._record_result(claimed.id, run.result)
 
-    def _cached(self, identifier: uuid.UUID, resolved: ResolvedSource, fingerprint: str) -> AnalysisResult | None:
-        """Return a finished analysis of the same source, selection, reputation, engine and rules, if there is one"""
+    def _cached(self, identifier: uuid.UUID, resolved: ResolvedSource, fingerprint: str) -> CachedResult | None:
+        """Return a finished analysis of the same source, selection, reputation, engine and rules, with its date"""
 
         with self.sessions() as session:
             rows = session.scalars(
@@ -281,8 +290,8 @@ class Dispatcher:
                 result = AnalysisResult.model_validate(row.result)
             except ValueError:
                 continue
-            if result.status is not AnalysisStatus.ERROR:
-                return result
+            if result.status is not AnalysisStatus.ERROR and has_lamps(result):
+                return CachedResult(result, row.analyzed_at or row.finished_at)
         return None
 
     def _update(self, identifier: uuid.UUID, **values: Any) -> None:
@@ -295,10 +304,16 @@ class Dispatcher:
             for key, value in values.items():
                 setattr(row, key, value)
 
-    def _record_result(self, identifier: uuid.UUID, result: AnalysisResult) -> None:
-        """Record a finished analysis"""
+    def _record_result(
+        self,
+        identifier: uuid.UUID,
+        result: AnalysisResult,
+        analyzed_at: datetime | None = None,
+        from_cache: bool = False,
+    ) -> None:
+        """Record a finished analysis; a cached one keeps the date of the analysis that produced it"""
 
-        self._finish(identifier, AnalysisState.DONE.value, None, result)
+        self._finish(identifier, AnalysisState.DONE.value, None, result, analyzed_at, from_cache)
         LOGGER.info("analysis %s: done, %s", identifier, result.verdict.color.value)
 
     def _record_failure(self, identifier: uuid.UUID, error_code: str, result: AnalysisResult) -> None:
@@ -307,9 +322,20 @@ class Dispatcher:
         self._finish(identifier, AnalysisState.FAILED.value, error_code, result)
         LOGGER.info("analysis %s: failed, %s", identifier, error_code)
 
-    def _finish(self, identifier: uuid.UUID, state: str, error_code: str | None, result: AnalysisResult) -> None:
-        """Store the final state, the result and the versions of the engine and of the rules"""
+    def _finish(
+        self,
+        identifier: uuid.UUID,
+        state: str,
+        error_code: str | None,
+        result: AnalysisResult,
+        analyzed_at: datetime | None = None,
+        from_cache: bool = False,
+    ) -> None:
+        """Store the final state, the result, the versions, the date of the real analysis and where it came from"""
 
+        now = utc_now()
+        if analyzed_at is None:
+            analyzed_at = now
         self._update(
             identifier,
             state=state,
@@ -317,7 +343,9 @@ class Dispatcher:
             result=result.model_dump(mode="json"),
             engine_version=__version__,
             rules_version=RULES_VERSION,
-            finished_at=utc_now(),
+            finished_at=now,
+            analyzed_at=analyzed_at,
+            from_cache=from_cache,
         )
 
 

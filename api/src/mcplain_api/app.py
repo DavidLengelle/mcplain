@@ -37,6 +37,7 @@ JSON_MEDIA_TYPE = "application/json"
 ALLOWED_METHODS: list[str] = ["GET", "POST"]
 ALLOWED_HEADERS: list[str] = ["Content-Type"]
 MESSAGES_CACHE = "public, max-age=300"
+FINISHED_STATES: tuple[str, ...] = (AnalysisState.DONE.value, AnalysisState.FAILED.value)
 
 
 class AnalysisRequest(BaseModel):
@@ -205,6 +206,9 @@ def analysis_view(row: Analysis) -> dict[str, Any]:
     result = row.result
     if row.state == AnalysisState.FAILED.value:
         result = stored_failure(row.error_code, row.result)
+    analyzed_at = row.analyzed_at
+    if analyzed_at is None and row.state in FINISHED_STATES:
+        analyzed_at = row.finished_at
     return {
         "id": str(row.id),
         "input": row.input_raw,
@@ -212,6 +216,8 @@ def analysis_view(row: Analysis) -> dict[str, Any]:
         "state": row.state,
         "created_at": _iso(row.created_at),
         "finished_at": _iso(row.finished_at),
+        "analyzed_at": _iso(analyzed_at),
+        "from_cache": bool(row.from_cache),
         "result": result,
         "error_code": row.error_code,
     }

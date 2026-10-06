@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, Index, String, Uuid, create_engine
+from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, Index, String, Uuid, create_engine, false
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -66,6 +66,8 @@ class Analysis(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    from_cache: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 def make_engine(url: str) -> Engine:

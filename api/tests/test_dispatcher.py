@@ -25,7 +25,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import sessionmaker
 
 from mcplain_api import dispatcher as dispatcher_module
-from mcplain_api.db import Analysis, AnalysisState, Base, make_engine, make_sessions, utc_now
+from mcplain_api.db import Analysis, AnalysisState, Base, as_utc, make_engine, make_sessions, utc_now
 from mcplain_api.dispatcher import Dispatcher, safe_text
 from mcplain_api.launcher import ATELIER_ERROR, ATELIER_INVALID_RESULT, ATELIER_TIMEOUT, AtelierRun
 
@@ -515,3 +515,75 @@ def test_atelier_stderr_is_logged_escaped(sessions: sessionmaker, jobs: Path, ca
     assert stderr_lines
     assert all("\x1b" not in message for message in messages)
     assert "\\x1b[2J" in stderr_lines[0]
+
+
+@respx.mock
+def test_a_real_analysis_is_dated_and_not_from_the_cache(sessions: sessionmaker, jobs: Path) -> None:
+    """An analysis run in an atelier is dated when it finishes, and is not marked as coming from the cache"""
+
+    mock_registry()
+    identifier = queue(sessions)
+    make_dispatcher(sessions, jobs, FakeLauncher(AtelierRun(clean_result(), None))).run_once()
+    row = load(sessions, identifier)
+    assert row.analyzed_at is not None and row.analyzed_at == row.finished_at
+    assert row.from_cache is False
+
+
+@respx.mock
+def test_the_cache_keeps_the_date_of_the_real_analysis(sessions: sessionmaker, jobs: Path) -> None:
+    """A result served from the cache says so, and carries the date of the analysis that really produced it"""
+
+    mock_registry()
+    launcher = FakeLauncher(AtelierRun(clean_result(), None))
+    dispatcher = make_dispatcher(sessions, jobs, launcher)
+    first = queue(sessions)
+    assert dispatcher.run_once()
+    real = utc_now() - timedelta(days=2)
+    with sessions.begin() as session:
+        row = session.get(Analysis, first)
+        assert row is not None
+        row.analyzed_at = real
+    second = queue(sessions)
+    assert dispatcher.run_once()
+    cached = load(sessions, second)
+    assert len(launcher.calls) == 1
+    assert cached.from_cache is True
+    assert as_utc(cached.analyzed_at) == real
+    assert as_utc(cached.finished_at) > real
+
+
+@respx.mock
+def test_retry_after_a_failure_runs_the_analysis_again(sessions: sessionmaker, jobs: Path) -> None:
+    """The Retry button sends the same input and selection again: a failure is never cached, so an atelier runs again"""
+
+    mock_registry()
+    launcher = FakeLauncher(AtelierRun(None, ATELIER_TIMEOUT))
+    dispatcher = make_dispatcher(sessions, jobs, launcher)
+    failed = queue(sessions, select="src/a")
+    assert dispatcher.run_once()
+    assert load(sessions, failed).state == "failed"
+    launcher.planned = AtelierRun(clean_result(), None)
+    retried = queue(sessions, select="src/a")
+    assert dispatcher.run_once()
+    row = load(sessions, retried)
+    assert len(launcher.calls) == 2
+    assert (row.state, row.from_cache) == ("done", False)
+    assert AnalysisResult.model_validate(row.result).verdict == clean_result().verdict
+
+
+@respx.mock
+def test_a_stored_result_without_lamps_is_never_served_from_the_cache(sessions: sessionmaker, jobs: Path) -> None:
+    """A finished result whose lamps are missing is analyzed again instead of being copied"""
+
+    mock_registry()
+    incomplete = clean_result()
+    incomplete.servers[0].lamps = []
+    launcher = FakeLauncher(AtelierRun(incomplete, None))
+    dispatcher = make_dispatcher(sessions, jobs, launcher)
+    queue(sessions)
+    assert dispatcher.run_once()
+    launcher.planned = AtelierRun(clean_result(), None)
+    second = queue(sessions)
+    assert dispatcher.run_once()
+    assert len(launcher.calls) == 2
+    assert load(sessions, second).from_cache is False
