@@ -10,6 +10,9 @@ export const ANALYSIS_STATUSES = [
   "error",
 ] as const;
 export const OUTSIDE_KINDS = ["startup", "install", "never_called"] as const;
+export const LAMP_IDS = ["files_read", "files_write", "internet", "commands", "secrets", "hidden_text"] as const;
+export const LAMP_STATES = ["off", "on", "danger"] as const;
+export const TOOL_LEVELS = ["none", "warn", "danger"] as const;
 export const MESSAGE_KEY_PATTERN = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/;
 
 export type VerdictColor = (typeof VERDICT_COLORS)[number];
@@ -17,6 +20,13 @@ export type AnalysisState = (typeof ANALYSIS_STATES)[number];
 export type RunningState = (typeof RUNNING_STATES)[number];
 export type AnalysisStatus = (typeof ANALYSIS_STATUSES)[number];
 export type OutsideKind = (typeof OUTSIDE_KINDS)[number];
+export type LampId = (typeof LAMP_IDS)[number];
+export type LampState = (typeof LAMP_STATES)[number];
+export type ToolLevel = (typeof TOOL_LEVELS)[number];
+
+export type Lamp = { id: LampId; state: LampState; rules: string[] };
+
+export type Message = { code: string; params: Record<string, string> };
 
 export type CallStep = { function: string; file: string; line: number };
 
@@ -45,6 +55,9 @@ export type Verdict = {
   rules_version: string;
   rules_count: number;
   contacted_domains: string[];
+  gray_case: string | null;
+  title: Message | null;
+  summary: Message | null;
 };
 
 export type Finding = {
@@ -77,6 +90,10 @@ export type Tool = {
   location_kind: string;
   findings: Finding[];
   gaps: string[];
+  lamps: Lamp[];
+  level: ToolLevel;
+  plain_title: string | null;
+  plain_sentence: string | null;
 };
 
 export type DomainRef = {
@@ -125,6 +142,8 @@ export type Server = {
   invisible_unicode: InvisibleUnicode[];
   compiled_files: string[];
   files_analyzed: number;
+  lamps: Lamp[];
+  internet_domains: string[] | null;
 };
 
 export type Source = {
@@ -181,6 +200,8 @@ export type AnalysisView = {
   state: AnalysisState;
   created_at: string | null;
   finished_at: string | null;
+  analyzed_at: string | null;
+  from_cache: boolean;
   error_code: string | null;
   result: AnalysisResult | null;
 };
@@ -320,6 +341,21 @@ function alert(value: unknown): Alert {
   };
 }
 
+function message(value: unknown): Message | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const fields = object(value);
+  return { code: messageKey(fields.code), params: textMap(fields.params) };
+}
+
+function optionalMessageKey(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return messageKey(value);
+}
+
 function verdict(value: unknown): Verdict {
   const fields = object(value);
   return {
@@ -329,7 +365,35 @@ function verdict(value: unknown): Verdict {
     rules_version: optionalText(fields.rules_version) ?? "",
     rules_count: optionalInteger(fields.rules_count) ?? 0,
     contacted_domains: list(fields.contacted_domains, text),
+    gray_case: optionalMessageKey(fields.gray_case),
+    title: message(fields.title),
+    summary: message(fields.summary),
   };
+}
+
+function lamp(value: unknown): Lamp {
+  const fields = object(value);
+  return {
+    id: oneOf(fields.id, LAMP_IDS),
+    state: oneOf(fields.state, LAMP_STATES),
+    rules: list(fields.rules, messageKey),
+  };
+}
+
+function lamps(value: unknown): Lamp[] {
+  const parsed = list(value, lamp);
+  const ids = new Set(parsed.map((item) => item.id));
+  if (parsed.length !== LAMP_IDS.length || ids.size !== LAMP_IDS.length) {
+    fail();
+  }
+  return parsed;
+}
+
+function optionalTextList(value: unknown): string[] | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return list(value, text);
 }
 
 function finding(value: unknown): Finding {
@@ -385,6 +449,10 @@ function tool(value: unknown): Tool {
     location_kind: messageKey(fields.location_kind),
     findings: list(fields.findings, finding),
     gaps: list(fields.gaps, messageKey),
+    lamps: lamps(fields.lamps),
+    level: oneOf(fields.level, TOOL_LEVELS),
+    plain_title: optionalText(fields.plain_title),
+    plain_sentence: optionalText(fields.plain_sentence),
   };
 }
 
@@ -453,6 +521,8 @@ function server(value: unknown): Server {
     invisible_unicode: list(fields.invisible_unicode, invisibleUnicode),
     compiled_files: list(fields.compiled_files, text),
     files_analyzed: optionalInteger(fields.files_analyzed) ?? 0,
+    lamps: lamps(fields.lamps),
+    internet_domains: optionalTextList(fields.internet_domains),
   };
 }
 
@@ -561,6 +631,8 @@ function view(value: unknown): AnalysisView {
     state,
     created_at: optionalText(fields.created_at),
     finished_at: optionalText(fields.finished_at),
+    analyzed_at: optionalText(fields.analyzed_at),
+    from_cache: flag(fields.from_cache),
     error_code: errorCode,
     result: parsed,
   };

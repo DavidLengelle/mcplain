@@ -1,137 +1,90 @@
-import { useTranslations } from "next-intl";
+"use client";
 
-import type { Alert, AnalysisView, Server } from "@/lib/analysis";
+import { useState } from "react";
 
-import { EngineText } from "../engine-text";
+import type { AnalysisResult, AnalysisView, Tool } from "@/lib/analysis";
+import { alertsOfTool, defaultToolIndex, firstServer } from "@/lib/report";
+
 import { AiNoticeSlot } from "./ai-notice-slot";
-import { AlertList } from "./alert-list";
+import { AlertPoints } from "./alert-points";
+import { BackToTop } from "./back-to-top";
 import { CandidatesList } from "./candidates-list";
-import { OutsideSection } from "./outside-section";
-import { ReportSection } from "./section";
-import { SourceSection } from "./source-section";
-import { StatusNotice } from "./status-notice";
-import { ToolCard } from "./tool-card";
-import { VerdictPanel } from "./verdict-panel";
+import { IdentityLine } from "./identity-line";
+import { LampCluster } from "./lamp-cluster";
+import { LinkListNotice } from "./link-list-notice";
+import { PlainSummary } from "./plain-summary";
+import { ReportEnd } from "./report-end";
+import { TechDetails } from "./tech-details";
+import { ToolGrid } from "./tool-grid";
+import { ToolSheet } from "./tool-sheet";
+import { VerdictBlock } from "./verdict-block";
 
-type Placement = { byTool: Map<string, Alert[]>; others: Alert[] };
+const LINK_LIST = "link_list";
 
-function placeAlerts(alerts: Alert[], servers: Server[]): Placement {
-  const toolNames = new Set(servers.flatMap((server) => server.tools.map((tool) => tool.name)));
-  const byTool = new Map<string, Alert[]>();
-  const others: Alert[] = [];
-  for (const alert of alerts) {
-    if (alert.tool === null || !toolNames.has(alert.tool)) {
-      others.push(alert);
-      continue;
-    }
-    const group = byTool.get(alert.tool);
-    if (group === undefined) {
-      byTool.set(alert.tool, [alert]);
-    } else {
-      group.push(alert);
-    }
+function toolsOf(result: AnalysisResult): Tool[] {
+  const server = firstServer(result);
+  if (server === null) {
+    return [];
   }
-  return { byTool, others };
+  return server.tools;
 }
 
-type ServerReportProps = { server: Server; position: number; placement: Placement; withOthers: boolean };
-
-function ServerReport({ server, position, placement, withOthers }: ServerReportProps) {
-  const t = useTranslations("report");
-  let others: Alert[] = [];
-  if (withOthers) {
-    others = placement.others;
-  }
-
-  return (
-    <>
-      <ReportSection id={`tools-heading-${position}`} title={t("toolsHeading")}>
-        {server.tools.length === 0 && <p>{t("noTools")}</p>}
-        {server.tools.map((tool, index) => (
-          <ToolCard key={index} tool={tool} alerts={placement.byTool.get(tool.name) ?? []} />
-        ))}
-      </ReportSection>
-      <OutsideSection server={server} alerts={others} />
-    </>
-  );
-}
-
-function FailedReport({ analysis }: { analysis: AnalysisView }) {
-  const t = useTranslations("grayStates");
-  const result = analysis.result;
-  if (result === null) {
-    return null;
-  }
+function FullReport({ analysis, result }: { analysis: AnalysisView; result: AnalysisResult }) {
+  const server = firstServer(result);
+  const tools = toolsOf(result);
+  const alerts = result.verdict.alerts;
+  const [selected, setSelected] = useState(() => defaultToolIndex(tools, alerts));
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const tool = tools[selected] ?? null;
 
   return (
-    <VerdictPanel color="gray">
-      <h3 className="text-xl font-bold">{t("failed.title")}</h3>
-      {analysis.error_code !== null && (
-        <p>
-          <EngineText code={`job.${analysis.error_code}`} />
-        </p>
+    <div className="flex flex-col gap-7" data-report="">
+      <IdentityLine analysis={analysis} source={result.source} />
+      <VerdictBlock analysis={analysis} result={result} />
+      <AiNoticeSlot />
+      {server !== null && <PlainSummary result={result} server={server} />}
+      {server !== null && <LampCluster server={server} />}
+      {(server !== null || alerts.length > 0) && (
+        <AlertPoints result={result} tools={tools} onPickTool={setSelected} onOpenDetails={() => setDetailsOpen(true)} />
       )}
-      {result.error !== null && result.error.code !== `job.${analysis.error_code}` && (
-        <p>
-          <EngineText code={result.error.code} params={result.error.params} />
-        </p>
-      )}
-    </VerdictPanel>
+      {server !== null && <ToolGrid tools={tools} selected={selected} onPick={setSelected} />}
+      {tool !== null && <ToolSheet tool={tool} index={selected} alerts={alertsOfTool(tool, alerts)} />}
+      <TechDetails
+        analysis={analysis}
+        result={result}
+        server={server}
+        tools={tools}
+        open={detailsOpen}
+        onToggle={() => setDetailsOpen(!detailsOpen)}
+      />
+      <ReportEnd analysis={analysis} />
+      <BackToTop />
+    </div>
   );
 }
 
 export function ReportView({ analysis }: { analysis: AnalysisView }) {
-  const t = useTranslations("report");
   const result = analysis.result;
   if (result === null) {
     return null;
   }
-  const placement = placeAlerts(result.verdict.alerts, result.servers);
-  const finished = (
-    <SourceSection
-      analysis={analysis}
-      source={result.source}
-      reputation={result.reputation}
-      ignoredArguments={result.ignored_arguments}
-      verdict={result.verdict}
-    />
-  );
-
-  if (analysis.state === "failed") {
+  if (result.status === "multiple_servers") {
     return (
-      <div className="flex flex-col gap-10">
-        <FailedReport analysis={analysis} />
-        {finished}
+      <div className="flex flex-col gap-7" data-report="">
+        <IdentityLine analysis={analysis} source={result.source} />
+        <CandidatesList analysis={analysis} result={result} />
+        <ReportEnd analysis={analysis} />
       </div>
     );
   }
-
-  return (
-    <div className="flex flex-col gap-10">
-      <VerdictPanel
-        color={result.verdict.color}
-        alertCount={result.verdict.alerts.length}
-        reasons={result.verdict.reasons}
-        contactedDomains={result.verdict.contacted_domains}
-      />
-      <AiNoticeSlot />
-      <StatusNotice result={result} />
-      {result.status === "multiple_servers" && (
-        <CandidatesList
-          analysis={analysis}
-          candidates={result.available_servers}
-          truncated={result.available_servers_truncated}
-        />
-      )}
-      {result.servers.map((server, index) => (
-        <ServerReport key={index} server={server} position={index} placement={placement} withOthers={index === 0} />
-      ))}
-      {result.servers.length === 0 && placement.others.length > 0 && (
-        <ReportSection id="other-alerts-heading" title={t("otherAlerts")}>
-          <AlertList alerts={placement.others} showScope />
-        </ReportSection>
-      )}
-      {finished}
-    </div>
-  );
+  if (result.verdict.gray_case === LINK_LIST) {
+    return (
+      <div className="flex flex-col gap-7" data-report="">
+        <IdentityLine analysis={analysis} source={result.source} />
+        <LinkListNotice result={result} />
+        <ReportEnd analysis={analysis} />
+      </div>
+    );
+  }
+  return <FullReport analysis={analysis} result={result} />;
 }

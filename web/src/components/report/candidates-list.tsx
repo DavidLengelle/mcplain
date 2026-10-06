@@ -3,70 +3,63 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { useRouter } from "@/i18n/navigation";
-import type { AnalysisView, ServerCandidate } from "@/lib/analysis";
-import { startAnalysis } from "@/lib/api-client";
+import type { AnalysisResult, AnalysisView } from "@/lib/analysis";
+import { MAX_CANDIDATES } from "@/lib/report";
 
+import { EngineText } from "../engine-text";
 import { RawText } from "../raw-text";
-import { StartErrorText, type StartError } from "../start-error";
-import { ReportSection } from "./section";
+import { StartErrorText } from "../start-error";
+import { useAnalysisStart } from "../use-analysis-start";
 
-export const MAX_CANDIDATES = 50;
+export const CANDIDATES_HEADING_ID = "candidates-heading";
 
-type CandidatesListProps = { analysis: AnalysisView; candidates: ServerCandidate[]; truncated: boolean };
-
-export function CandidatesList({ analysis, candidates, truncated }: CandidatesListProps) {
+export function CandidatesList({ analysis, result }: { analysis: AnalysisView; result: AnalysisResult }) {
   const t = useTranslations("candidates");
-  const router = useRouter();
-  const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState<StartError | null>(null);
+  const { pending, error, start } = useAnalysisStart();
+  const [chosen, setChosen] = useState<string | null>(null);
+  const candidates = result.available_servers;
+  const title = result.verdict.title;
 
-  async function choose(path: string) {
-    setPending(path);
-    setError(null);
-    const outcome = await startAnalysis(analysis.input, path);
-    if (outcome.kind === "accepted") {
-      router.push(`/analyses/${outcome.id}`);
-      return;
-    }
-    setPending(null);
-    setError(outcome);
+  function choose(path: string) {
+    setChosen(path);
+    start(analysis.input, path);
   }
 
   return (
-    <ReportSection id="candidates-heading" title={t("heading")}>
-      <p>{t("intro")}</p>
-      <ul className="flex flex-col gap-2">
+    <section aria-labelledby={CANDIDATES_HEADING_ID} data-candidates="">
+      <h1 id={CANDIDATES_HEADING_ID} className="font-condensed text-[32px] leading-tight font-bold">
+        {title !== null && <EngineText code={title.code} params={title.params} />}
+      </h1>
+      <p className="mt-2 text-lg text-ink2">{t("nothingYet")}</p>
+      <ul className="mt-4 rounded-2xl bg-panel p-1.5">
         {candidates.slice(0, MAX_CANDIDATES).map((candidate) => (
           <li key={candidate.path}>
-            <Button
+            <button
               type="button"
-              variant="outline"
-              disabled={pending !== null}
-              aria-busy={pending === candidate.path}
+              disabled={pending}
+              aria-busy={chosen === candidate.path}
               onClick={() => choose(candidate.path)}
-              className="h-auto w-full justify-start gap-1 py-2 text-left text-base whitespace-normal"
+              className="flex min-h-11 w-full cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 rounded-xl px-4 py-3 text-left text-ink hover:bg-row-hover disabled:cursor-wait"
             >
-              <span className="flex flex-col items-start gap-0.5">
-                <RawText value={candidate.path} limit={200} />
-                <span className="text-sm font-normal">
-                  {candidate.name !== null && (
-                    <>
-                      <RawText value={candidate.name} limit={120} />{" "}
-                    </>
-                  )}
-                  ({t("language", { language: candidate.language })})
-                </span>
+              <span className="font-mono text-[15px]">
+                <RawText value={candidate.path} limit={200} expandable={false} />
               </span>
-            </Button>
+              {candidate.name !== null && (
+                <span className="text-ink2">
+                  <RawText value={candidate.name} limit={120} expandable={false} />
+                </span>
+              )}
+              <span className="text-sm text-muted">{t("language", { language: candidate.language })}</span>
+            </button>
           </li>
         ))}
       </ul>
-      {(truncated || candidates.length > MAX_CANDIDATES) && <p>{t("truncated")}</p>}
-      <p aria-live="polite" className="font-semibold text-destructive">
+      {(result.available_servers_truncated || candidates.length > MAX_CANDIDATES) && (
+        <p className="mt-2 text-muted">{t("truncated")}</p>
+      )}
+      <p aria-live="polite" className="mt-2 font-semibold text-red">
         {error !== null && <StartErrorText error={error} />}
       </p>
-    </ReportSection>
+    </section>
   );
 }

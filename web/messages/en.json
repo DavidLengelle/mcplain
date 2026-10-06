@@ -11,8 +11,18 @@
     "colon": ": "
   },
   "header": {
-    "brand": "MCPlain",
-    "home": "MCPlain, home page"
+    "brand": "MCPLAIN",
+    "home": "MCPlain, home page",
+    "inputLabel": "Link of the MCP server to analyze",
+    "placeholder": "Paste a GitHub link, or an npx or uvx line",
+    "submit": "ANALYZE",
+    "submitting": "SENDING…"
+  },
+  "theme": {
+    "label": "Display theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
   },
   "localeSwitcher": {
     "label": "Language",
@@ -26,7 +36,7 @@
     }
   },
   "footer": {
-    "license": "Free software, AGPL-3.0",
+    "license": "MCPlain · Free software under the AGPL-3.0 license",
     "sourceCode": "Source code"
   },
   "engineNotice": {
@@ -52,7 +62,7 @@
     "unavailable": "MCPlain does not answer right now. Try again in a few minutes."
   },
   "tracker": {
-    "heading": "Analysis in progress",
+    "heading": "ANALYSIS IN PROGRESS",
     "loading": "Loading the analysis…",
     "current": "Current step: {step}",
     "steps": {
@@ -67,116 +77,156 @@
     }
   },
   "verdict": {
-    "heading": "Verdict",
-    "notSafe": "That does not mean it is safe.",
-    "alertCount": "{count, plural, one {# alert} other {# alerts}}",
-    "reasons": "Why this verdict",
-    "red": {
-      "word": "Red",
-      "summary": "Do not install: MCPlain found signs of danger."
+    "heading": "VERDICT",
+    "word": {
+      "green": "NOTHING FOUND",
+      "orange": "TO CHECK",
+      "red": "DANGER",
+      "gray": "NOT VERIFIED"
     },
-    "orange": {
-      "word": "Orange",
-      "summary": "This server has powers to know before you install it."
+    "zones": {
+      "green": "NOTHING",
+      "orange": "TO CHECK",
+      "red": "DANGER"
     },
-    "green": {
-      "word": "Green",
-      "summary": "Nothing alarming was found in the code MCPlain could read."
-    },
-    "gray": {
-      "word": "Gray",
-      "summary": "MCPlain cannot conclude."
-    }
+    "gaugeLabel": "Verdict gauge: {word}",
+    "retry": "Run again",
+    "retrying": "Starting…"
   },
   "grayStates": {
     "unverified": {
-      "title": "Not verified",
-      "body": "The MCPlain service did not answer, or answered something it should not, so nothing is said about this server."
+      "title": "The MCPlain service did not answer.",
+      "body": "It did not answer, or it answered something unexpected: nothing is said about this server."
     },
     "timeout": {
-      "title": "Too long",
-      "body": "The analysis takes too long. Try again in a few minutes."
+      "title": "The analysis is taking too long.",
+      "body": "Run it again, or try again in a few minutes."
     },
-    "failed": {
-      "title": "The analysis failed"
-    },
+    "notSafe": "This does not mean this MCP is safe.",
     "home": "Back to the home page"
   },
-  "status": {
-    "heading": "What MCPlain found"
+  "identity": {
+    "npm": "package published on npm",
+    "pypi": "package published on PyPI",
+    "github": "GitHub code",
+    "version": "version",
+    "revision": "commit",
+    "analyzedOn": "Analyzed on {date}"
   },
-  "candidates": {
-    "heading": "Several servers were found",
-    "intro": "Choose the server to analyze. The same source is analyzed again, for this server only.",
-    "truncated": "The list is cut: there are more servers.",
-    "language": "language: {language}"
+  "plain": {
+    "heading": "IN PLAIN WORDS",
+    "canDoLabel": "WHAT IT CAN DO",
+    "foundLabel": "WHAT WAS FOUND",
+    "adviceLabel": "WHAT YOU CAN DO",
+    "canDo": "Can {actions}.",
+    "canDoNothing": "Its code lights no lamp: nothing special was found.",
+    "morePoints": "{count, plural, one {And # more point to check below.} other {And # more points to check below.}}",
+    "foundNothing": "Nothing dangerous.",
+    "foundNothingDomains": "Nothing dangerous. It only goes to: {domains}",
+    "adviceNothing": "Nothing stands in the way. Check each new version again."
+  },
+  "lamps": {
+    "heading": "THE LAMPS",
+    "count": "{lit, plural, =0 {None lit out of {total}} other {# lit out of {total}}}",
+    "countDanger": ", {danger} in danger",
+    "state": {
+      "on": "On",
+      "off": "Off",
+      "danger": "Danger"
+    }
+  },
+  "points": {
+    "heading": {
+      "red": "DANGER ({count})",
+      "orange": "TO CHECK ({count})"
+    },
+    "intro": {
+      "red": "{count, plural, one {This point alone gives the red verdict.} other {Each of these points alone gives the red verdict.}}",
+      "orange": "These points do not prove a trap, but they need your attention before you install."
+    },
+    "badge": {
+      "red": "DANGER",
+      "orange": "TO CHECK"
+    },
+    "emptyGreen": "Nothing to check. All the code was read and followed, and nothing powerful or hidden was found.",
+    "emptyGray": "No point to check was found, but not all the code could be read."
+  },
+  "tools": {
+    "heading": "{count, plural, =0 {NO TOOL} one {THE TOOL} other {THE # TOOLS}}",
+    "hint": "Click a tool to open its sheet.",
+    "none": "No tool declaration was recognized.",
+    "number": "TOOL {number}",
+    "level": {
+      "warn": "To check",
+      "danger": "Danger"
+    },
+    "noLamp": "No lamp lit",
+    "canDo": "Can {actions}.",
+    "automatic": "Automatic summary"
+  },
+  "sheet": {
+    "number": "TOOL SHEET {number}",
+    "declaredIn": "declared in",
+    "why": {
+      "orange": "WHY \"TO CHECK\"?",
+      "red": "WHY \"DANGER\"?"
+    },
+    "quote": "Original passage of the code:",
+    "where": "Where:",
+    "moreAlerts": "{count, plural, one {And # more point for this tool, in the list above.} other {And # more points for this tool, in the list above.}}",
+    "announces": "WHAT IT ANNOUNCES",
+    "byAuthor": "(according to its author)",
+    "authorText": "Author's text",
+    "dynamicDescription": "Its description is built at startup: it could not be read.",
+    "noDescription": "No description.",
+    "annotations": "The author also announces:",
+    "colon": ": ",
+    "parameters": "Its parameters",
+    "codeCan": "WHAT ITS CODE CAN DO",
+    "nothing": "Nothing special: its code lights no lamp.",
+    "canAction": "Can {action}.",
+    "incomplete": "Incomplete tracking:",
+    "whereInCode": "Where in the code:",
+    "nowhere": "No precise place was recorded for this tool.",
+    "morePlaces": "{count, plural, one {and # more place} other {and # more places}}"
+  },
+  "details": {
+    "heading": "TECHNICAL DETAILS",
+    "show": "Show",
+    "hide": "Hide",
+    "domains": "Internet addresses quoted in the code",
+    "noneFeminine": "None",
+    "none": "None",
+    "sensitive": "Sensitive files quoted (keys, passwords)",
+    "install": "Programs run at install time",
+    "invisible": "Invisible characters",
+    "invisibleCount": "{label} × {count}",
+    "outside": "Points outside the tools (startup, installation, package)",
+    "reputation": "Reputation (OSV.dev)",
+    "why": "Why this package",
+    "rules": "Rules version",
+    "rulesValue": "v{version}, {count} rules",
+    "reasons": "Why this verdict",
+    "source": "Downloaded source",
+    "revision": "Commit",
+    "integrity": "Digest",
+    "input": "You asked for",
+    "select": "Chosen server",
+    "ignored": "Ignored arguments (never run)",
+    "colon": ": "
+  },
+  "reportEnd": {
+    "readOn": "This report describes the code read on {date}. It does not prove that a server is safe.",
+    "fromCache": "Result taken from an analysis of {date}."
   },
   "report": {
-    "toolsHeading": "What each tool does",
-    "noTools": "No tool declaration was recognized.",
-    "otherAlerts": "Other alerts"
+    "backToTop": "Back to the top of the page",
+    "pasteAbove": "Paste its link in the field at the top of the page."
   },
-  "tool": {
-    "label": "Tool",
-    "dynamicName": "name computed when the server runs",
-    "place": "Declared in",
-    "announces": "What it announces",
-    "byAuthor": "according to the author",
-    "description": "Description",
-    "noDescription": "No description.",
-    "dynamicDescription": "Description computed when the server runs, not readable here.",
-    "title": "Title",
-    "annotations": "Annotations",
-    "dynamicAnnotations": "Some annotations are computed when the server runs.",
-    "parameters": "Parameters",
-    "canDo": "What its code can do",
-    "nothingFound": "Nothing found in its code.",
-    "incomplete": "Incomplete tracking",
-    "alerts": "Its alerts",
-    "noAlert": "No alert for this tool."
-  },
-  "alert": {
-    "kind": "Kind",
-    "meaning": "What it means",
-    "place": "Where",
-    "path": "Path",
-    "detail": "Detail",
-    "quote": "Original passage",
-    "more": "… and {count} more places."
-  },
-  "outside": {
-    "heading": "Found outside the tools",
-    "capabilities": "Capabilities",
-    "urls": "URLs cited in the code",
-    "urlsHint": "Plain text, not links. Being cited does not mean being contacted.",
-    "sensitive": "Sensitive paths",
-    "install": "Install scripts",
-    "invisible": "Invisible characters",
-    "hiddenText": "hidden text",
-    "none": "None.",
-    "more": "… and {count} more."
-  },
-  "source": {
-    "heading": "Analyzed source",
-    "kind": "Type",
-    "name": "Name",
-    "version": "Version",
-    "requested": "asked",
-    "reference": "Reference",
-    "revision": "Commit (SHA)",
-    "folder": "Folder",
-    "repository": "Linked GitHub repository",
-    "integrity": "Fingerprint",
-    "artifact": "File",
-    "what": "What was analyzed",
-    "why": "Why",
-    "date": "Date",
-    "rules": "Rules",
-    "rulesValue": "version {version}, {count} rules",
-    "input": "You asked for",
-    "ignored": "Ignored arguments (never run)",
-    "reputation": "Reputation (OSV.dev)",
-    "allVersions": "every version"
+  "candidates": {
+    "nothingYet": "Nothing has been analyzed yet: choose one.",
+    "truncated": "The list is cut: there are more servers.",
+    "language": "language: {language}"
   },
   "rawText": {
     "invisible": "invisible character",

@@ -11,8 +11,18 @@
     "colon": " : "
   },
   "header": {
-    "brand": "MCPlain",
-    "home": "MCPlain, page d'accueil"
+    "brand": "MCPLAIN",
+    "home": "MCPlain, page d'accueil",
+    "inputLabel": "Lien du serveur MCP à analyser",
+    "placeholder": "Colle un lien GitHub, ou une ligne npx ou uvx",
+    "submit": "ANALYSER",
+    "submitting": "ENVOI…"
+  },
+  "theme": {
+    "label": "Thème d'affichage",
+    "system": "Système",
+    "light": "Clair",
+    "dark": "Sombre"
   },
   "localeSwitcher": {
     "label": "Langue",
@@ -26,7 +36,7 @@
     }
   },
   "footer": {
-    "license": "Logiciel libre AGPL-3.0",
+    "license": "MCPlain · Logiciel libre sous licence AGPL-3.0",
     "sourceCode": "Code source"
   },
   "engineNotice": {
@@ -52,7 +62,7 @@
     "unavailable": "MCPlain ne répond pas pour l'instant. Réessaie dans quelques minutes."
   },
   "tracker": {
-    "heading": "Analyse en cours",
+    "heading": "ANALYSE EN COURS",
     "loading": "Chargement de l'analyse…",
     "current": "Étape en cours : {step}",
     "steps": {
@@ -67,116 +77,156 @@
     }
   },
   "verdict": {
-    "heading": "Verdict",
-    "notSafe": "Ça ne veut pas dire qu'il est sûr.",
-    "alertCount": "{count, plural, one {# alerte} other {# alertes}}",
-    "reasons": "Pourquoi ce verdict",
-    "red": {
-      "word": "Rouge",
-      "summary": "Ne l'installe pas : MCPlain a trouvé des signes de danger."
+    "heading": "VERDICT",
+    "word": {
+      "green": "RIEN TROUVÉ",
+      "orange": "À VÉRIFIER",
+      "red": "DANGER",
+      "gray": "NON VÉRIFIÉ"
     },
-    "orange": {
-      "word": "Orange",
-      "summary": "Ce serveur a des pouvoirs à connaître avant de l'installer."
+    "zones": {
+      "green": "RIEN",
+      "orange": "À VÉRIFIER",
+      "red": "DANGER"
     },
-    "green": {
-      "word": "Vert",
-      "summary": "Rien d'alarmant dans le code que MCPlain a pu lire."
-    },
-    "gray": {
-      "word": "Gris",
-      "summary": "MCPlain ne peut pas conclure."
-    }
+    "gaugeLabel": "Jauge du verdict : {word}",
+    "retry": "Relancer",
+    "retrying": "Relance…"
   },
   "grayStates": {
     "unverified": {
-      "title": "Non vérifié",
-      "body": "Le service MCPlain n'a pas répondu, ou a répondu quelque chose d'anormal : rien n'est dit sur ce serveur."
+      "title": "Le service MCPlain n'a pas répondu.",
+      "body": "Il n'a pas répondu, ou il a répondu quelque chose d'anormal : rien n'est dit sur ce serveur."
     },
     "timeout": {
-      "title": "Trop long",
-      "body": "L'analyse prend trop de temps. Réessaie dans quelques minutes."
+      "title": "L'analyse prend trop de temps.",
+      "body": "Relance-la, ou réessaie dans quelques minutes."
     },
-    "failed": {
-      "title": "L'analyse a échoué"
-    },
+    "notSafe": "Ça ne veut pas dire que ce MCP est sûr.",
     "home": "Retour à l'accueil"
   },
-  "status": {
-    "heading": "Ce que MCPlain a trouvé"
+  "identity": {
+    "npm": "paquet publié sur npm",
+    "pypi": "paquet publié sur PyPI",
+    "github": "code GitHub",
+    "version": "version",
+    "revision": "commit",
+    "analyzedOn": "Analysé le {date}"
   },
-  "candidates": {
-    "heading": "Plusieurs serveurs trouvés",
-    "intro": "Choisis le serveur à analyser. La même source est analysée à nouveau, pour ce serveur seulement.",
-    "truncated": "La liste est coupée : il y a d'autres serveurs.",
-    "language": "langage : {language}"
+  "plain": {
+    "heading": "EN CLAIR",
+    "canDoLabel": "CE QU'IL PEUT FAIRE",
+    "foundLabel": "CE QU'ON A TROUVÉ",
+    "adviceLabel": "CE QUE TU PEUX FAIRE",
+    "canDo": "Peut {actions}.",
+    "canDoNothing": "Son code n'allume aucun voyant : rien de particulier n'a été trouvé.",
+    "morePoints": "{count, plural, one {Et # autre point à vérifier plus bas.} other {Et # autres points à vérifier plus bas.}}",
+    "foundNothing": "Rien de dangereux.",
+    "foundNothingDomains": "Rien de dangereux. Il va seulement sur : {domains}",
+    "adviceNothing": "Rien ne s'y oppose. Repasse chaque nouvelle version au contrôle."
+  },
+  "lamps": {
+    "heading": "LES VOYANTS",
+    "count": "{lit, plural, =0 {Aucun allumé sur {total}} one {# allumé sur {total}} other {# allumés sur {total}}}",
+    "countDanger": ", dont {danger} en danger",
+    "state": {
+      "on": "Allumé",
+      "off": "Éteint",
+      "danger": "Danger"
+    }
+  },
+  "points": {
+    "heading": {
+      "red": "DANGER ({count})",
+      "orange": "À VÉRIFIER ({count})"
+    },
+    "intro": {
+      "red": "{count, plural, one {Ce point suffit à donner le verdict rouge.} other {Chacun de ces points suffit à donner le verdict rouge.}}",
+      "orange": "Ces points ne prouvent pas un piège, mais ils demandent ton attention avant d'installer."
+    },
+    "badge": {
+      "red": "DANGER",
+      "orange": "À VÉRIFIER"
+    },
+    "emptyGreen": "Aucun point à vérifier. Tout le code a été lu et suivi, et rien de puissant ni de caché n'a été trouvé.",
+    "emptyGray": "Aucun point à vérifier n'a été trouvé, mais tout le code n'a pas pu être lu."
+  },
+  "tools": {
+    "heading": "{count, plural, =0 {AUCUN OUTIL} one {L'OUTIL} other {LES # OUTILS}}",
+    "hint": "Clique sur un outil pour ouvrir sa fiche.",
+    "none": "Aucune déclaration d'outil n'a été reconnue.",
+    "number": "OUTIL {number}",
+    "level": {
+      "warn": "À vérifier",
+      "danger": "Danger"
+    },
+    "noLamp": "Aucun voyant allumé",
+    "canDo": "Peut {actions}.",
+    "automatic": "Résumé automatique"
+  },
+  "sheet": {
+    "number": "FICHE DE L'OUTIL {number}",
+    "declaredIn": "déclaré dans",
+    "why": {
+      "orange": "POURQUOI « À VÉRIFIER » ?",
+      "red": "POURQUOI « DANGER » ?"
+    },
+    "quote": "Passage original du code :",
+    "where": "Où :",
+    "moreAlerts": "{count, plural, one {Et # autre point pour cet outil, dans la liste plus haut.} other {Et # autres points pour cet outil, dans la liste plus haut.}}",
+    "announces": "CE QU'IL ANNONCE",
+    "byAuthor": "(selon l'auteur)",
+    "authorText": "Texte de l'auteur",
+    "dynamicDescription": "Sa description est fabriquée au démarrage : elle n'a pas pu être lue.",
+    "noDescription": "Pas de description.",
+    "annotations": "L'auteur annonce aussi :",
+    "colon": " : ",
+    "parameters": "Ses paramètres",
+    "codeCan": "CE QUE SON CODE PEUT FAIRE",
+    "nothing": "Rien de particulier : son code n'allume aucun voyant.",
+    "canAction": "Peut {action}.",
+    "incomplete": "Suivi incomplet :",
+    "whereInCode": "Où dans le code :",
+    "nowhere": "Aucun endroit précis n'a été relevé pour cet outil.",
+    "morePlaces": "{count, plural, one {et # autre endroit} other {et # autres endroits}}"
+  },
+  "details": {
+    "heading": "DÉTAILS TECHNIQUES",
+    "show": "Afficher",
+    "hide": "Masquer",
+    "domains": "Adresses Internet citées dans le code",
+    "noneFeminine": "Aucune",
+    "none": "Aucun",
+    "sensitive": "Fichiers sensibles cités (clés, mots de passe)",
+    "install": "Programmes lancés à l'installation",
+    "invisible": "Caractères invisibles",
+    "invisibleCount": "{label} × {count}",
+    "outside": "Points hors des outils (démarrage, installation, paquet)",
+    "reputation": "Réputation (OSV.dev)",
+    "why": "Pourquoi ce paquet",
+    "rules": "Version des règles",
+    "rulesValue": "v{version}, {count} règles",
+    "reasons": "Pourquoi ce verdict",
+    "source": "Source téléchargée",
+    "revision": "Commit",
+    "integrity": "Empreinte",
+    "input": "Tu as demandé",
+    "select": "Serveur choisi",
+    "ignored": "Arguments ignorés (jamais exécutés)",
+    "colon": " : "
+  },
+  "reportEnd": {
+    "readOn": "Ce rapport décrit le code lu le {date}. Il ne prouve pas qu'un serveur est sûr.",
+    "fromCache": "Résultat repris d'une analyse du {date}."
   },
   "report": {
-    "toolsHeading": "Ce que fait chaque outil",
-    "noTools": "Aucune déclaration d'outil n'a été reconnue.",
-    "otherAlerts": "Autres alertes"
+    "backToTop": "Remonter en haut de la page",
+    "pasteAbove": "Colle son lien dans le champ en haut de la page."
   },
-  "tool": {
-    "label": "Outil",
-    "dynamicName": "nom calculé quand le serveur tourne",
-    "place": "Déclaré dans",
-    "announces": "Ce qu'il annonce",
-    "byAuthor": "selon l'auteur",
-    "description": "Description",
-    "noDescription": "Pas de description.",
-    "dynamicDescription": "Description calculée quand le serveur tourne, illisible ici.",
-    "title": "Titre",
-    "annotations": "Annotations",
-    "dynamicAnnotations": "Certaines annotations sont calculées quand le serveur tourne.",
-    "parameters": "Paramètres",
-    "canDo": "Ce que son code peut faire",
-    "nothingFound": "Rien trouvé dans son code.",
-    "incomplete": "Suivi incomplet",
-    "alerts": "Ses alertes",
-    "noAlert": "Aucune alerte pour cet outil."
-  },
-  "alert": {
-    "kind": "Nature",
-    "meaning": "Ce que ça veut dire",
-    "place": "Où",
-    "path": "Chemin",
-    "detail": "Détail",
-    "quote": "Passage original",
-    "more": "… et {count} autres endroits."
-  },
-  "outside": {
-    "heading": "Trouvé hors des outils",
-    "capabilities": "Capacités",
-    "urls": "URL citées dans le code",
-    "urlsHint": "Texte simple, pas des liens. Être cité ne veut pas dire être contacté.",
-    "sensitive": "Chemins sensibles",
-    "install": "Scripts d'installation",
-    "invisible": "Caractères invisibles",
-    "hiddenText": "texte caché",
-    "none": "Aucun.",
-    "more": "… et {count} autres."
-  },
-  "source": {
-    "heading": "Source analysée",
-    "kind": "Type",
-    "name": "Nom",
-    "version": "Version",
-    "requested": "demandée",
-    "reference": "Référence",
-    "revision": "Commit (SHA)",
-    "folder": "Dossier",
-    "repository": "Dépôt GitHub lié",
-    "integrity": "Empreinte",
-    "artifact": "Fichier",
-    "what": "Ce qui a été analysé",
-    "why": "Pourquoi",
-    "date": "Date",
-    "rules": "Règles",
-    "rulesValue": "version {version}, {count} règles",
-    "input": "Tu as demandé",
-    "ignored": "Arguments ignorés (jamais exécutés)",
-    "reputation": "Réputation (OSV.dev)",
-    "allVersions": "toutes les versions"
+  "candidates": {
+    "nothingYet": "Rien n'a encore été analysé : choisis-en un.",
+    "truncated": "La liste est coupée : il y a d'autres serveurs.",
+    "language": "langage : {language}"
   },
   "rawText": {
     "invisible": "caractère invisible",

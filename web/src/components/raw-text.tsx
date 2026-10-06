@@ -12,6 +12,7 @@ type RawTextProps = {
   value: string;
   limit?: number;
   variant?: "inline" | "block";
+  expandable?: boolean;
   className?: string;
 };
 
@@ -22,7 +23,7 @@ function InvisibleBadge({ label }: { label: string }) {
     <span
       title={t("invisible")}
       data-invisible={label}
-      className="mx-0.5 inline-block rounded-sm border border-yellow-800 bg-yellow-100 px-1 font-mono text-[0.8em] font-bold text-yellow-950 not-italic dark:border-yellow-300 dark:bg-yellow-950 dark:text-yellow-50"
+      className="mx-0.5 inline-block rounded-sm border border-warn bg-warn-note px-1 font-mono text-[0.8em] font-bold text-warn-text not-italic"
     >
       <span aria-hidden="true">⟨</span>
       {label}
@@ -32,7 +33,7 @@ function InvisibleBadge({ label }: { label: string }) {
   );
 }
 
-function ToggleButton({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+function ToggleButton({ expanded, onToggle, tall }: { expanded: boolean; onToggle: () => void; tall: boolean }) {
   const t = useTranslations("rawText");
   let label = t("showAll");
   if (expanded) {
@@ -44,14 +45,23 @@ function ToggleButton({ expanded, onToggle }: { expanded: boolean; onToggle: () 
       type="button"
       aria-expanded={expanded}
       onClick={onToggle}
-      className="ml-1 rounded-sm font-sans text-sm font-semibold underline underline-offset-4 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className={cn(
+        "ml-1 rounded-sm font-sans text-sm font-semibold text-accent underline underline-offset-4 hover:text-accent-hover",
+        tall && "inline-flex min-h-11 items-center",
+      )}
     >
       {label}
     </button>
   );
 }
 
-export function RawText({ value, limit = RAW_TEXT_LIMIT, variant = "inline", className }: RawTextProps) {
+export function RawText({
+  value,
+  limit = RAW_TEXT_LIMIT,
+  variant = "inline",
+  expandable = true,
+  className,
+}: RawTextProps) {
   const [expanded, setExpanded] = useState(false);
   const shortened = cutText(value, limit);
   let shown = value;
@@ -64,7 +74,7 @@ export function RawText({ value, limit = RAW_TEXT_LIMIT, variant = "inline", cla
       data-raw-text=""
       className={cn(
         "font-mono whitespace-pre-wrap [overflow-wrap:anywhere] [unicode-bidi:isolate]",
-        variant === "inline" && "rounded-sm bg-muted px-1 text-[0.95em]",
+        variant === "inline" && "text-[0.95em]",
         className,
       )}
     >
@@ -77,11 +87,13 @@ export function RawText({ value, limit = RAW_TEXT_LIMIT, variant = "inline", cla
       {shortened.cut && !expanded && <span aria-hidden="true">…</span>}
     </bdi>
   );
-  const toggle = shortened.cut && <ToggleButton expanded={expanded} onToggle={() => setExpanded(!expanded)} />;
+  const toggle = shortened.cut && expandable && (
+    <ToggleButton expanded={expanded} onToggle={() => setExpanded(!expanded)} tall={variant === "block"} />
+  );
 
   if (variant === "block") {
     return (
-      <div className="rounded-md border border-border bg-muted p-3 text-sm">
+      <div className="rounded-lg bg-code-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
         {isolated}
         {toggle && <div className="mt-2">{toggle}</div>}
       </div>

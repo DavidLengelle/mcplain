@@ -1,31 +1,34 @@
 "use client";
 
-import { Check, Circle, LoaderCircle } from "lucide-react";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
-import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "@/i18n/navigation";
 import { isRunning, RUNNING_STATES, type AnalysisView, type RunningState } from "@/lib/analysis";
 import { fetchAnalysis } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
-import { GrayState } from "./report/gray-state";
+import { CheckIcon, CircleIcon, SpinnerIcon } from "./icons";
 import { ReportView } from "./report/report-view";
+import { RetryButton } from "./report/retry-button";
+import { VerdictFrame } from "./report/verdict-block";
 
 export const POLL_MILLISECONDS = 1000;
 export const MAX_WAIT_MILLISECONDS = 3 * 60 * 1000;
 export const MAX_FAILURES = 3;
 
+type StepState = "done" | "current" | "waiting";
+
 type TrackerView =
   | { kind: "loading" }
   | { kind: "running"; state: RunningState }
   | { kind: "finished"; analysis: AnalysisView }
-  | { kind: "unverified" }
-  | { kind: "timeout" }
+  | { kind: "unverified"; last: AnalysisView | null }
+  | { kind: "timeout"; last: AnalysisView | null }
   | { kind: "not_found" };
 
-function stepState(step: RunningState, current: RunningState): "done" | "current" | "waiting" {
+function stepState(step: RunningState, current: RunningState): StepState {
   const stepIndex = RUNNING_STATES.indexOf(step);
   const currentIndex = RUNNING_STATES.indexOf(current);
   if (stepIndex < currentIndex) {
@@ -37,14 +40,14 @@ function stepState(step: RunningState, current: RunningState): "done" | "current
   return "waiting";
 }
 
-function StepIcon({ state }: { state: "done" | "current" | "waiting" }) {
+function StepIcon({ state }: { state: StepState }) {
   if (state === "done") {
-    return <Check aria-hidden="true" className="size-5" />;
+    return <CheckIcon className="size-6 stroke-green" />;
   }
   if (state === "current") {
-    return <LoaderCircle aria-hidden="true" className="size-5 animate-spin motion-reduce:animate-none" />;
+    return <SpinnerIcon className="size-6 stroke-accent" />;
   }
-  return <Circle aria-hidden="true" className="size-5" />;
+  return <CircleIcon className="size-6 stroke-faint" />;
 }
 
 function Steps({ current }: { current: RunningState | null }) {
@@ -55,13 +58,13 @@ function Steps({ current }: { current: RunningState | null }) {
   }
 
   return (
-    <section aria-labelledby="tracker-heading" className="flex flex-col gap-4">
-      <h1 id="tracker-heading" className="text-3xl font-bold tracking-tight">
+    <section aria-labelledby="tracker-heading" className="flex flex-col gap-5 rounded-[22px] bg-panel px-6 py-7 sm:px-8">
+      <h1 id="tracker-heading" className="font-condensed text-[32px] leading-tight font-bold tracking-[0.04em]">
         {t("heading")}
       </h1>
-      <ol className="flex flex-col gap-2">
+      <ol className="flex flex-col gap-3">
         {RUNNING_STATES.map((step) => {
-          let state: "done" | "current" | "waiting" = "waiting";
+          let state: StepState = "waiting";
           if (current !== null) {
             state = stepState(step, current);
           }
@@ -70,7 +73,10 @@ function Steps({ current }: { current: RunningState | null }) {
               key={step}
               data-step={step}
               data-state={state}
-              className={cn("flex items-center gap-2 text-lg", state === "current" && "font-bold")}
+              className={cn(
+                "flex items-center gap-3 text-lg text-ink2",
+                state === "current" && "font-semibold text-ink",
+              )}
             >
               <StepIcon state={state} />
               <span>{t(`steps.${step}`)}</span>
@@ -83,12 +89,28 @@ function Steps({ current }: { current: RunningState | null }) {
         {announcement}
       </p>
       {current === null && (
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-6 w-2/3" />
-        </div>
+        <div aria-hidden="true" className="h-24 w-full animate-pulse rounded-2xl bg-panel2 motion-reduce:animate-none" />
       )}
     </section>
+  );
+}
+
+function GrayState({ kind, last }: { kind: "unverified" | "timeout"; last: AnalysisView | null }) {
+  const t = useTranslations("grayStates");
+
+  return (
+    <div className="flex flex-col gap-4">
+      <VerdictFrame color="gray" title={t(`${kind}.title`)}>
+        <p className="max-w-[60ch] text-lg leading-[1.55] text-ink2">{t(`${kind}.body`)}</p>
+        <p className="mt-3 max-w-[60ch] text-lg font-semibold">{t("notSafe")}</p>
+        {last !== null && <RetryButton input={last.input} select={last.select} />}
+      </VerdictFrame>
+      <p>
+        <Link href="/" className="inline-flex min-h-11 items-center font-semibold text-accent underline underline-offset-4">
+          {t("home")}
+        </Link>
+      </p>
+    </div>
   );
 }
 
@@ -100,6 +122,7 @@ export function AnalysisTracker({ id }: { id: string }) {
     const started = Date.now();
     let active = true;
     let failures = 0;
+    let last: AnalysisView | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     function schedule() {
@@ -108,7 +131,7 @@ export function AnalysisTracker({ id }: { id: string }) {
 
     async function poll() {
       if (Date.now() - started > MAX_WAIT_MILLISECONDS) {
-        setView({ kind: "timeout" });
+        setView({ kind: "timeout", last });
         return;
       }
       const outcome = await fetchAnalysis(id, controller.signal);
@@ -120,13 +143,13 @@ export function AnalysisTracker({ id }: { id: string }) {
         return;
       }
       if (outcome.kind === "invalid") {
-        setView({ kind: "unverified" });
+        setView({ kind: "unverified", last });
         return;
       }
       if (outcome.kind === "unavailable") {
         failures += 1;
         if (failures >= MAX_FAILURES) {
-          setView({ kind: "unverified" });
+          setView({ kind: "unverified", last });
           return;
         }
         schedule();
@@ -134,6 +157,7 @@ export function AnalysisTracker({ id }: { id: string }) {
       }
       failures = 0;
       const analysis = outcome.analysis;
+      last = analysis;
       if (isRunning(analysis.state)) {
         setView({ kind: "running", state: analysis.state });
         schedule();
@@ -162,7 +186,7 @@ export function AnalysisTracker({ id }: { id: string }) {
     return <Steps current={view.state} />;
   }
   if (view.kind === "unverified" || view.kind === "timeout") {
-    return <GrayState kind={view.kind} />;
+    return <GrayState kind={view.kind} last={view.last} />;
   }
   return <ReportView analysis={view.analysis} />;
 }
