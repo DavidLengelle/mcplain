@@ -67,17 +67,18 @@ def lamp_states(
     capabilities: set[Capability],
     red_rules: set[str],
     invisible_characters: bool,
-) -> list[tuple[LampId, LampState]]:
-    """Return the state of every lamp, in table order: danger for a red rule, on for a capability, else off"""
+) -> list[tuple[LampId, LampState, list[str]]]:
+    """Return each lamp in table order with its state and the red rules that turned it red"""
 
     states = []
     for spec in LAMPS:
         state = LampState.OFF
         if spec.capabilities & capabilities or (spec.lit_by_invisible_characters and invisible_characters):
             state = LampState.ON
-        if spec.red_rules & red_rules:
+        rules = sorted(spec.red_rules & red_rules)
+        if rules:
             state = LampState.DANGER
-        states.append((spec.lamp, state))
+        states.append((spec.lamp, state, rules))
     return states
 
 

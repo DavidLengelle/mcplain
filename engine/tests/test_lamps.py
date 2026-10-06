@@ -127,10 +127,11 @@ def test_capabilities_light_their_lamps_and_env_read_lights_nothing() -> None:
         Capability.SENSITIVE_PATH: LampId.SECRETS,
     }
     for capability, lamp in expected.items():
-        lit = {item for item, state in lamp_states({capability}, set(), False) if state is not LampState.OFF}
+        lit = {item for item, state, _ in lamp_states({capability}, set(), False) if state is not LampState.OFF}
         assert lit == {lamp}, capability
-    assert all(state is LampState.OFF for _, state in lamp_states({Capability.ENV_READ}, set(), False))
-    assert dict(lamp_states(set(), set(), True))[LampId.HIDDEN_TEXT] is LampState.ON
+    assert all(state is LampState.OFF for _, state, _ in lamp_states({Capability.ENV_READ}, set(), False))
+    hidden = {lamp: state for lamp, state, _ in lamp_states(set(), set(), True)}
+    assert hidden[LampId.HIDDEN_TEXT] is LampState.ON
 
 
 @pytest.mark.parametrize("rule", sorted(RED_RULE_LAMPS))
@@ -147,6 +148,11 @@ def test_each_red_rule_turns_its_lamps_red(fixtures: Path, rule: str) -> None:
         danger = {lamp for lamp, state in states(server.lamps).items() if state is LampState.DANGER}
         assert danger == expected
         assert RED_RULE_LAMPS[rule] <= danger
+        for lamp in server.lamps:
+            if lamp.id in RED_RULE_LAMPS[rule]:
+                assert rule in lamp.rules
+            if lamp.state is not LampState.DANGER:
+                assert lamp.rules == []
 
 
 def test_orange_rules_never_turn_a_lamp_red(fixtures: Path) -> None:

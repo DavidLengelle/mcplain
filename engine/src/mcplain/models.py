@@ -174,10 +174,11 @@ AnnotationValue = bool | Literal["computed"]
 
 
 class Lamp(BaseModel):
-    """Class that holds the state of one lamp"""
+    """Class that holds the state of one lamp and the red rules that turned it red"""
 
     id: LampId
     state: LampState
+    rules: list[str] = Field(default_factory=list)
 
 
 def check_lamps(lamps: list[Lamp]) -> list[Lamp]:

@@ -217,7 +217,7 @@ def code_hides_text(server: ServerAnalysis, tool: str | None) -> bool:
 def _lamps(capabilities: set[Capability], red_rules: set[str], hidden: bool) -> list[Lamp]:
     """Build the six lamps from what was found"""
 
-    return [Lamp(id=lamp, state=state) for lamp, state in lamp_states(capabilities, red_rules, hidden)]
+    return [Lamp(id=lamp, state=state, rules=rules) for lamp, state, rules in lamp_states(capabilities, red_rules, hidden)]
 
 
 def attach_lamps(result: AnalysisResult) -> None:
