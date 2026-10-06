@@ -10,6 +10,7 @@ from docker.errors import DockerException
 from docker.models.containers import Container
 from docker.types import LogConfig, Mount, Ulimit
 from mcplain.models import AnalysisResult
+from mcplain.verdict import has_lamps
 from pydantic import ValidationError
 
 from mcplain_api.settings import Settings
@@ -89,7 +90,7 @@ def run_atelier(
 
 
 def _supervise(container: Container, timeout: int) -> AtelierRun:
-    """Start the container, kill it after the time limit, then read and validate its standard output"""
+    """Start the container, kill it after the time limit, then read and validate its output, lamps included"""
 
     container.start()
     try:
@@ -110,6 +111,8 @@ def _supervise(container: Container, timeout: int) -> AtelierRun:
     try:
         result = AnalysisResult.model_validate_json(stdout)
     except ValidationError:
+        return AtelierRun(None, ATELIER_INVALID_RESULT, stderr, exit_code)
+    if not has_lamps(result):
         return AtelierRun(None, ATELIER_INVALID_RESULT, stderr, exit_code)
     return AtelierRun(result, None, stderr, exit_code)
 

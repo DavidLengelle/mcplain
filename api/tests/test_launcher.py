@@ -12,12 +12,14 @@ from docker.errors import APIError, ImageNotFound
 from docker.types import LogConfig, Mount, Ulimit
 from helpers import ENGINE_FIXTURES, make_settings
 from mcplain.analyze import analyze_directory
+from mcplain.lamps import LAMP_ORDER
 
 from mcplain_api import launcher
 from mcplain_api.launcher import (
     ATELIER_ERROR,
     ATELIER_INVALID_RESULT,
     ATELIER_TIMEOUT,
+    AtelierRun,
     atelier_options,
     remove_orphans,
     run_atelier,
@@ -321,6 +323,67 @@ def test_unreadable_output_gives_invalid_result(stdout: bytes) -> None:
     run = run_atelier(FakeClient(container), INPUT, make_settings())
     assert (run.result, run.error_code) == (None, ATELIER_INVALID_RESULT)
     assert container.removed
+
+
+def run_with(result: dict[str, Any]) -> AtelierRun:
+    """Run a fake atelier that prints a result given as a mapping"""
+
+    container = FakeContainer(stdout=json.dumps(result).encode() + b"\n")
+    return run_atelier(FakeClient(container), INPUT, make_settings())
+
+
+def fixture_result(fixtures: Path, name: str) -> dict[str, Any]:
+    """Return the real result of an engine fixture as a mapping"""
+
+    return analyze_directory(fixtures / name).model_dump(mode="json")
+
+
+def test_lamps_level_and_domains_pass_through(engine_fixtures: Path) -> None:
+    """The lamps of the server and of each tool, the tool levels and the fixed domains are kept as the engine set them"""
+
+    result = fixture_result(engine_fixtures, "postmark_like")
+    run = run_with(result)
+    assert run.error_code is None and run.result is not None
+    assert run.result.model_dump(mode="json") == result
+    server = run.result.servers[0]
+    assert [lamp.id.value for lamp in server.lamps] == [lamp.value for lamp in LAMP_ORDER]
+    assert {tool.level.value for tool in server.tools} <= {"none", "warn", "danger"}
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "server_without_lamps",
+        "tool_without_lamps",
+        "five_lamps",
+        "unknown_lamp",
+        "unknown_state",
+        "unknown_level",
+        "domains_not_a_list",
+    ],
+)
+def test_output_without_complete_lamps_gives_invalid_result(engine_fixtures: Path, damage: str) -> None:
+    """A result whose lamps, levels or domains are missing or malformed is refused, so the analysis turns gray"""
+
+    result = fixture_result(engine_fixtures, "python_filesystem")
+    server = result["servers"][0]
+    tool = server["tools"][0]
+    if damage == "server_without_lamps":
+        del server["lamps"]
+    elif damage == "tool_without_lamps":
+        tool["lamps"] = []
+    elif damage == "five_lamps":
+        server["lamps"] = server["lamps"][:5]
+    elif damage == "unknown_lamp":
+        server["lamps"][5]["id"] = "camera"
+    elif damage == "unknown_state":
+        tool["lamps"][0]["state"] = "blinking"
+    elif damage == "unknown_level":
+        tool["level"] = "maybe"
+    else:
+        server["internet_domains"] = "example.com"
+    run = run_with(result)
+    assert (run.result, run.error_code) == (None, ATELIER_INVALID_RESULT)
 
 
 def test_two_lines_are_refused(engine_fixtures: Path) -> None:
