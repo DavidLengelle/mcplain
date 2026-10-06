@@ -8,9 +8,11 @@ import pytest
 
 from mcplain.capabilities import SENSITIVE_PATH_PATTERNS, Capability, PathKind
 from mcplain.i18n import Translator
+from mcplain.lamps import LampId
 from mcplain.models import (
     AnalysisStatus,
     DeclarationKind,
+    GrayCase,
     InvisibleCategory,
     LocationKind,
     OutsideKind,
@@ -18,6 +20,7 @@ from mcplain.models import (
     SourceOrigin,
     TrackingGap,
 )
+from mcplain.verdict import DEFAULT_REGISTRY
 
 SOURCE = Path(__file__).parents[1] / "src" / "mcplain"
 LOCALES = SOURCE / "locales"
@@ -97,3 +100,49 @@ def test_urls_are_never_called_contacted(language: str) -> None:
     for key, text in catalog(language).items():
         if key not in CONTACT_KEYS:
             assert "contact" not in text.lower(), key
+
+
+PLAIN_FIELDS: tuple[str, ...] = ("plain_title", "plain_found", "plain_advice")
+FORBIDDEN_IN_PLAIN: tuple[str, ...] = ("sûr", "safe", "certifi", "garanti", "guarant")
+FORBIDDEN_WORDS = re.compile(r"\b(pouvoirs?|powers)\b", re.IGNORECASE)
+NEW_TEXT_PREFIXES: tuple[str, ...] = ("lamp.", "gray.", "verdict.")
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_every_rule_has_its_three_plain_texts(language: str) -> None:
+    """Each rule, red and orange, says in plain words what it is, what was found and what to do"""
+
+    texts = catalog(language)
+    for rule in DEFAULT_REGISTRY.rules():
+        for field in PLAIN_FIELDS:
+            assert texts.get(rule.text_key(field), "").strip(), (language, rule.text_key(field))
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_plain_texts_promise_nothing(language: str) -> None:
+    """No plain text says safe, certified or guaranteed, and no new text speaks of powers"""
+
+    for key, text in catalog(language).items():
+        if key.split(".")[-1] in PLAIN_FIELDS:
+            lowered = text.lower()
+            assert not [word for word in FORBIDDEN_IN_PLAIN if word in lowered], key
+        if key.split(".")[-1] in PLAIN_FIELDS or key.startswith(NEW_TEXT_PREFIXES):
+            assert FORBIDDEN_WORDS.search(text) is None, key
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_lamps_gray_cases_and_verdict_titles_are_translated(language: str) -> None:
+    """Every lamp has a name and a phrase, every gray case a reason and an advice, every verdict title a text"""
+
+    keys = set(catalog(language))
+    expected = [f"lamp.{lamp.value}.{field}" for lamp in LampId for field in ("name", "phrase")]
+    expected += [f"gray.{case.value}.{field}" for case in GrayCase for field in ("reason", "advice")]
+    expected += [
+        "lamp.internet.note_domains",
+        "verdict.green.title",
+        "verdict.green.summary",
+        "verdict.green.summary_domains",
+        "verdict.green.summary_network",
+        "verdict.gray.not_safe",
+    ]
+    assert [key for key in expected if key not in keys] == []

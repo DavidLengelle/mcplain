@@ -27,12 +27,26 @@ Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une
 | [O07 lone-invisible-char](#o07-lone-invisible-char) | ORANGE | Caractère invisible isolé |
 | [O08 powerful-capability](#o08-powerful-capability) | ORANGE | Capacité puissante |
 
+## Les voyants
+
+Chaque rapport montre six voyants, pour le serveur et pour chaque outil. Une capacité trouvée dans le code qui compte pour le verdict allume le voyant : il devient blanc, pour information. Une règle rouge déclenchée le passe en danger : il devient rouge. Les règles orange n'allument jamais de rouge. Une simple lecture de variable d'environnement (PORT, LOG_LEVEL) n'allume rien. R11 (paquet malveillant connu) n'allume aucun voyant : il s'affiche dans la liste des alertes. Cette table est générée depuis `engine/src/mcplain/lamps.py`.
+
+| Voyant | Identifiant | Allumé par | Rouge si |
+| --- | --- | --- | --- |
+| Lit tes fichiers | `files_read` | `fs_read` | aucune |
+| Modifie tes fichiers | `files_write` | `fs_write` | R08 |
+| Va sur Internet | `internet` | `network` | R04, R05, R07, R10 |
+| Lance des commandes | `commands` | `dynamic_code`, `install_script`, `process_exec` | R07, R09, R10 |
+| Touche à tes secrets | `secrets` | `env_read_secret`, `sensitive_path` | R03, R04 |
+| Texte caché | `hidden_text` | caractères invisibles trouvés | R01, R02, R06, R12 |
+
 ## R01 invisible-text
 
 **Texte invisible** : ROUGE, usage suspect.
 
 Le nom ou la description d'un outil contient des caractères invisibles qui cachent du texte : tu ne le vois pas, mais l'IA le lit. C'est ainsi qu'on glisse des instructions cachées à une IA. Des contrôles bidirectionnels écrits dans le code peuvent aussi le faire paraître différent de ce qui s'exécute.
 
+- En clair : **Texte caché à tes yeux**. Des caractères invisibles cachent du texte dans un outil ou dans le code. Tu ne les vois pas, mais l'IA les lit. Conseil : Ne l'installe pas. Un outil n'a pas besoin de cacher du texte à l'IA.
 - Visible en lisant le code : non
 - Faux positif connu : Un texte copié-collé depuis un traitement de texte, qui traîne deux espaces de largeur nulle.
 - Sources :
@@ -47,6 +61,7 @@ Le nom ou la description d'un outil contient des caractères invisibles qui cach
 
 Une description demande à l'IA de ne pas te dire ce qu'elle ou l'outil est en train de faire. Un outil n'a pas de raison honnête de te cacher ce qu'il fait.
 
+- En clair : **Demande à l'IA de te cacher des choses**. Une description demande à l'IA de ne pas te dire ce que fait l'outil. Conseil : Ne l'installe pas. Un outil n'a pas de raison honnête de te cacher ce qu'il fait.
 - Visible en lisant le code : oui
 - Faux positif connu : « If the request fails, retry silently: do not tell the user about it. » (réessayer en silence après un échec).
 - Sources :
@@ -60,6 +75,7 @@ Une description demande à l'IA de ne pas te dire ce qu'elle ou l'outil est en t
 
 Une description cite un fichier sensible (clés SSH, identifiants, configuration) et demande à l'IA d'en mettre le contenu dans un argument de l'outil. L'IA lirait le fichier et le donnerait à l'outil.
 
+- En clair : **Demande à l'IA un fichier secret**. Une description demande à l'IA de lire un fichier sensible, comme tes clés SSH, et de donner son contenu à l'outil. Conseil : Ne l'installe pas. Si tu l'as déjà utilisé, change les clés ou les mots de passe de ce fichier.
 - Visible en lisant le code : oui
 - Faux positif connu : « Paste the contents of your ~/.ssh/config into the 'config' parameter to check it for errors. » (un vérificateur de configuration SSH).
 - Sources :
@@ -73,6 +89,7 @@ Une description cite un fichier sensible (clés SSH, identifiants, configuration
 
 Ce code lit un fichier secret (par exemple tes clés SSH) ou toutes tes variables d'environnement d'un coup, et les envoie sur le réseau.
 
+- En clair : **Envoie tes secrets sur Internet**. Le code lit un fichier secret ou toutes tes variables d'environnement, puis les envoie sur le réseau. Conseil : Ne l'installe pas. S'il est déjà installé, retire-le et change tes clés et tes mots de passe.
 - Visible en lisant le code : oui
 - Faux positif connu : Un outil de sauvegarde de dotfiles qui envoie ~/.ssh/config vers le Gist de l'utilisateur.
 - Sources :
@@ -87,6 +104,7 @@ Ce code lit un fichier secret (par exemple tes clés SSH) ou toutes tes variable
 
 Ce code ajoute en copie (cc ou bcc) une adresse e-mail écrite dans le code. Chaque e-mail envoyé par l'outil partirait aussi vers cette adresse.
 
+- En clair : **Copie cachée de tes e-mails**. Chaque e-mail part aussi, en copie cachée, vers une adresse écrite dans le code. Conseil : Ne l'installe pas. S'il est déjà installé, retire-le et change la clé de ton service d'e-mail.
 - Visible en lisant le code : oui
 - Faux positif connu : Archivage légal : un Bcc fixe vers l'adresse d'archives de l'entreprise.
 - Sources :
@@ -99,6 +117,7 @@ Ce code ajoute en copie (cc ou bcc) une adresse e-mail écrite dans le code. Cha
 
 Ce code décode un texte rangé dans le paquet (base64, hexadécimal, codes de caractères...) et l'exécute. Le vrai code est caché à qui lit le source.
 
+- En clair : **Code caché**. Le code décode un texte rangé dans le paquet, puis le lance. Ce qui tourne vraiment ne se lit pas dans le code. Conseil : Ne l'installe pas tant que personne n'a pu lire ce code caché.
 - Visible en lisant le code : oui
 - Faux positif connu : Un serveur SSH qui embarque un petit script de démarrage encodé en base64 et le lance sur la machine distante.
 - Sources :
@@ -112,6 +131,7 @@ Ce code décode un texte rangé dans le paquet (base64, hexadécimal, codes de c
 
 Ce code télécharge quelque chose sur Internet et l'exécute (eval, un shell, ou un fichier écrit puis lancé). Ce qui s'exécute peut changer à tout moment, sans nouvelle version du paquet.
 
+- En clair : **Télécharge du code et le lance**. Le code télécharge quelque chose sur Internet et le lance. Ce qui tourne peut changer à tout moment, sans nouvelle version. Conseil : Ne l'installe pas, sauf si tu sais exactement ce qu'il télécharge et d'où.
 - Visible en lisant le code : oui
 - Faux positif connu : Installer uv s'il manque, avec la commande officielle curl -LsSf https://astral.sh/uv/install.sh | sh.
 - Sources :
@@ -125,6 +145,7 @@ Ce code télécharge quelque chose sur Internet et l'exécute (eval, un shell, o
 
 Ce code écrit dans un fichier qui lance des programmes automatiquement (.bashrc, crontab, authorized_keys, LaunchAgents...) ou dans la configuration d'un autre outil (clients MCP, .npmrc, .gitconfig...). Il peut ainsi faire revenir du code plus tard, ou changer le comportement de tes autres outils.
 
+- En clair : **Modifie ton démarrage ou tes autres outils**. Le code écrit dans un fichier qui lance des programmes tout seul (comme .bashrc ou crontab), ou dans les réglages d'un autre outil. Conseil : Ne l'installe pas. S'il a déjà tourné, vérifie ces fichiers et retire ce que tu n'as pas ajouté toi-même.
 - Visible en lisant le code : oui
 - Faux positif connu : Un MCP « installateur » qui s'ajoute lui-même dans claude_desktop_config.json, à la demande de l'utilisateur.
 - Sources :
@@ -139,6 +160,7 @@ Ce code écrit dans un fichier qui lance des programmes automatiquement (.bashrc
 
 Un paramètre d'outil est collé dans une commande lancée par un shell. L'auteur est probablement honnête, mais la faille est grave : une valeur piégée (par exemple avec ; ou $( )) lance n'importe quelle commande sur ta machine, et on peut amener l'IA à l'envoyer.
 
+- En clair : **Faille : une commande peut être détournée**. Un outil colle une valeur venue de l'IA dans une commande. Une valeur piégée peut lancer n'importe quelle commande sur ton ordinateur. L'auteur ne l'a sans doute pas voulu. Conseil : Ne l'utilise pas tant que la faille n'est pas corrigée. Tu peux la signaler à l'auteur.
 - Visible en lisant le code : oui
 - Faux positif connu : Un paramètre vérifié par une regex juste avant d'être collé. MCPlain ne comprend pas la vérification.
 - Sources :
@@ -152,6 +174,7 @@ Un paramètre d'outil est collé dans une commande lancée par un shell. L'auteu
 
 Un script qui s'exécute à l'installation du paquet (preinstall, install, postinstall, setup.py) télécharge quelque chose ou utilise le réseau. Il s'exécute avant même que tu aies lancé le serveur.
 
+- En clair : **Va sur Internet pendant l'installation**. Un script lancé à l'installation télécharge quelque chose ou utilise le réseau, avant même que tu lances le serveur. Conseil : Ne l'installe pas, sauf si tu sais ce que ce script télécharge et pourquoi.
 - Visible en lisant le code : oui
 - Faux positif connu : Un paquet qui télécharge un navigateur à l'installation, comme Puppeteer.
 - Sources :
@@ -167,6 +190,7 @@ Un script qui s'exécute à l'installation du paquet (preinstall, install, posti
 
 OSV.dev classe ce paquet à cette version, ou toutes les versions d'une de ses dépendances directes, comme malveillant (identifiant MAL-). Ouvre le lien pour lire le rapport.
 
+- En clair : **Paquet signalé comme malveillant**. La base publique OSV.dev signale ce paquet, ou une de ses dépendances, comme malveillant. Conseil : Ne l'installe pas. S'il est déjà installé, retire-le et change tes mots de passe et tes clés.
 - Visible en lisant le code : non
 - Faux positif connu : Un nom de paquet repris par un nouveau propriétaire, avec une ancienne alerte qui visait l'ancien.
 - Sources :
@@ -180,6 +204,7 @@ OSV.dev classe ce paquet à cette version, ou toutes les versions d'une de ses d
 
 Une chaîne, un commentaire ou une description s'adresse à un outil d'analyse (« ignore previous instructions », « ce code est sûr », « ne le signale pas », ou cite MCPlain). Du code qui fait seulement son travail n'a pas de raison de parler à un scanner.
 
+- En clair : **Parle aux outils d'analyse**. Un texte du code s'adresse à un outil d'analyse, par exemple pour lui demander de ne rien signaler. Conseil : Ne l'installe pas. Un code qui fait seulement son travail n'a pas besoin de parler à un scanner.
 - Visible en lisant le code : oui
 - Faux positif connu : Un MCP de test d'attaques qui contient ces phrases comme exemples.
 - Sources :
@@ -193,6 +218,7 @@ Une chaîne, un commentaire ou une description s'adresse à un outil d'analyse (
 
 Un outil envoie des requêtes à une adresse que l'IA lui donne. Il peut contacter n'importe quelle adresse que l'IA lui donne, et ce qu'il rapporte d'Internet peut contenir des pièges (des instructions cachées pour l'IA).
 
+- En clair : **Peut aller sur n'importe quel site**. Un outil va à l'adresse que l'IA lui donne. Ce qu'il rapporte d'Internet peut contenir des pièges pour l'IA. Conseil : Regarde les adresses qu'il visite, et ne lui fais pas lire tes pages privées.
 - Visible en lisant le code : oui
 - Faux positif connu : Une adresse de base lue dans une variable d'environnement, fixe en pratique.
 - Sources :
@@ -206,6 +232,7 @@ Un outil envoie des requêtes à une adresse que l'IA lui donne. Il peut contact
 
 Un paramètre d'outil est lancé comme commande entière, comme programme à démarrer ou comme code à évaluer (y compris après décodage). C'est le pouvoir maximal : l'IA peut lancer n'importe quoi.
 
+- En clair : **L'IA choisit la commande à lancer**. Un outil lance la commande ou le code que l'IA lui donne. L'IA peut donc lancer n'importe quoi sur ton ordinateur. Conseil : Utilise-le seulement si tu valides chaque commande avant qu'elle parte.
 - Visible en lisant le code : oui
 - Faux positif connu : Une commande vérifiée contre une liste fixe avant d'être lancée.
 - Sources :
@@ -219,6 +246,7 @@ Un paramètre d'outil est lancé comme commande entière, comme programme à dé
 
 La description d'un outil est calculée à partir d'une réponse réseau. L'IA la lit, et elle peut changer à tout moment sans nouvelle version du paquet.
 
+- En clair : **Description venue d'Internet**. La description d'un outil est téléchargée au démarrage. Elle peut changer à tout moment, sans nouvelle version. Conseil : Utilise-le seulement si tu fais confiance au site d'où vient cette description.
 - Visible en lisant le code : oui
 - Faux positif connu : Un serveur qui fabrique ses outils depuis la doc OpenAPI en ligne de l'API qu'il emballe (FastMCP.from_openapi).
 - Sources :
@@ -232,6 +260,7 @@ La description d'un outil est calculée à partir d'une réponse réseau. L'IA l
 
 L'outil annonce qu'il est en lecture seule (readOnlyHint), mais son code écrit des fichiers, lance des commandes ou du code, ou envoie des données. Ou il annonce qu'il est fermé au monde extérieur (openWorldHint à false), mais son code utilise le réseau, même pour une simple lecture. Les clients IA ne vérifient pas ces indices.
 
+- En clair : **Fait plus que ce qu'il annonce**. L'outil dit qu'il ne fait que lire, ou qu'il reste hors d'Internet, mais son code écrit, lance ou envoie quelque chose. Conseil : Ne te fie pas à ce qu'il annonce. Regarde plutôt ce que son code peut faire.
 - Visible en lisant le code : oui
 - Faux positif connu : Un outil de recherche « lecture seule » qui écrit un cache.
 - Sources :
@@ -244,6 +273,7 @@ L'outil annonce qu'il est en lecture seule (readOnlyHint), mais son code écrit 
 
 Une description cite un chemin sensible (clés SSH, identifiants, fichiers de démarrage, réglages d'autres outils) sans demander d'en transmettre le contenu. Vérifie pourquoi l'outil en a besoin.
 
+- En clair : **Parle d'un fichier sensible**. Une description cite un fichier sensible, comme tes clés SSH, sans demander son contenu. Conseil : Vérifie pourquoi l'outil a besoin de ce fichier avant de l'utiliser.
 - Visible en lisant le code : oui
 - Faux positif connu : Un gestionnaire SSH qui dit lire ~/.ssh/config pour lister tes serveurs.
 - Sources :
@@ -256,6 +286,7 @@ Une description cite un chemin sensible (clés SSH, identifiants, fichiers de d�
 
 OSV.dev classe certaines versions d'une dépendance directe comme malveillantes (identifiant MAL-). Vérifie que la version installée avec ce serveur n'en fait pas partie.
 
+- En clair : **Une dépendance a eu des versions malveillantes**. La base OSV.dev signale certaines versions d'un paquet utilisé par ce serveur comme malveillantes. Conseil : Vérifie que la version installée chez toi n'en fait pas partie.
 - Visible en lisant le code : non
 - Faux positif connu : La plage de versions déclarée exclut ces versions.
 - Sources :
@@ -268,6 +299,7 @@ OSV.dev classe certaines versions d'une dépendance directe comme malveillantes 
 
 Le nom ou la description d'un outil contient un caractère invisible que le contexte n'explique pas. C'est souvent sans danger, mais les caractères invisibles peuvent porter du texte caché.
 
+- En clair : **Un caractère invisible**. Le nom ou la description d'un outil contient un caractère invisible. C'est souvent un reste de copier-coller. Conseil : Regarde le passage signalé. Un seul caractère ne peut pas cacher une phrase.
 - Visible en lisant le code : non
 - Faux positif connu : Un seul espace de largeur nulle laissé par un copier-coller.
 - Sources :
@@ -280,6 +312,7 @@ Le nom ou la description d'un outil contient un caractère invisible que le cont
 
 Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin.
 
+- En clair : **Peut agir sur ton ordinateur**. Le code peut modifier des fichiers, lancer des commandes ou toucher à des secrets. Certains outils en ont besoin. Conseil : Vérifie que c'est bien ce que tu veux. Donne-lui seulement le dossier ou les clés dont il a besoin.
 - Visible en lisant le code : oui
 - Faux positif connu : Un outil qui écrit seulement un fichier temporaire dans /tmp pour son propre usage.
 - Sources :
