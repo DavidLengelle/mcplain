@@ -97,6 +97,8 @@ The repository is public: never commit secrets or local files. The remote is SSH
 - Conventional commits: `feat:`, `fix:`, `test:`, `chore:`, `docs:`.
 - Push only when `uv run pytest` passes (engine and api) and, for `web/`, `pnpm lint`, `pnpm typecheck`
   and `pnpm test` pass.
+- Push only when all relevant test suites pass (engine, api, web: Vitest and Playwright). Never push a red
+  build.
 - Never force push. Never rewrite history that is already pushed.
 
 ## Dependencies
