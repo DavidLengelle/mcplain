@@ -1,90 +1,255 @@
 @import "tailwindcss";
 
+@custom-variant dark {
+  &:where(.th-dark, .th-dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:not(.th-light, .th-light *)) {
+      @slot;
+    }
+  }
+}
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-atkinson-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-atkinson-mono), ui-monospace, monospace;
-  --font-heading: var(--font-atkinson-sans), ui-sans-serif, system-ui, sans-serif;
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
+  --color-*: initial;
+  --font-sans: var(--font-saira), ui-sans-serif, system-ui, sans-serif;
+  --font-condensed: var(--font-saira-condensed), var(--font-saira), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --color-page: var(--page);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-line: var(--line);
+  --color-code-bg: var(--code-bg);
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
+  --color-btn-border: var(--btn-border);
+  --color-row-hover: var(--row-hover);
+  --color-card-hover: var(--card-hover);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-ink3: var(--ink3);
   --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-hover: var(--accent-hover);
+  --shadow-logo-glow: var(--logo-glow);
+  --shadow-arrow: var(--arrow-shadow);
+  --shadow-sel-ring: var(--sel-ring);
+  --color-green: var(--green);
+  --color-warn: var(--warn);
+  --color-warn-text: var(--warn-text);
+  --color-warn-badge-bg: var(--warn-badge-bg);
+  --color-warn-note: var(--warn-note);
+  --color-warn-glow: var(--warn-glow);
+  --shadow-warn-ring: var(--warn-ring);
+  --color-red: var(--red);
+  --color-red-note: var(--red-note);
+  --color-red-glow: var(--red-glow);
+  --shadow-red-ring: var(--red-ring);
+  --color-gray: var(--gray);
+  --color-needle: var(--needle);
+  --color-hub-hole: var(--hub-hole);
+  --color-cluster-bg: var(--cluster-bg);
+  --color-cluster-ink: var(--cluster-ink);
+  --color-cluster-ink2: var(--cluster-ink2);
+  --color-cluster-muted: var(--cluster-muted);
+  --color-lamp-on-bg: var(--lamp-on-bg);
+  --shadow-lamp-on: var(--lamp-on-shadow);
+  --color-lamp-on-stroke: var(--lamp-on-stroke);
+  --color-lamp-on-text: var(--lamp-on-text);
+  --color-lamp-off-bg: var(--lamp-off-bg);
+  --shadow-lamp-off: var(--lamp-off-shadow);
+  --color-lamp-off-stroke: var(--lamp-off-stroke);
+  --color-lamp-off-text: var(--lamp-off-text);
+  --shadow-lamp-danger: var(--lamp-danger-shadow);
+  --color-lamp-danger-text: var(--lamp-danger-text);
+  --color-chip-house: var(--chip-house);
+  --color-chip-off-dot: var(--chip-off-dot);
+  --shadow-chip-on: var(--chip-on-shadow);
+  --shadow-chip-danger: var(--chip-danger-shadow);
+  --color-chip-label: var(--chip-label);
+  --color-chip-danger: var(--chip-danger);
+  --color-toggle-bg: var(--toggle-bg);
+  --color-toggle-fg: var(--toggle-fg);
+  --color-toggle-on-bg: var(--toggle-on-bg);
+  --color-toggle-on-fg: var(--toggle-on-fg);
+  --color-counter-off: var(--counter-off);
+  --color-demo-bg: var(--demo-bg);
+  --color-demo-fg: var(--demo-fg);
+  --color-orig-bg: var(--orig-bg);
+  --color-orig-fg: var(--orig-fg);
+  --color-lamp-danger-bg: var(--lamp-danger-bg);
+  --color-lamp-danger-stroke: var(--lamp-danger-stroke);
+  --color-chip-on-dot: var(--chip-on-dot);
+  --color-chip-danger-dot: var(--chip-danger-dot);
 }
 
 :root {
-  color-scheme: light dark;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.44 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.5 0.2 27);
-  --border: oklch(0.85 0 0);
-  --input: oklch(0.6 0 0);
-  --ring: oklch(0.45 0.2 260);
-  --radius: 0.625rem;
+  color-scheme: light;
+  --lamp-danger-bg: #FF5E57;
+  --lamp-danger-stroke: #2A0606;
+  --chip-on-dot: #FFFFFF;
+  --chip-danger-dot: #FF5E57;
+  --page: #F5F7FA;
+  --panel: #E4EAF1;
+  --panel2: #FFFFFF;
+  --line: #C9D3DE;
+  --code-bg: #FFFFFF;
+  --input-bg: #FFFFFF;
+  --input-border: #7A8EA3;
+  --btn-border: #7A8EA3;
+  --row-hover: #D7E0E9;
+  --card-hover: #D6E0EA;
+  --ink: #0C131B;
+  --ink2: #26384A;
+  --ink3: #1C2B3A;
+  --muted: #46596D;
+  --faint: #526679;
+  --accent: #0A62A6;
+  --on-accent: #FFFFFF;
+  --accent-hover: #074C82;
+  --logo-glow: 0 0 0 4px rgba(10,98,166,.16);
+  --arrow-shadow: 0 0 0 5px rgba(10,98,166,.16),0 6px 18px rgba(12,19,27,.25);
+  --sel-ring: inset 0 0 0 3px #0A62A6;
+  --green: #10733D;
+  --warn: #E8892E;
+  --warn-text: #3A1C05;
+  --warn-badge-bg: #E8892E;
+  --warn-note: #FEF0E2;
+  --warn-glow: rgba(232,137,46,.45);
+  --warn-ring: inset 0 0 0 2.5px #E8892E;
+  --red: #BF2D26;
+  --red-note: #FAE4E2;
+  --red-glow: rgba(191,45,38,.32);
+  --red-ring: inset 0 0 0 2.5px #BF2D26;
+  --gray: #526679;
+  --needle: #0C131B;
+  --hub-hole: #E4EAF1;
+  --cluster-bg: #C4DCF0;
+  --cluster-ink: #0C131B;
+  --cluster-ink2: #26384A;
+  --cluster-muted: #33475B;
+  --lamp-on-bg: #FFFFFF;
+  --lamp-on-shadow: 0 0 0 2px #6F9CC6,0 0 0 7px rgba(255,255,255,.8),0 0 26px 6px rgba(255,255,255,.95);
+  --lamp-on-stroke: #0C131B;
+  --lamp-on-text: #0A4F86;
+  --lamp-off-bg: #A3C2E0;
+  --lamp-off-shadow: inset 0 2px 6px rgba(20,50,80,.35);
+  --lamp-off-stroke: #5F82A4;
+  --lamp-off-text: #3E5266;
+  --lamp-danger-shadow: 0 0 0 2px #BF2D26,0 0 0 7px rgba(255,94,87,.25),0 0 24px rgba(255,94,87,.6);
+  --lamp-danger-text: #A8231C;
+  --chip-house: #C4DCF0;
+  --chip-off-dot: #8FB0CF;
+  --chip-on-shadow: 0 0 0 1.5px #6F9CC6,0 0 6px rgba(255,255,255,.9);
+  --chip-danger-shadow: 0 0 0 1.5px #BF2D26;
+  --chip-label: #26384A;
+  --chip-danger: #B3261E;
+  --toggle-bg: #E4EAF1;
+  --toggle-fg: #3B4E62;
+  --toggle-on-bg: #0A62A6;
+  --toggle-on-fg: #FFFFFF;
+  --counter-off: #AFBDCB;
+  --demo-bg: #46596D;
+  --demo-fg: #FFFFFF;
+  --orig-bg: #0C131B;
+  --orig-fg: #FFFFFF;
+
+  @variant dark {
+    color-scheme: dark;
+    --page: #0C131B;
+    --panel: #141E29;
+    --panel2: #0F1822;
+    --line: #1E2A36;
+    --code-bg: #0C131B;
+    --input-bg: #141E29;
+    --input-border: #2A3A4B;
+    --btn-border: #3A4D61;
+    --row-hover: #18232F;
+    --card-hover: #1A2633;
+    --ink: #EDF2F7;
+    --ink2: #C6D2DE;
+    --ink3: #DCE4EC;
+    --muted: #9DB0C3;
+    --faint: #7E92A6;
+    --accent: #7CC7FF;
+    --on-accent: #061420;
+    --accent-hover: #B3DEFF;
+    --logo-glow: 0 0 12px rgba(124,199,255,.7);
+    --arrow-shadow: 0 0 0 5px rgba(124,199,255,.18),0 6px 20px rgba(0,0,0,.5);
+    --sel-ring: inset 0 0 0 2px #7CC7FF;
+    --green: #46D488;
+    --warn: #C77B30;
+    --warn-text: #C77B30;
+    --warn-badge-bg: transparent;
+    --warn-note: #2B1D13;
+    --warn-glow: rgba(199,123,48,.55);
+    --warn-ring: inset 0 0 0 1.5px rgba(199,123,48,.6);
+    --red: #FF5E57;
+    --red-note: #2E1416;
+    --red-glow: rgba(255,94,87,.6);
+    --red-ring: inset 0 0 0 2px rgba(255,94,87,.75);
+    --gray: #9DB0C3;
+    --needle: #EDF2F7;
+    --hub-hole: #141E29;
+    --cluster-bg: #070C12;
+    --cluster-ink: #EDF2F7;
+    --cluster-ink2: #C6D2DE;
+    --cluster-muted: #9DB0C3;
+    --lamp-on-bg: #EAF4FF;
+    --lamp-on-shadow: 0 0 0 5px rgba(234,244,255,.12),0 0 22px rgba(170,215,255,.45);
+    --lamp-on-stroke: #0C131B;
+    --lamp-on-text: #B9DCFF;
+    --lamp-off-bg: #17222E;
+    --lamp-off-shadow: inset 0 2px 8px rgba(0,0,0,.7);
+    --lamp-off-stroke: #4F6377;
+    --lamp-off-text: #7E92A6;
+    --lamp-danger-shadow: 0 0 0 5px rgba(255,94,87,.16),0 0 24px rgba(255,94,87,.55);
+    --lamp-danger-text: #FF8A85;
+    --chip-house: transparent;
+    --chip-off-dot: #2E3E4F;
+    --chip-on-shadow: 0 0 6px rgba(170,215,255,.6);
+    --chip-danger-shadow: 0 0 6px rgba(255,94,87,.6);
+    --chip-label: #9DB0C3;
+    --chip-danger: #FF8A85;
+    --toggle-bg: #141E29;
+    --toggle-fg: #9DB0C3;
+    --toggle-on-bg: #22303E;
+    --toggle-on-fg: #FFFFFF;
+    --counter-off: #22303E;
+    --demo-bg: #9DB0C3;
+    --demo-fg: #0C131B;
+    --orig-bg: #EDF2F7;
+    --orig-fg: #0C131B;
+  }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.8 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.75 0.17 22);
-    --border: oklch(1 0 0 / 25%);
-    --input: oklch(1 0 0 / 45%);
-    --ring: oklch(0.8 0.12 260);
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
-    @apply font-sans;
+    @apply bg-page font-sans text-ink;
+  }
+
+  body {
+    @apply bg-page text-ink;
+  }
+
+  :focus-visible {
+    @apply outline-3 outline-offset-2 outline-accent;
+  }
+
+  ::placeholder {
+    @apply text-muted;
   }
 }
