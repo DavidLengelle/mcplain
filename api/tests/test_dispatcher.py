@@ -213,7 +213,7 @@ def test_success_records_the_result_and_removes_the_folder(
     row = load(sessions, identifier)
     assert (row.state, row.error_code, row.source_key) == ("done", None, f"npm:{NAME}@1.0.0")
     assert row.result == clean_result().model_dump(mode="json")
-    assert (row.engine_version, row.rules_version) == ("0.1.0", "1")
+    assert (row.engine_version, row.rules_version) == ("0.2.0", "1")
     assert row.started_at is not None and row.finished_at is not None
     assert launcher.calls == [(jobs / str(identifier) / "input", JOB_FILES)]
     assert tarball.call_count == 1

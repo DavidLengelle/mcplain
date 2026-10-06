@@ -1,6 +1,6 @@
 [project]
 name = "mcplain"
-version = "0.1.0"
+version = "0.2.0"
 description = "Static security scanner for MCP servers, made for beginners"
 authors = [
     { name = "David Lengelle", email = "david.lengelle.1.10@gmail.com" }
