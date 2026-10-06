@@ -3,45 +3,29 @@
 import { useTranslations } from "next-intl";
 import { useRef, useState, type FormEvent } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useRouter } from "@/i18n/navigation";
-import { INPUT_MAX_CHARACTERS, startAnalysis } from "@/lib/api-client";
+import { INPUT_MAX_CHARACTERS } from "@/lib/api-client";
 import { EXAMPLES } from "@/lib/constants";
 
-import { StartErrorText, type StartError } from "./start-error";
+import { StartErrorText } from "./start-error";
+import { useAnalysisStart } from "./use-analysis-start";
 
 export function AnalysisForm() {
   const t = useTranslations("form");
-  const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
-  const [error, setError] = useState<StartError | null>(null);
-  const [pending, setPending] = useState(false);
+  const { pending, error, start, clearError } = useAnalysisStart();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const text = value.trim().slice(0, INPUT_MAX_CHARACTERS);
-    if (text === "") {
-      setError({ kind: "empty" });
+    const accepted = await start(value);
+    if (!accepted) {
       input.current?.focus();
-      return;
     }
-    setPending(true);
-    setError(null);
-    const outcome = await startAnalysis(text);
-    if (outcome.kind === "accepted") {
-      router.push(`/analyses/${outcome.id}`);
-      return;
-    }
-    setPending(false);
-    setError(outcome);
-    input.current?.focus();
   }
 
   function fill(example: string) {
     setValue(example);
-    setError(null);
+    clearError();
     input.current?.focus();
   }
 
@@ -55,14 +39,15 @@ export function AnalysisForm() {
       <label htmlFor="analysis-input" className="text-lg font-semibold">
         {t("label")}
       </label>
-      <p id="analysis-hint" className="text-sm text-muted-foreground">
+      <p id="analysis-hint" className="text-sm text-muted">
         {t("hint")}
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Input
+        <input
           ref={input}
           id="analysis-input"
           name="input"
+          type="text"
           value={value}
           maxLength={INPUT_MAX_CHARACTERS}
           onChange={(event) => setValue(event.target.value)}
@@ -71,13 +56,17 @@ export function AnalysisForm() {
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
-          className="h-11 font-mono text-base md:text-base"
+          className="h-12 min-w-0 flex-1 rounded-[10px] border-2 border-input-border bg-input-bg px-4 font-mono text-base text-ink"
         />
-        <Button type="submit" disabled={pending} className="h-11 px-5 text-base">
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-12 cursor-pointer rounded-[10px] bg-accent px-[22px] font-condensed text-[19px] font-bold tracking-[0.06em] text-on-accent hover:bg-accent-hover disabled:cursor-wait"
+        >
           {submitLabel}
-        </Button>
+        </button>
       </div>
-      <p id="analysis-error" aria-live="polite" className="min-h-6 font-semibold text-destructive">
+      <p id="analysis-error" aria-live="polite" className="min-h-6 font-semibold text-red">
         {error !== null && <StartErrorText error={error} />}
       </p>
       <div className="flex flex-col gap-2">
@@ -85,15 +74,14 @@ export function AnalysisForm() {
         <ul className="flex flex-col items-start gap-2">
           {EXAMPLES.map((example) => (
             <li key={example} className="max-w-full">
-              <Button
+              <button
                 type="button"
-                variant="outline"
                 onClick={() => fill(example)}
                 aria-label={t("exampleLabel", { example })}
-                className="h-auto max-w-full py-1.5 text-left font-mono text-sm break-all whitespace-normal"
+                className="min-h-11 max-w-full cursor-pointer rounded-[10px] border-[1.5px] border-btn-border px-3 py-1.5 text-left font-mono text-sm break-all text-ink hover:bg-row-hover"
               >
                 {example}
-              </Button>
+              </button>
             </li>
           ))}
         </ul>
