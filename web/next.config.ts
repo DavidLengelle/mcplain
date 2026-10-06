@@ -9,6 +9,7 @@ const withNextIntl = createNextIntlPlugin();
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  agentRules: false,
   async headers() {
     return [
       {

@@ -44,6 +44,11 @@ describe("technical inspection of the site", () => {
     expect(violations("unsafe-eval(text)")).toEqual(["eval"]);
   });
 
+  it("keeps next dev from writing AGENTS.md and CLAUDE.md", () => {
+    const config = readFileSync(join(process.cwd(), "next.config.ts"), "utf-8");
+    expect(config).toMatch(/^\s*agentRules:\s*false,\s*$/m);
+  });
+
   it("finds none of them in src/", () => {
     const files = sourceFiles(SOURCE_FOLDER);
     expect(files.length).toBeGreaterThan(0);
