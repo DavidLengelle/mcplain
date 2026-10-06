@@ -5,6 +5,8 @@ export const SECURITY_HEADERS: Record<string, string> = {
   "Cross-Origin-Opener-Policy": "same-origin",
 };
 
+export const NONCE_HEADER = "x-nonce";
+
 export function createNonce(): string {
   return btoa(crypto.randomUUID());
 }
