@@ -24,7 +24,7 @@ from mcplain.models import (
     Verdict,
     VerdictColor,
 )
-from mcplain.verdict import compute_verdict
+from mcplain.verdict import apply_verdict
 
 WORKDIR_PREFIX = "mcplain-"
 INPUT_FOLDER = "input"
@@ -56,10 +56,9 @@ def _relative_to(path: str, folder: str) -> str:
 
 
 def _finish(result: AnalysisResult) -> AnalysisResult:
-    """Compute and attach the verdict"""
+    """Compute and attach the verdict and the lamps"""
 
-    result.verdict = compute_verdict(result)
-    return result
+    return apply_verdict(result)
 
 
 def _placeholder_verdict() -> Verdict:

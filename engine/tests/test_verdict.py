@@ -8,7 +8,9 @@ from mcplain.models import (
     AnalysisResult,
     AnalysisStatus,
     DeclarationKind,
+    ErrorInfo,
     Finding,
+    GrayCase,
     LocationKind,
     ServerAnalysis,
     Tool,
@@ -185,3 +187,70 @@ def test_duplicate_rule_is_refused() -> None:
     registry.register(RedRule())
     with pytest.raises(ValueError):
         registry.register(RedRule())
+
+
+def test_title_and_sentence_of_a_colored_verdict_come_from_the_first_alert() -> None:
+    """A red or orange verdict is titled with the plain texts of its first alert"""
+
+    verdict = compute_verdict(result([finding(Capability.PROCESS_EXEC)]))
+    assert verdict.color is VerdictColor.ORANGE
+    assert verdict.gray_case is None
+    assert verdict.title is not None and verdict.title.code == "rule.O08.plain_title"
+    assert verdict.summary is not None and verdict.summary.code == "rule.O08.plain_found"
+
+
+def test_green_title_and_sentence_name_the_fixed_domains() -> None:
+    """A green verdict says nothing dangerous was found, and names the fixed domains when there are some"""
+
+    offline = compute_verdict(result([]))
+    assert (offline.title.code, offline.summary.code) == ("verdict.green.title", "verdict.green.summary")
+    network = finding(Capability.NETWORK)
+    network.url_host = "api.example.com"
+    online = compute_verdict(result([network]))
+    assert online.summary.code == "verdict.green.summary_domains"
+    assert online.summary.params == {"domains": "api.example.com"}
+    network.url_host = None
+    unknown = compute_verdict(result([network]))
+    assert unknown.summary.code == "verdict.green.summary_network"
+
+
+@pytest.mark.parametrize(
+    ("status", "case"),
+    [
+        (AnalysisStatus.MULTIPLE_SERVERS, "multiple_servers"),
+        (AnalysisStatus.UNSUPPORTED_LANGUAGE, "unsupported_language"),
+        (AnalysisStatus.COMPILED, "compiled"),
+        (AnalysisStatus.NOT_A_SERVER, "not_a_server"),
+        (AnalysisStatus.ERROR, "error"),
+    ],
+)
+def test_gray_case_follows_the_status(status: AnalysisStatus, case: str) -> None:
+    """A gray verdict names its first reason and uses the reason and advice of that case"""
+
+    analysis = result([], status)
+    analysis.language = "go"
+    verdict = compute_verdict(analysis)
+    assert verdict.color is VerdictColor.GRAY
+    assert verdict.gray_case is not None and verdict.gray_case.value == case
+    assert verdict.title.code == f"gray.{case}.reason"
+    assert verdict.summary.code == f"gray.{case}.advice"
+    if case == "unsupported_language":
+        assert verdict.title.params == {"language": "go"}
+
+
+def test_gray_case_for_a_timeout_a_link_list_and_a_caveat() -> None:
+    """A stopped analysis is a timeout, a page of links is a link list, an incomplete reading names its caveat"""
+
+    stopped = result([], AnalysisStatus.ERROR)
+    stopped.error = ErrorInfo(code="job.atelier_timeout")
+    assert compute_verdict(stopped).gray_case is GrayCase.TIMEOUT
+    links = result([], AnalysisStatus.NOT_A_SERVER)
+    links.notes = ["note.mostly_documentation"]
+    assert compute_verdict(links).gray_case is GrayCase.LINK_LIST
+    partial = result([])
+    partial.servers[0].tools[0].gaps = [TrackingGap.MAX_DEPTH]
+    assert compute_verdict(partial).gray_case is GrayCase.INCOMPLETE_TRACKING
+    empty = result([])
+    empty.servers[0].files_analyzed = 0
+    empty.servers[0].tools[0].gaps = [TrackingGap.MAX_DEPTH]
+    assert compute_verdict(empty).gray_case is GrayCase.NOTHING_ANALYZABLE

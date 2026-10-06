@@ -1,12 +1,13 @@
 """Pydantic models shared by every MCPlain module, all serializable to JSON"""
 
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
 
 from mcplain.capabilities import Capability, PathKind
 from mcplain.flows import FlowSinkKind, FlowSourceKind
+from mcplain.lamps import LAMP_ORDER, LampId, LampState, ToolLevel
 
 
 class InputKind(StrEnum):
@@ -172,6 +173,24 @@ class DeclarationKind(StrEnum):
 AnnotationValue = bool | Literal["computed"]
 
 
+class Lamp(BaseModel):
+    """Class that holds the state of one lamp"""
+
+    id: LampId
+    state: LampState
+
+
+def check_lamps(lamps: list[Lamp]) -> list[Lamp]:
+    """Accept no lamp yet, or exactly the six lamps in table order"""
+
+    if lamps and tuple(lamp.id for lamp in lamps) != LAMP_ORDER:
+        raise ValueError("expected the six lamps in table order")
+    return lamps
+
+
+Lamps = Annotated[list[Lamp], AfterValidator(check_lamps)]
+
+
 class ToolParameter(BaseModel):
     """Class that describes one parameter of a tool"""
 
@@ -199,6 +218,8 @@ class Tool(BaseModel):
     annotations_are_dynamic: bool = False
     findings: list[Finding] = Field(default_factory=list)
     gaps: list[TrackingGap] = Field(default_factory=list)
+    lamps: Lamps = Field(default_factory=list)
+    level: ToolLevel = ToolLevel.NONE
 
 
 class DomainRef(BaseModel):
@@ -329,6 +350,8 @@ class ServerAnalysis(BaseModel):
     parse_errors: list[ParseError] = Field(default_factory=list)
     skipped_files: list[SkippedFile] = Field(default_factory=list)
     files_analyzed: int = 0
+    lamps: Lamps = Field(default_factory=list)
+    internet_domains: list[str] | None = None
 
 
 class ServerCandidate(BaseModel):
@@ -376,8 +399,34 @@ class Alert(BaseModel):
     detail: str | None = None
 
 
+class GrayCase(StrEnum):
+    """Class that lists why a verdict is gray, the first reason only"""
+
+    MULTIPLE_SERVERS = "multiple_servers"
+    LINK_LIST = "link_list"
+    UNSUPPORTED_LANGUAGE = "unsupported_language"
+    COMPILED = "compiled"
+    NOT_A_SERVER = "not_a_server"
+    TIMEOUT = "timeout"
+    ERROR = "error"
+    NOTHING_ANALYZABLE = "nothing_analyzable"
+    PARTIALLY_COMPILED = "partially_compiled"
+    PARSE_ERRORS = "parse_errors"
+    SKIPPED_FILES = "skipped_files"
+    NO_TOOLS_FOUND = "no_tools_found"
+    INCOMPLETE_TRACKING = "incomplete_tracking"
+    DYNAMIC_DESCRIPTIONS = "dynamic_descriptions"
+
+
+class Message(BaseModel):
+    """Class that names an engine text and the parameters that fill it"""
+
+    code: str
+    params: dict[str, str] = Field(default_factory=dict)
+
+
 class Verdict(BaseModel):
-    """Class that holds the verdict color, the alerts and the codes that explain it"""
+    """Class that holds the verdict color, the alerts, the codes that explain it, and its title and sentence"""
 
     color: VerdictColor
     alerts: list[Alert] = Field(default_factory=list)
@@ -385,6 +434,9 @@ class Verdict(BaseModel):
     rules_version: str = ""
     rules_count: int = 0
     contacted_domains: list[str] = Field(default_factory=list)
+    gray_case: GrayCase | None = None
+    title: Message | None = None
+    summary: Message | None = None
 
 
 class ReputationStatus(StrEnum):
