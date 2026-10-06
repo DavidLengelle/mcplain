@@ -1,0 +1,251 @@
+{
+  "id": "fca15eb8-31a3-456c-93dd-7b3415ea4b80",
+  "input": "uvx mcp-server-time",
+  "select": null,
+  "state": "done",
+  "created_at": "2026-10-06T15:49:28.520839+00:00",
+  "finished_at": "2026-10-06T15:49:30.936309+00:00",
+  "analyzed_at": "2026-10-06T15:49:30.936309+00:00",
+  "from_cache": false,
+  "result": {
+    "error": null,
+    "notes": [],
+    "source": {
+      "url": "https://files.pythonhosted.org/packages/ad/d9/fcc7f85f0cdcfa8da9c650439128dd72be21855a126b745f17cf43f24b11/mcp_server_time-2026.8.18-py3-none-any.whl",
+      "kind": "pypi",
+      "name": "mcp-server-time",
+      "origin": "published_package",
+      "reason": "source.requested_package",
+      "subdir": null,
+      "version": "2026.8.18",
+      "artifact": "wheel",
+      "revision": null,
+      "integrity": "sha256:1407583af42dc0163909d855c9ef20114a12b4981c3975033721a7906cdd212a",
+      "reference": null,
+      "repository": null,
+      "requested_version": "latest"
+    },
+    "status": "ok",
+    "servers": [
+      {
+        "sdk": "mcp",
+        "name": "mcp-server-time",
+        "path": ".",
+        "flows": [],
+        "lamps": [
+          {
+            "id": "files_read",
+            "rules": [],
+            "state": "off"
+          },
+          {
+            "id": "files_write",
+            "rules": [],
+            "state": "off"
+          },
+          {
+            "id": "internet",
+            "rules": [],
+            "state": "off"
+          },
+          {
+            "id": "commands",
+            "rules": [],
+            "state": "off"
+          },
+          {
+            "id": "secrets",
+            "rules": [],
+            "state": "off"
+          },
+          {
+            "id": "hidden_text",
+            "rules": [],
+            "state": "off"
+          }
+        ],
+        "tools": [
+          {
+            "file": "mcp_server_time/server.py",
+            "gaps": [],
+            "line": 132,
+            "name": "get_current_time",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": null,
+            "findings": [],
+            "parameters": [
+              {
+                "name": "timezone",
+                "type": "string",
+                "description": "IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use '{}' as local timezone if no timezone provided by the user."
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false,
+              "idempotentHint": true,
+              "destructiveHint": false
+            },
+            "declaration": "low_level",
+            "description": "Get current time in a specific timezone",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "mcp_server_time/server.py",
+            "gaps": [],
+            "line": 152,
+            "name": "convert_time",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": null,
+            "findings": [],
+            "parameters": [
+              {
+                "name": "source_timezone",
+                "type": "string",
+                "description": "Source IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use '{}' as local timezone if no source timezone provided by the user."
+              },
+              {
+                "name": "time",
+                "type": "string",
+                "description": "Time to convert in 24-hour format (HH:MM)"
+              },
+              {
+                "name": "target_timezone",
+                "type": "string",
+                "description": "Target IANA timezone name (e.g., 'Asia/Tokyo', 'America/San_Francisco'). Use '{}' as local timezone if no target timezone provided by the user."
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false,
+              "idempotentHint": true,
+              "destructiveHint": false
+            },
+            "declaration": "low_level",
+            "description": "Convert time between timezones",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          }
+        ],
+        "domains": [],
+        "findings": [],
+        "language": "python",
+        "parse_errors": [],
+        "text_matches": [],
+        "skipped_files": [],
+        "compiled_files": [],
+        "files_analyzed": 3,
+        "minified_files": [],
+        "copy_recipients": [],
+        "install_scripts": [],
+        "sensitive_paths": [],
+        "internet_domains": null,
+        "invisible_unicode": []
+      }
+    ],
+    "verdict": {
+      "color": "green",
+      "title": {
+        "code": "verdict.green.title",
+        "params": {}
+      },
+      "alerts": [],
+      "reasons": [
+        "no_alert"
+      ],
+      "summary": {
+        "code": "verdict.green.summary",
+        "params": {}
+      },
+      "gray_case": null,
+      "rules_count": 20,
+      "rules_version": "1",
+      "contacted_domains": []
+    },
+    "language": null,
+    "local_path": null,
+    "reputation": {
+      "status": "checked",
+      "queried": 5,
+      "packages": []
+    },
+    "compiled_files": [],
+    "available_servers": [],
+    "ignored_arguments": [],
+    "available_servers_truncated": false
+  },
+  "error_code": null
+}

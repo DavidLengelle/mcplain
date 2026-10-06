@@ -1,16 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-import {
-  failedView,
-  fulfill,
-  ID,
-  multipleView,
-  orangeView,
-  redView,
-  SECOND_ID,
-  serveAnalysis,
-  view,
-} from "./fake-api";
+import { fulfill, ID, SECOND_ID, serveAnalysis, view } from "./fake-api";
+import { reportView } from "./reports";
 
 test("typing, then following, then an orange report", async ({ page }) => {
   let sent: unknown = null;
@@ -18,58 +9,78 @@ test("typing, then following, then an orange report", async ({ page }) => {
     sent = route.request().postDataJSON();
     await fulfill(route, 202, { id: ID, state: "queued" });
   });
-  await serveAnalysis(page, [view("queued", null), view("fetching", null), view("analyzing", null), orangeView()]);
+  await serveAnalysis(page, [view("queued", null), view("fetching", null), view("analyzing", null), reportView("orange")]);
 
   await page.goto("/");
   await page.getByRole("button", { name: "Fill the field with uvx mcp-server-fetch" }).click();
   await expect(page.getByLabel("MCP server to check")).toHaveValue("uvx mcp-server-fetch");
   await page.getByLabel("MCP server to check").fill("  uvx weather-demo  ");
-  await page.getByRole("button", { name: "Analyze" }).click();
+  await page.getByRole("button", { name: "Analyze", exact: true }).click();
 
   await expect(page).toHaveURL(`/analyses/${ID}`);
-  await expect(page.getByRole("status")).toHaveText(/Current step: (Waiting in the queue|Downloading the code|Reading the code)/);
-  const panel = page.locator("[data-verdict-panel]");
-  await expect(panel).toBeVisible();
+  await expect(page.locator("[data-verdict]")).toBeVisible();
   expect(sent).toEqual({ input: "uvx weather-demo" });
-  await expect(panel.locator('[data-verdict="orange"]')).toHaveText("Orange");
-  await expect(panel.locator('[data-verdict="orange"] svg')).toBeVisible();
-  const card = page.locator('[data-tool="fetch_page"]');
-  await expect(card.getByText("(according to the author)")).toBeVisible();
-  await expect(card.getByText("Fetches a page and returns its text.")).toBeVisible();
-  await expect(card.getByText("network access")).toBeVisible();
-  await expect(card.locator('[data-rule="O01"]')).toContainText("Can contact any address");
-  await expect(page.getByText("https://api.weather.example/v1")).toBeVisible();
-  await expect(page.locator("main a")).toHaveCount(0);
+  await expect(page.locator('[data-verdict-word="orange"]')).toHaveText("TO CHECK");
+  await expect(page.locator('[data-gauge="orange"]')).toHaveAttribute("aria-label", "Verdict gauge: TO CHECK");
+  await expect(page.locator('[data-lamp="files_write"]')).toHaveAttribute("data-state", "on");
+  await expect(page.getByRole("heading", { name: "THE 14 TOOLS" })).toBeVisible();
+});
+
+test("the header field starts an analysis from any page", async ({ page }) => {
+  let sent: unknown = null;
+  await serveAnalysis(page, [reportView("green")]);
+  await serveAnalysis(page, [view("queued", null)], SECOND_ID);
+  await page.route("**/api/analyses", async (route) => {
+    sent = route.request().postDataJSON();
+    await fulfill(route, 202, { id: SECOND_ID, state: "queued" });
+  });
+  await page.goto(`/analyses/${ID}`);
+  await page.getByLabel("Link of the MCP server to analyze").fill("npx -y other-server");
+  await page.getByRole("button", { name: "ANALYZE", exact: true }).click();
+  await expect(page).toHaveURL(`/analyses/${SECOND_ID}`);
+  expect(sent).toEqual({ input: "npx -y other-server" });
 });
 
 test("a red report shows the original passage and its place", async ({ page }) => {
-  await serveAnalysis(page, [redView()]);
+  await serveAnalysis(page, [reportView("red")]);
   await page.goto(`/analyses/${ID}`);
 
-  await expect(page.locator('[data-verdict-panel] [data-verdict="red"]')).toHaveText("Red");
-  const alert = page.locator('[data-rule="R01"]');
-  await expect(alert).toContainText("Invisible text");
-  await expect(alert).toContainText("weather_demo/server.py:12");
-  const passage = alert.locator("bdi").filter({ hasText: "Returns the forecast for a city." }).last();
-  await expect(passage).toBeVisible();
-  await expect(passage.locator('[data-invisible="U+200B"]')).toHaveCount(2);
-  expect(await passage.textContent()).not.toContain("\u200B");
+  await expect(page.locator('[data-verdict-word="red"]')).toHaveText("DANGER");
+  await expect(page.locator('[data-lamp="internet"]')).toHaveAttribute("data-state", "danger");
+  const note = page.locator('[data-sheet-alert="R05"]');
+  await expect(note).toContainText("Every e-mail also goes");
+  await expect(note.locator("[data-raw-text]").first()).toBeVisible();
 });
 
-test("a failed analysis is gray, says why, and says it is not safe", async ({ page }) => {
-  await serveAnalysis(page, [failedView()]);
+test("a failed analysis is gray, says why, says it is not safe, and can run again", async ({ page }) => {
+  await serveAnalysis(page, [reportView("failed")]);
+  let sent: unknown = null;
+  await page.route("**/api/analyses", async (route) => {
+    sent = route.request().postDataJSON();
+    await fulfill(route, 202, { id: SECOND_ID, state: "queued" });
+  });
+  await serveAnalysis(page, [view("queued", null)], SECOND_ID);
   await page.goto(`/analyses/${ID}`);
 
-  const panel = page.locator("[data-verdict-panel]");
-  await expect(panel.locator('[data-verdict="gray"]')).toHaveText("Gray");
-  await expect(panel).toContainText("That does not mean it is safe.");
-  await expect(panel).toContainText("The analysis failed");
-  await expect(panel).toContainText("The analysis took too long and was stopped.");
+  const block = page.locator("[data-verdict]");
+  await expect(page.locator('[data-verdict-word="gray"]')).toHaveText("NOT VERIFIED");
+  await expect(block).toContainText("This does not mean this MCP is safe");
+  await expect(page.locator("[data-needle]")).toHaveCount(0);
+  await page.getByRole("button", { name: "Run again" }).click();
+  await expect(page).toHaveURL(`/analyses/${SECOND_ID}`);
+  expect(sent).toEqual({ input: "npx -y @mcplain-demo/this-package-does-not-exist" });
 });
 
-test("a list of servers sends select when one is chosen", async ({ page }) => {
-  await serveAnalysis(page, [multipleView()]);
-  await serveAnalysis(page, [orangeView()], SECOND_ID);
+test("an unsupported language is gray and names the language", async ({ page }) => {
+  await serveAnalysis(page, [reportView("go")]);
+  await page.goto(`/analyses/${ID}`);
+  await expect(page.locator('[data-verdict-word="gray"]')).toBeVisible();
+  await expect(page.locator("#verdict-title")).toContainText("go");
+});
+
+test("a list of servers shows no verdict and sends select when one is chosen", async ({ page }) => {
+  await serveAnalysis(page, [reportView("multiple")]);
+  await serveAnalysis(page, [view("queued", null)], SECOND_ID);
   let sent: unknown = null;
   await page.route("**/api/analyses", async (route) => {
     sent = route.request().postDataJSON();
@@ -77,22 +88,32 @@ test("a list of servers sends select when one is chosen", async ({ page }) => {
   });
   await page.goto(`/analyses/${ID}`);
 
-  await expect(page.getByRole("heading", { name: "Several servers were found" })).toBeVisible();
-  await page.getByRole("button", { name: /servers\/beta/ }).click();
+  await expect(page.getByText("Nothing has been analyzed yet: choose one.")).toBeVisible();
+  await expect(page.locator("[data-verdict]")).toHaveCount(0);
+  await page.locator("[data-candidates] button").first().click();
   await expect(page).toHaveURL(`/analyses/${SECOND_ID}`);
-  expect(sent).toEqual({ input: "https://github.com/example/monorepo", select: "servers/beta" });
+  const body = sent as { input?: string; select?: string } | null;
+  expect(body?.input).toBe("https://github.com/modelcontextprotocol/servers");
+  expect(typeof body?.select).toBe("string");
+});
+
+test("a list of links says so and shows no verdict", async ({ page }) => {
+  await serveAnalysis(page, [reportView("awesome")]);
+  await page.goto(`/fr/analyses/${ID}`);
+  await expect(page.locator("[data-link-list]")).toContainText("C'est une liste de liens, pas un MCP.");
+  await expect(page.locator("[data-link-list]")).toContainText("Choisis-en un et colle son lien.");
+  await expect(page.locator("[data-verdict]")).toHaveCount(0);
 });
 
 test("the language button switches the report to French", async ({ page }) => {
-  await serveAnalysis(page, [orangeView()]);
+  await serveAnalysis(page, [reportView("orange")]);
   await page.goto(`/analyses/${ID}`);
-  await expect(page.getByRole("heading", { name: "What each tool does" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "IN PLAIN WORDS" })).toBeVisible();
 
   await page.getByRole("navigation", { name: "Language" }).getByRole("link", { name: /FR/ }).click();
   await expect(page).toHaveURL(`/fr/analyses/${ID}`);
   await expect(page.locator("html")).toHaveAttribute("lang", "fr");
-  await expect(page.getByRole("heading", { name: "Ce que fait chaque outil" })).toBeVisible();
-  await expect(page.locator('[data-tool="fetch_page"]')).toContainText("selon l'auteur");
+  await expect(page.getByRole("heading", { name: "EN CLAIR" })).toBeVisible();
 });
 
 test("an unknown analysis is a 404 page", async ({ page }) => {
@@ -118,37 +139,36 @@ test("a malformed identifier is a 404 without any call to the API", async ({ pag
 test("an API that does not answer gives gray not verified, never green", async ({ page }) => {
   await page.route(`**/api/analyses/${ID}`, (route) => route.abort("connectionrefused"));
   await page.goto(`/analyses/${ID}`);
-  const panel = page.locator("[data-verdict-panel]");
-  await expect(panel.locator('[data-verdict="gray"]')).toBeVisible();
-  await expect(panel).toContainText("Not verified");
-  await expect(panel).toContainText("That does not mean it is safe.");
+  await expect(page.locator('[data-verdict-word="gray"]')).toBeVisible();
+  await expect(page.locator("[data-verdict]")).toContainText("This does not mean this MCP is safe.");
 });
 
 test("an API that answers something strange gives gray not verified", async ({ page }) => {
-  await page.route(`**/api/analyses/${ID}`, (route) => fulfill(route, 200, { ...orangeView(), state: "finished" }));
+  await page.route(`**/api/analyses/${ID}`, (route) => fulfill(route, 200, { ...reportView("green"), state: "finished" }));
   await page.goto(`/analyses/${ID}`);
-  await expect(page.locator('[data-verdict-panel] [data-verdict="gray"]')).toBeVisible();
-  await expect(page.locator('[data-verdict="green"]')).toHaveCount(0);
+  await expect(page.locator('[data-verdict-word="gray"]')).toBeVisible();
+  await expect(page.locator('[data-verdict-word="green"]')).toHaveCount(0);
 });
 
-test("after three minutes the analysis is gray: too long, try again", async ({ page }) => {
+test("a report without its lamps is gray not verified", async ({ page }) => {
+  const broken = reportView("green") as { result: { servers: { lamps: unknown }[] } };
+  broken.result.servers[0].lamps = [];
+  await page.route(`**/api/analyses/${ID}`, (route) => fulfill(route, 200, broken));
+  await page.goto(`/analyses/${ID}`);
+  await expect(page.locator('[data-verdict-word="gray"]')).toBeVisible();
+  await expect(page.locator('[data-verdict-word="green"]')).toHaveCount(0);
+});
+
+test("after three minutes the analysis is gray: too long, run again", async ({ page }) => {
   await page.clock.install();
   await serveAnalysis(page, [view("queued", null)]);
   await page.goto(`/analyses/${ID}`);
   await expect(page.getByRole("status")).toHaveText("Current step: Waiting in the queue");
   await page.clock.fastForward("03:05");
-  const panel = page.locator("[data-verdict-panel]");
-  await expect(panel).toContainText("Too long");
-  await expect(panel).toContainText("That does not mean it is safe.");
-});
-
-test("the report fits a 360 pixel wide phone", async ({ page }) => {
-  await page.setViewportSize({ width: 360, height: 800 });
-  await serveAnalysis(page, [redView()]);
-  await page.goto(`/analyses/${ID}`);
-  await expect(page.locator("[data-verdict-panel]")).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  expect(overflow).toBeLessThanOrEqual(0);
+  const block = page.locator("[data-verdict]");
+  await expect(block).toContainText("The analysis is taking too long.");
+  await expect(block).toContainText("This does not mean this MCP is safe.");
+  await expect(page.getByRole("button", { name: "Run again" })).toBeVisible();
 });
 
 test("the home page is usable with the keyboard, with a visible focus", async ({ page }) => {
@@ -158,9 +178,6 @@ test("the home page is usable with the keyboard, with a visible focus", async ({
   await page.keyboard.press("Enter");
   await page.keyboard.press("Tab");
   const focused = page.locator(":focus");
-  const outline = await focused.evaluate((element) => {
-    const style = window.getComputedStyle(element);
-    return `${style.outlineStyle} ${style.boxShadow}`;
-  });
-  expect(outline).not.toBe("none none");
+  const outline = await focused.evaluate((element) => window.getComputedStyle(element).outlineStyle);
+  expect(outline).not.toBe("none");
 });

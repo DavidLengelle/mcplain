@@ -1,0 +1,112 @@
+{
+  "id": "9f3c2585-c194-4fc4-b3b8-4aea66a36560",
+  "input": "https://github.com/modelcontextprotocol/servers",
+  "select": null,
+  "state": "done",
+  "created_at": "2026-10-06T15:49:28.585837+00:00",
+  "finished_at": "2026-10-06T15:49:34.638276+00:00",
+  "analyzed_at": "2026-10-06T15:49:34.638276+00:00",
+  "from_cache": false,
+  "result": {
+    "error": null,
+    "notes": [],
+    "source": {
+      "url": "https://github.com/modelcontextprotocol/servers/tree/5abed86c5317b833dd59907492d56c65981642aa",
+      "kind": "github",
+      "name": "modelcontextprotocol/servers",
+      "origin": "github_code",
+      "reason": "source.package_private",
+      "subdir": null,
+      "version": null,
+      "artifact": "github_tarball",
+      "revision": "5abed86c5317b833dd59907492d56c65981642aa",
+      "integrity": "sha256:a2bb5402cede4a8f08ec61ab1f39dc59459e6c1ee8275ea890cb4f1d0089468e",
+      "reference": "main",
+      "repository": null,
+      "requested_version": null
+    },
+    "status": "multiple_servers",
+    "servers": [],
+    "verdict": {
+      "color": "gray",
+      "title": {
+        "code": "gray.multiple_servers.reason",
+        "params": {}
+      },
+      "alerts": [],
+      "reasons": [
+        "status.multiple_servers"
+      ],
+      "summary": {
+        "code": "gray.multiple_servers.advice",
+        "params": {}
+      },
+      "gray_case": "multiple_servers",
+      "rules_count": 20,
+      "rules_version": "1",
+      "contacted_domains": []
+    },
+    "language": null,
+    "local_path": null,
+    "reputation": {
+      "status": "checked",
+      "queried": 4,
+      "packages": []
+    },
+    "compiled_files": [],
+    "available_servers": [
+      {
+        "sdk": "@modelcontextprotocol/sdk",
+        "name": "@modelcontextprotocol/server-everything",
+        "path": "src/everything",
+        "language": "typescript",
+        "manifest": "src/everything/package.json"
+      },
+      {
+        "sdk": "mcp",
+        "name": "mcp-server-fetch",
+        "path": "src/fetch",
+        "language": "python",
+        "manifest": "src/fetch/pyproject.toml"
+      },
+      {
+        "sdk": "@modelcontextprotocol/sdk",
+        "name": "@modelcontextprotocol/server-filesystem",
+        "path": "src/filesystem",
+        "language": "typescript",
+        "manifest": "src/filesystem/package.json"
+      },
+      {
+        "sdk": "mcp",
+        "name": "mcp-server-git",
+        "path": "src/git",
+        "language": "python",
+        "manifest": "src/git/pyproject.toml"
+      },
+      {
+        "sdk": "@modelcontextprotocol/sdk",
+        "name": "@modelcontextprotocol/server-memory",
+        "path": "src/memory",
+        "language": "typescript",
+        "manifest": "src/memory/package.json"
+      },
+      {
+        "sdk": "@modelcontextprotocol/sdk",
+        "name": "@modelcontextprotocol/server-sequential-thinking",
+        "path": "src/sequentialthinking",
+        "language": "typescript",
+        "manifest": "src/sequentialthinking/package.json"
+      },
+      {
+        "sdk": "mcp",
+        "name": "mcp-server-time",
+        "path": "src/time",
+        "language": "python",
+        "manifest": "src/time/pyproject.toml"
+      }
+    ],
+    "ignored_arguments": [],
+    "available_servers_truncated": false
+  },
+  "error_code": null
+}

@@ -1,0 +1,3165 @@
+{
+  "id": "7a976af9-ae78-46b0-af4d-681169a05761",
+  "input": "npx -y @modelcontextprotocol/server-filesystem",
+  "select": null,
+  "state": "done",
+  "created_at": "2026-10-06T15:49:28.503860+00:00",
+  "finished_at": "2026-10-06T15:49:29.414482+00:00",
+  "analyzed_at": "2026-10-06T15:40:06.222939+00:00",
+  "from_cache": true,
+  "result": {
+    "error": null,
+    "notes": [],
+    "source": {
+      "url": "https://registry.npmjs.org/@modelcontextprotocol/server-filesystem/-/server-filesystem-2026.8.31.tgz",
+      "kind": "npm",
+      "name": "@modelcontextprotocol/server-filesystem",
+      "origin": "published_package",
+      "reason": "source.requested_package",
+      "subdir": null,
+      "version": "2026.8.31",
+      "artifact": "npm_tarball",
+      "revision": null,
+      "integrity": "sha512-kKaFkyAh6oipvc9+EAbJ552JafnMnOq5nzmzWkp1jJdBhTAAGpmIpWihUG1+rfNhmEFM98gUZDdCHCDD4v6a7Q==",
+      "reference": null,
+      "repository": null,
+      "requested_version": "latest"
+    },
+    "status": "ok",
+    "servers": [
+      {
+        "sdk": "@modelcontextprotocol/sdk",
+        "name": "@modelcontextprotocol/server-filesystem",
+        "path": ".",
+        "flows": [],
+        "lamps": [
+          {
+            "id": "files_read",
+            "rules": [],
+            "state": "on"
+          },
+          {
+            "id": "files_write",
+            "rules": [],
+            "state": "on"
+          },
+          {
+            "id": "internet",
+            "rules": [],
+            "state": "off"
+          },
+          {
+            "id": "commands",
+            "rules": [],
+            "state": "off"
+          },
+          {
+            "id": "secrets",
+            "rules": [],
+            "state": "off"
+          },
+          {
+            "id": "hidden_text",
+            "rules": [],
+            "state": "off"
+          }
+        ],
+        "tools": [
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 173,
+            "name": "read_file",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "Read File (Deprecated)",
+            "findings": [
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 149,
+                "sends": null,
+                "column": 18,
+                "detail": "fs.readFile",
+                "outside": null,
+                "snippet": "return await fs.readFile(filePath, encoding);",
+                "function": "readFileContent",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 148,
+                    "function": "readFileContent"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 295,
+                "sends": null,
+                "column": 25,
+                "detail": "fs.stat",
+                "outside": null,
+                "snippet": "const stats = await fs.stat(filePath);",
+                "function": "tailFile",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 293,
+                    "function": "tailFile"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 300,
+                "sends": null,
+                "column": 30,
+                "detail": "fs.open flags=r",
+                "outside": null,
+                "snippet": "const fileHandle = await fs.open(filePath, 'r');",
+                "function": "tailFile",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 293,
+                    "function": "tailFile"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 329,
+                "sends": null,
+                "column": 30,
+                "detail": "fs.open flags=r",
+                "outside": null,
+                "snippet": "const fileHandle = await fs.open(filePath, 'r');",
+                "function": "headFile",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 328,
+                    "function": "headFile"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              },
+              {
+                "name": "tail",
+                "type": "number",
+                "description": "If provided, returns only the last N lines of the file"
+              },
+              {
+                "name": "head",
+                "type": "number",
+                "description": "If provided, returns only the first N lines of the file"
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Read the complete contents of a file as text. DEPRECATED: Use read_text_file instead.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 180,
+            "name": "read_text_file",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "Read Text File",
+            "findings": [
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 149,
+                "sends": null,
+                "column": 18,
+                "detail": "fs.readFile",
+                "outside": null,
+                "snippet": "return await fs.readFile(filePath, encoding);",
+                "function": "readFileContent",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 148,
+                    "function": "readFileContent"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 295,
+                "sends": null,
+                "column": 25,
+                "detail": "fs.stat",
+                "outside": null,
+                "snippet": "const stats = await fs.stat(filePath);",
+                "function": "tailFile",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 293,
+                    "function": "tailFile"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 300,
+                "sends": null,
+                "column": 30,
+                "detail": "fs.open flags=r",
+                "outside": null,
+                "snippet": "const fileHandle = await fs.open(filePath, 'r');",
+                "function": "tailFile",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 293,
+                    "function": "tailFile"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 329,
+                "sends": null,
+                "column": 30,
+                "detail": "fs.open flags=r",
+                "outside": null,
+                "snippet": "const fileHandle = await fs.open(filePath, 'r');",
+                "function": "headFile",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 328,
+                    "function": "headFile"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              },
+              {
+                "name": "tail",
+                "type": "number",
+                "description": "If provided, returns only the last N lines of the file"
+              },
+              {
+                "name": "head",
+                "type": "number",
+                "description": "If provided, returns only the first N lines of the file"
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Use the 'head' parameter to read only the first N lines of a file, or the 'tail' parameter to read only the last N lines of a file. Operates on the file as text regardless of extension. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 197,
+            "name": "read_media_file",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "Read Media File",
+            "findings": [
+              {
+                "file": "dist/index.js",
+                "line": 139,
+                "sends": null,
+                "column": 24,
+                "detail": "fs.createReadStream",
+                "outside": null,
+                "snippet": "const stream = createReadStream(filePath);",
+                "function": "readFileAsBase64Stream",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/index.js",
+                    "line": 137,
+                    "function": "readFileAsBase64Stream"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Read a file and return it as a base64-encoded content block with its MIME type. Image and audio files are returned as image/audio content; any other file type is returned as an embedded resource. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 259,
+            "name": "read_multiple_files",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "Read Multiple Files",
+            "findings": [
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 149,
+                "sends": null,
+                "column": 18,
+                "detail": "fs.readFile",
+                "outside": null,
+                "snippet": "return await fs.readFile(filePath, encoding);",
+                "function": "readFileContent",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 148,
+                    "function": "readFileContent"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "paths",
+                "type": "array",
+                "description": "Array of file paths to read. Each path must be a string pointing to a valid file within allowed directories."
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Read the contents of multiple files simultaneously. This is more efficient than reading files one by one when you need to analyze or compare multiple files. Each file's content is returned with its path as a reference. Failed reads for individual files won't stop the entire operation. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 291,
+            "name": "write_file",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "warn",
+            "title": "Write File",
+            "findings": [
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 155,
+                "sends": null,
+                "column": 15,
+                "detail": "fs.writeFile",
+                "outside": null,
+                "snippet": "await fs.writeFile(filePath, content, { encoding: \"utf-8\", flag: 'wx' });",
+                "function": "writeFileContent",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 151,
+                    "function": "writeFileContent"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 162,
+                "sends": null,
+                "column": 37,
+                "detail": "fs.stat",
+                "outside": null,
+                "snippet": "const origStats = await fs.stat(filePath);",
+                "function": "writeFileContent",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 151,
+                    "function": "writeFileContent"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 165,
+                "sends": null,
+                "column": 23,
+                "detail": "fs.writeFile",
+                "outside": null,
+                "snippet": "await fs.writeFile(tempPath, content, 'utf-8');",
+                "function": "writeFileContent",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 151,
+                    "function": "writeFileContent"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 166,
+                "sends": null,
+                "column": 23,
+                "detail": "fs.rename",
+                "outside": null,
+                "snippet": "await fs.rename(tempPath, filePath);",
+                "function": "writeFileContent",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 151,
+                    "function": "writeFileContent"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 170,
+                "sends": null,
+                "column": 27,
+                "detail": "fs.unlink",
+                "outside": null,
+                "snippet": "await fs.unlink(tempPath);",
+                "function": "writeFileContent",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 151,
+                    "function": "writeFileContent"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 180,
+                "sends": null,
+                "column": 23,
+                "detail": "fs.chmod",
+                "outside": null,
+                "snippet": "await fs.chmod(filePath, origStats.mode & 0o777);",
+                "function": "writeFileContent",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 151,
+                    "function": "writeFileContent"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              },
+              {
+                "name": "content",
+                "type": "string",
+                "description": null
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": false,
+              "openWorldHint": false,
+              "idempotentHint": true,
+              "destructiveHint": true
+            },
+            "declaration": "register_tool",
+            "description": "Create a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 311,
+            "name": "edit_file",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "warn",
+            "title": "Edit File",
+            "findings": [
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 209,
+                "sends": null,
+                "column": 48,
+                "detail": "fs.readFile",
+                "outside": null,
+                "snippet": "const content = normalizeLineEndings(await fs.readFile(filePath, 'utf-8'));",
+                "function": "applyFileEdits",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 207,
+                    "function": "applyFileEdits"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 268,
+                "sends": null,
+                "column": 33,
+                "detail": "fs.stat",
+                "outside": null,
+                "snippet": "const origStats = await fs.stat(filePath);",
+                "function": "applyFileEdits",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 207,
+                    "function": "applyFileEdits"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 271,
+                "sends": null,
+                "column": 19,
+                "detail": "fs.writeFile",
+                "outside": null,
+                "snippet": "await fs.writeFile(tempPath, modifiedContent, 'utf-8');",
+                "function": "applyFileEdits",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 207,
+                    "function": "applyFileEdits"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 272,
+                "sends": null,
+                "column": 19,
+                "detail": "fs.rename",
+                "outside": null,
+                "snippet": "await fs.rename(tempPath, filePath);",
+                "function": "applyFileEdits",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 207,
+                    "function": "applyFileEdits"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 276,
+                "sends": null,
+                "column": 23,
+                "detail": "fs.unlink",
+                "outside": null,
+                "snippet": "await fs.unlink(tempPath);",
+                "function": "applyFileEdits",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 207,
+                    "function": "applyFileEdits"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 286,
+                "sends": null,
+                "column": 19,
+                "detail": "fs.chmod",
+                "outside": null,
+                "snippet": "await fs.chmod(filePath, origStats.mode & 0o777);",
+                "function": "applyFileEdits",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 207,
+                    "function": "applyFileEdits"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              },
+              {
+                "name": "edits",
+                "type": "array",
+                "description": null
+              },
+              {
+                "name": "dryRun",
+                "type": "boolean",
+                "description": "Preview changes using git-style diff format"
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": false,
+              "openWorldHint": false,
+              "idempotentHint": false,
+              "destructiveHint": true
+            },
+            "declaration": "register_tool",
+            "description": "Make line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 334,
+            "name": "create_directory",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "warn",
+            "title": "Create Directory",
+            "findings": [
+              {
+                "file": "dist/index.js",
+                "line": 347,
+                "sends": null,
+                "column": 11,
+                "detail": "fs.mkdir",
+                "outside": null,
+                "snippet": "await fs.mkdir(validPath, { recursive: true });",
+                "function": null,
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": false,
+              "openWorldHint": false,
+              "idempotentHint": true,
+              "destructiveHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Create a new directory or ensure a directory exists. Can create multiple nested directories in one operation. If the directory already exists, this operation will succeed silently. Perfect for setting up directory structures for projects or ensuring required paths exist. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 354,
+            "name": "list_directory",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "List Directory",
+            "findings": [
+              {
+                "file": "dist/index.js",
+                "line": 367,
+                "sends": null,
+                "column": 27,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = await fs.readdir(validPath, { withFileTypes: true });",
+                "function": null,
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Get a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 376,
+            "name": "list_directory_with_sizes",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "List Directory with Sizes",
+            "findings": [
+              {
+                "file": "dist/index.js",
+                "line": 390,
+                "sends": null,
+                "column": 27,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = await fs.readdir(validPath, { withFileTypes: true });",
+                "function": null,
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/index.js",
+                "line": 395,
+                "sends": null,
+                "column": 33,
+                "detail": "fs.stat",
+                "outside": null,
+                "snippet": "const stats = await fs.stat(entryPath);",
+                "function": null,
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              },
+              {
+                "name": "sortBy",
+                "type": "enum",
+                "description": "Sort entries by name or size"
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Get a detailed listing of all files and directories in a specified path, including sizes. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is useful for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 438,
+            "name": "directory_tree",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "Directory Tree",
+            "findings": [
+              {
+                "file": "dist/index.js",
+                "line": 454,
+                "sends": null,
+                "column": 31,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = await fs.readdir(validPath, { withFileTypes: true });",
+                "function": "buildTree",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              },
+              {
+                "name": "excludePatterns",
+                "type": "array",
+                "description": null
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes 'name', 'type' (file/directory), and 'children' for directories. Files have no children array, while directories always have a children array (which may be empty). The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 490,
+            "name": "move_file",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "warn",
+            "title": "Move File",
+            "findings": [
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 196,
+                "sends": null,
+                "column": 15,
+                "detail": "fs.lstat",
+                "outside": null,
+                "snippet": "await fs.lstat(destinationPath);",
+                "function": "moveFile",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 189,
+                    "function": "moveFile"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 200,
+                "sends": null,
+                "column": 19,
+                "detail": "fs.rename",
+                "outside": null,
+                "snippet": "await fs.rename(sourcePath, destinationPath);",
+                "function": "moveFile",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 189,
+                    "function": "moveFile"
+                  }
+                ],
+                "capability": "fs_write",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "source",
+                "type": "string",
+                "description": null
+              },
+              {
+                "name": "destination",
+                "type": "string",
+                "description": null
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": false,
+              "openWorldHint": false,
+              "idempotentHint": false,
+              "destructiveHint": true
+            },
+            "declaration": "register_tool",
+            "description": "Move or rename files and directories. Can move files between directories and rename them in a single operation. If the destination exists, the operation will fail. Works across different directories and can be used for simple renaming within the same directory. Both source and destination must be within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 513,
+            "name": "search_files",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "Search Files",
+            "findings": [
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 369,
+                "sends": null,
+                "column": 31,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = await fs.readdir(currentPath, { withFileTypes: true });",
+                "function": "search",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 365,
+                    "function": "searchFilesWithValidation"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              },
+              {
+                "name": "pattern",
+                "type": "string",
+                "description": null
+              },
+              {
+                "name": "excludePatterns",
+                "type": "array",
+                "description": null
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Recursively search for files and directories matching a pattern. The patterns should be glob-style patterns that match paths relative to the working directory. Use pattern like '*.ext' to match files in current directory, and '**/*.ext' to match files in all subdirectories. Returns full paths to all matching items. Great for finding files when you don't know their exact location. Only searches within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 536,
+            "name": "get_file_info",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "on"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "Get File Info",
+            "findings": [
+              {
+                "file": "dist/lib.js",
+                "line": 111,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "const realPath = await fs.realpath(absolute);",
+                "function": "validatePath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 137,
+                "sends": null,
+                "column": 25,
+                "detail": "fs.stat",
+                "outside": null,
+                "snippet": "const stats = await fs.stat(filePath);",
+                "function": "getFileStats",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 136,
+                    "function": "getFileStats"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 66,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "let currentPath = await fs.realpath(allowedDirectory);",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 70,
+                "sends": null,
+                "column": 32,
+                "detail": "fs.readdir",
+                "outside": null,
+                "snippet": "const entries = (await fs.readdir(currentPath)) ?? [];",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              },
+              {
+                "file": "dist/lib.js",
+                "line": 84,
+                "sends": null,
+                "column": 29,
+                "detail": "fs.realpath",
+                "outside": null,
+                "snippet": "currentPath = await fs.realpath(path.join(currentPath, equivalentMatches[0]));",
+                "function": "resolveUnicodeEquivalentPath",
+                "url_host": null,
+                "url_kind": null,
+                "call_chain": [
+                  {
+                    "file": "dist/lib.js",
+                    "line": 91,
+                    "function": "validatePath"
+                  },
+                  {
+                    "file": "dist/lib.js",
+                    "line": 59,
+                    "function": "resolveUnicodeEquivalentPath"
+                  }
+                ],
+                "capability": "fs_read",
+                "location_kind": "server_code",
+                "shared_by_tools": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "description": null
+              }
+            ],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Retrieve detailed metadata about a file or directory. Returns comprehensive information including size, creation time, last modified time, permissions, and type. This tool is perfect for understanding file characteristics without reading the actual content. Only works within allowed directories.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          },
+          {
+            "file": "dist/index.js",
+            "gaps": [],
+            "line": 558,
+            "name": "list_allowed_directories",
+            "lamps": [
+              {
+                "id": "files_read",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "files_write",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "internet",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "commands",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "secrets",
+                "rules": [],
+                "state": "off"
+              },
+              {
+                "id": "hidden_text",
+                "rules": [],
+                "state": "off"
+              }
+            ],
+            "level": "none",
+            "title": "List Allowed Directories",
+            "findings": [],
+            "parameters": [],
+            "annotations": {
+              "readOnlyHint": true,
+              "openWorldHint": false
+            },
+            "declaration": "register_tool",
+            "description": "Returns the list of directories that this server is allowed to access. Subdirectories within these allowed directories are also accessible. Use this to understand which directories and their nested paths are available before trying to access files.",
+            "location_kind": "server_code",
+            "name_is_dynamic": false,
+            "title_is_dynamic": false,
+            "description_is_dynamic": false,
+            "parameters_are_dynamic": false,
+            "annotations_are_dynamic": false
+          }
+        ],
+        "domains": [],
+        "findings": [
+          {
+            "file": "dist/index.js",
+            "line": 36,
+            "sends": null,
+            "column": 32,
+            "detail": "fs.realpath",
+            "outside": "startup",
+            "snippet": "const resolved = await fs.realpath(absolute);",
+            "function": null,
+            "url_host": null,
+            "url_kind": null,
+            "call_chain": [],
+            "capability": "fs_read",
+            "location_kind": "server_code",
+            "shared_by_tools": false
+          },
+          {
+            "file": "dist/index.js",
+            "line": 55,
+            "sends": null,
+            "column": 29,
+            "detail": "fs.stat",
+            "outside": "startup",
+            "snippet": "const stats = await fs.stat(dir);",
+            "function": null,
+            "url_host": null,
+            "url_kind": null,
+            "call_chain": [],
+            "capability": "fs_read",
+            "location_kind": "server_code",
+            "shared_by_tools": false
+          },
+          {
+            "file": "dist/roots-utils.js",
+            "line": 18,
+            "sends": null,
+            "column": 36,
+            "detail": "fs.realpath",
+            "outside": "never_called",
+            "snippet": "const resolvedPath = await fs.realpath(absolutePath);",
+            "function": "parseRootUri",
+            "url_host": null,
+            "url_kind": null,
+            "call_chain": [],
+            "capability": "fs_read",
+            "location_kind": "server_code",
+            "shared_by_tools": false
+          },
+          {
+            "file": "dist/roots-utils.js",
+            "line": 58,
+            "sends": null,
+            "column": 33,
+            "detail": "fs.stat",
+            "outside": "never_called",
+            "snippet": "const stats = await fs.stat(resolvedPath);",
+            "function": "getValidRootDirectories",
+            "url_host": null,
+            "url_kind": null,
+            "call_chain": [],
+            "capability": "fs_read",
+            "location_kind": "server_code",
+            "shared_by_tools": false
+          }
+        ],
+        "language": "javascript",
+        "parse_errors": [],
+        "text_matches": [],
+        "skipped_files": [],
+        "compiled_files": [],
+        "files_analyzed": 5,
+        "minified_files": [],
+        "copy_recipients": [],
+        "install_scripts": [],
+        "sensitive_paths": [],
+        "internet_domains": null,
+        "invisible_unicode": []
+      }
+    ],
+    "verdict": {
+      "color": "orange",
+      "title": {
+        "code": "rule.O08.plain_title",
+        "params": {}
+      },
+      "alerts": [
+        {
+          "file": "dist/lib.js",
+          "kind": "power_to_know",
+          "line": 155,
+          "rule": "O08",
+          "tool": "write_file",
+          "color": "orange",
+          "quote": "await fs.writeFile(filePath, content, { encoding: \"utf-8\", flag: 'wx' });",
+          "steps": [
+            {
+              "file": "dist/lib.js",
+              "line": 151,
+              "function": "writeFileContent"
+            }
+          ],
+          "detail": "fs_write",
+          "source": null,
+          "outside": null,
+          "function": "writeFileContent",
+          "shared_by_tools": false
+        },
+        {
+          "file": "dist/lib.js",
+          "kind": "power_to_know",
+          "line": 271,
+          "rule": "O08",
+          "tool": "edit_file",
+          "color": "orange",
+          "quote": "await fs.writeFile(tempPath, modifiedContent, 'utf-8');",
+          "steps": [
+            {
+              "file": "dist/lib.js",
+              "line": 207,
+              "function": "applyFileEdits"
+            }
+          ],
+          "detail": "fs_write",
+          "source": null,
+          "outside": null,
+          "function": "applyFileEdits",
+          "shared_by_tools": false
+        },
+        {
+          "file": "dist/index.js",
+          "kind": "power_to_know",
+          "line": 347,
+          "rule": "O08",
+          "tool": "create_directory",
+          "color": "orange",
+          "quote": "await fs.mkdir(validPath, { recursive: true });",
+          "steps": [],
+          "detail": "fs_write",
+          "source": null,
+          "outside": null,
+          "function": null,
+          "shared_by_tools": false
+        },
+        {
+          "file": "dist/lib.js",
+          "kind": "power_to_know",
+          "line": 200,
+          "rule": "O08",
+          "tool": "move_file",
+          "color": "orange",
+          "quote": "await fs.rename(sourcePath, destinationPath);",
+          "steps": [
+            {
+              "file": "dist/lib.js",
+              "line": 189,
+              "function": "moveFile"
+            }
+          ],
+          "detail": "fs_write",
+          "source": null,
+          "outside": null,
+          "function": "moveFile",
+          "shared_by_tools": false
+        }
+      ],
+      "reasons": [],
+      "summary": {
+        "code": "rule.O08.plain_found",
+        "params": {}
+      },
+      "gray_case": null,
+      "rules_count": 20,
+      "rules_version": "1",
+      "contacted_domains": []
+    },
+    "language": null,
+    "local_path": null,
+    "reputation": {
+      "status": "checked",
+      "queried": 5,
+      "packages": []
+    },
+    "compiled_files": [],
+    "available_servers": [],
+    "ignored_arguments": [],
+    "available_servers_truncated": false
+  },
+  "error_code": null
+}

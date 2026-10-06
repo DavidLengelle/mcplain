@@ -4,6 +4,7 @@ import { extname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SOURCE_FOLDER = join(process.cwd(), "src");
+const PUBLIC_FOLDER = join(process.cwd(), "public");
 const TEXT_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".css"]);
 const FORBIDDEN: { name: string; pattern: RegExp }[] = [
   { name: "dangerouslySetInnerHTML", pattern: /dangerouslySetInnerHTML/ },
@@ -49,8 +50,8 @@ describe("technical inspection of the site", () => {
     expect(config).toMatch(/^\s*agentRules:\s*false,\s*$/m);
   });
 
-  it("finds none of them in src/", () => {
-    const files = sourceFiles(SOURCE_FOLDER);
+  it("finds none of them in src/ and public/", () => {
+    const files = [...sourceFiles(SOURCE_FOLDER), ...sourceFiles(PUBLIC_FOLDER)];
     expect(files.length).toBeGreaterThan(0);
     const found = files.flatMap((path) =>
       violations(readFileSync(path, "utf-8")).map((name) => `${relative(SOURCE_FOLDER, path)}: ${name}`),

@@ -41,7 +41,7 @@ test("an unknown page is a localized 404", async ({ page }) => {
 test("the footer names the license and links to the source code", async ({ page }) => {
   await page.goto("/fr");
   const footer = page.locator("footer");
-  await expect(footer).toContainText("Logiciel libre AGPL-3.0");
+  await expect(footer).toContainText("Logiciel libre sous licence AGPL-3.0");
   await expect(footer.getByRole("link", { name: "Code source" })).toHaveAttribute(
     "href",
     "https://github.com/DavidLengelle/mcplain",

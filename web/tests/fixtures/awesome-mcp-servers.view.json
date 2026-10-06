@@ -1,0 +1,64 @@
+{
+  "id": "f9dd36b9-a916-4b4b-a999-a4cdd4412af6",
+  "input": "https://github.com/punkpeye/awesome-mcp-servers",
+  "select": null,
+  "state": "done",
+  "created_at": "2026-10-06T15:49:28.605419+00:00",
+  "finished_at": "2026-10-06T15:49:35.822582+00:00",
+  "analyzed_at": "2026-10-06T15:49:35.822582+00:00",
+  "from_cache": false,
+  "result": {
+    "error": null,
+    "notes": [
+      "note.mostly_documentation"
+    ],
+    "source": {
+      "url": "https://github.com/punkpeye/awesome-mcp-servers/tree/3c30195615095be4f22ac120a7cee82f215cf547",
+      "kind": "github",
+      "name": "punkpeye/awesome-mcp-servers",
+      "origin": "github_code",
+      "reason": "source.no_package_manifest",
+      "subdir": null,
+      "version": null,
+      "artifact": "github_tarball",
+      "revision": "3c30195615095be4f22ac120a7cee82f215cf547",
+      "integrity": "sha256:dfe1fc7e152e3e8beba51677d571846c30fb1ac3d289cafb5acc4bef20315251",
+      "reference": "main",
+      "repository": null,
+      "requested_version": null
+    },
+    "status": "not_a_server",
+    "servers": [],
+    "verdict": {
+      "color": "gray",
+      "title": {
+        "code": "gray.link_list.reason",
+        "params": {}
+      },
+      "alerts": [],
+      "reasons": [
+        "status.not_a_server"
+      ],
+      "summary": {
+        "code": "gray.link_list.advice",
+        "params": {}
+      },
+      "gray_case": "link_list",
+      "rules_count": 20,
+      "rules_version": "1",
+      "contacted_domains": []
+    },
+    "language": null,
+    "local_path": null,
+    "reputation": {
+      "status": "checked",
+      "queried": 0,
+      "packages": []
+    },
+    "compiled_files": [],
+    "available_servers": [],
+    "ignored_arguments": [],
+    "available_servers_truncated": false
+  },
+  "error_code": null
+}

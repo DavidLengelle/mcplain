@@ -1,0 +1,211 @@
+{
+  "status": "ok",
+  "source": null,
+  "local_path": "tests/fixtures/rules/O01/near_miss",
+  "reputation": {
+    "status": "not_checked",
+    "queried": 0,
+    "packages": []
+  },
+  "ignored_arguments": [],
+  "servers": [
+    {
+      "path": ".",
+      "name": "o01-near-miss",
+      "language": "python",
+      "sdk": "fastmcp",
+      "tools": [
+        {
+          "name": "get_item",
+          "name_is_dynamic": false,
+          "description": "Get an item by id from the fixed API.",
+          "description_is_dynamic": false,
+          "parameters": [
+            {
+              "name": "item_id",
+              "type": "str",
+              "description": null
+            }
+          ],
+          "parameters_are_dynamic": false,
+          "file": "server.py",
+          "line": 8,
+          "declaration": "decorator",
+          "location_kind": "server_code",
+          "title": null,
+          "title_is_dynamic": false,
+          "annotations": {},
+          "annotations_are_dynamic": false,
+          "findings": [
+            {
+              "capability": "network",
+              "file": "server.py",
+              "line": 11,
+              "column": 16,
+              "snippet": "return requests.get(\"https://api.example.com/items/\" + item_id).text",
+              "function": "get_item",
+              "location_kind": "server_code",
+              "detail": "requests.get",
+              "call_chain": [],
+              "shared_by_tools": false,
+              "outside": null,
+              "url_kind": "dynamic",
+              "url_host": "api.example.com",
+              "sends": false
+            }
+          ],
+          "gaps": [],
+          "lamps": [
+            {
+              "id": "files_read",
+              "state": "off",
+              "rules": []
+            },
+            {
+              "id": "files_write",
+              "state": "off",
+              "rules": []
+            },
+            {
+              "id": "internet",
+              "state": "on",
+              "rules": []
+            },
+            {
+              "id": "commands",
+              "state": "off",
+              "rules": []
+            },
+            {
+              "id": "secrets",
+              "state": "off",
+              "rules": []
+            },
+            {
+              "id": "hidden_text",
+              "state": "off",
+              "rules": []
+            }
+          ],
+          "level": "none"
+        }
+      ],
+      "findings": [],
+      "domains": [
+        {
+          "domain": "api.example.com",
+          "url": "https://api.example.com/items/",
+          "file": "server.py",
+          "line": 11,
+          "location_kind": "server_code",
+          "tool": "get_item"
+        }
+      ],
+      "sensitive_paths": [],
+      "install_scripts": [],
+      "invisible_unicode": [],
+      "flows": [
+        {
+          "source": "tool_parameter",
+          "source_detail": "item_id",
+          "path_kinds": [],
+          "source_point": {
+            "file": "server.py",
+            "line": 9,
+            "function": "get_item",
+            "snippet": "def get_item(item_id: str) -> str:"
+          },
+          "sink": "network",
+          "sink_role": "data",
+          "sink_detail": "requests.get",
+          "sink_point": {
+            "file": "server.py",
+            "line": 11,
+            "function": "get_item",
+            "snippet": "return requests.get(\"https://api.example.com/items/\" + item_id).text"
+          },
+          "steps": [],
+          "pasted": true,
+          "decoded": false,
+          "written_file": false,
+          "tool": "get_item",
+          "shared_by_tools": false,
+          "outside": null,
+          "location_kind": "server_code"
+        }
+      ],
+      "text_matches": [],
+      "copy_recipients": [],
+      "compiled_files": [],
+      "minified_files": [],
+      "parse_errors": [],
+      "skipped_files": [],
+      "files_analyzed": 1,
+      "lamps": [
+        {
+          "id": "files_read",
+          "state": "off",
+          "rules": []
+        },
+        {
+          "id": "files_write",
+          "state": "off",
+          "rules": []
+        },
+        {
+          "id": "internet",
+          "state": "on",
+          "rules": []
+        },
+        {
+          "id": "commands",
+          "state": "off",
+          "rules": []
+        },
+        {
+          "id": "secrets",
+          "state": "off",
+          "rules": []
+        },
+        {
+          "id": "hidden_text",
+          "state": "off",
+          "rules": []
+        }
+      ],
+      "internet_domains": [
+        "api.example.com"
+      ]
+    }
+  ],
+  "available_servers": [],
+  "available_servers_truncated": false,
+  "language": null,
+  "compiled_files": [],
+  "notes": [],
+  "error": null,
+  "verdict": {
+    "color": "green",
+    "alerts": [],
+    "reasons": [
+      "no_alert",
+      "green.network"
+    ],
+    "rules_version": "1",
+    "rules_count": 20,
+    "contacted_domains": [
+      "api.example.com"
+    ],
+    "gray_case": null,
+    "title": {
+      "code": "verdict.green.title",
+      "params": {}
+    },
+    "summary": {
+      "code": "verdict.green.summary_domains",
+      "params": {
+        "domains": "api.example.com"
+      }
+    }
+  }
+}

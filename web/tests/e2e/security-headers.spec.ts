@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-import { ID, orangeView, serveAnalysis } from "./fake-api";
+import { ID, serveAnalysis } from "./fake-api";
+import { reportView } from "./reports";
 
 const EXPECTED: Record<string, string> = {
   "x-content-type-options": "nosniff",
@@ -51,10 +52,12 @@ test("the pages break no rule of the policy", async ({ page }) => {
       violations.push(message.text());
     }
   });
-  await serveAnalysis(page, [orangeView()]);
+  await page.addInitScript(() => window.localStorage.setItem("mcplain-theme", "dark"));
+  await serveAnalysis(page, [reportView("orange")]);
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.goto(`/fr/analyses/${ID}`);
-  await expect(page.locator("[data-verdict-panel]")).toBeVisible();
+  await expect(page.locator("[data-verdict]")).toBeVisible();
+  await expect(page.locator("html")).toHaveClass(/th-dark/);
   expect(violations).toEqual([]);
 });

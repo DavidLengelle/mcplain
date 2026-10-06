@@ -1,0 +1,50 @@
+{
+  "id": "2e55b116-e005-4213-ad4b-65c38935f46e",
+  "input": "npx -y @mcplain-demo/this-package-does-not-exist",
+  "select": null,
+  "state": "failed",
+  "created_at": "2026-10-06T15:49:28.570599+00:00",
+  "finished_at": "2026-10-06T15:49:31.205621+00:00",
+  "analyzed_at": "2026-10-06T15:49:31.205621+00:00",
+  "from_cache": false,
+  "result": {
+    "error": {
+      "code": "fetch.npm_not_found",
+      "params": {
+        "package": "@mcplain-demo/this-package-does-not-exist",
+        "version": "latest"
+      }
+    },
+    "notes": [],
+    "source": null,
+    "status": "error",
+    "servers": [],
+    "verdict": {
+      "color": "gray",
+      "title": {
+        "code": "gray.error.reason",
+        "params": {}
+      },
+      "alerts": [],
+      "reasons": [
+        "status.error"
+      ],
+      "summary": {
+        "code": "gray.error.advice",
+        "params": {}
+      },
+      "gray_case": "error",
+      "rules_count": 20,
+      "rules_version": "1",
+      "contacted_domains": []
+    },
+    "language": null,
+    "local_path": null,
+    "reputation": null,
+    "compiled_files": [],
+    "available_servers": [],
+    "ignored_arguments": [],
+    "available_servers_truncated": false
+  },
+  "error_code": "fetch_error"
+}
