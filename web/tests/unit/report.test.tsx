@@ -25,7 +25,7 @@ const GREEN_DOMAINS = "fixed-domains.result";
 const FAILED = "npm-not-found.view";
 const MULTIPLE = "modelcontextprotocol-servers.view";
 const TRAP_MARK = "TRAP";
-const BIDI = "‮";
+const BIDI = "\u202E";
 const THIRD_PARTY_KEYS = new Set([
   "name",
   "description",
