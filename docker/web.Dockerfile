@@ -33,6 +33,7 @@ RUN groupadd --system --gid 10003 mcplain \
 WORKDIR /app
 COPY --from=build /src/web/.next/standalone ./
 COPY --from=build /src/web/.next/static ./.next/static
+COPY --from=build /src/web/public ./public
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3000 \
