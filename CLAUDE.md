@@ -11,7 +11,7 @@ secrets...) with a provisional verdict.
 - `api/`: the HTTP API, the job queue and the dispatcher (uv project `mcplain-api`, package `mcplain_api`).
 - `docker/`: `atelier.Dockerfile` (engine only), `api.Dockerfile` (API and dispatcher) and `web.Dockerfile` (website).
 - `compose.yaml`: PostgreSQL, API, dispatcher, website, and the atelier image (build only).
-- `web/`: the Next.js website (pnpm project, Next.js 16, React 19, next-intl, Tailwind CSS v4, shadcn/ui).
+- `web/`: the Next.js website (pnpm project, Next.js 16, React 19, next-intl, Tailwind CSS v4).
   A guided tour in French: `docs/web.fr.md`.
 
 ## The roles
@@ -193,6 +193,18 @@ anything:
   rewrite of next-intl (`/` to `/en`) as external and the page loops on a 307 redirect. Where `localhost`
   also means `::1` (GitHub Actions), Playwright starts the site with `NODE_OPTIONS=--dns-result-order=ipv4first`
   so that it listens on 127.0.0.1.
+
+### Design rules
+
+- One source of color tokens: `web/src/app/globals.css` (light in `:root`, dark in `@variant dark`), copied
+  from `docs/design/maquette-rapport-b.html`. No color written anywhere else; the default Tailwind palette is
+  disabled. Table and roles: `docs/design.fr.md`.
+- The site never decides a color: the verdict color, the lamp states and the tool levels come from the engine
+  (`verdict.py`, `lamps.py`). The site only maps them to tokens.
+- Color is never alone: a verdict has its word and its gauge (with an `aria-label`), a lamp its written state.
+- RawText is mandatory for every third-party text, including inside interface texts (`InterfaceText`).
+- Never the bright orange on a dark background: in the dark theme, orange stays copper `#C77B30`.
+- The theme script is `web/public/theme.js`, loaded with `next/script` `beforeInteractive` and the CSP nonce.
 
 ```bash
 cd web

@@ -23,25 +23,33 @@ affichage), `messages/` le menu dans deux langues.
 | `src/i18n/routing.ts` | Les langues : `en` (par défaut, sans préfixe) et `fr` (préfixe `/fr`). |
 | `src/i18n/request.ts` | Charge, pour chaque requête, les textes de l'interface et ceux du moteur. |
 | `src/i18n/navigation.ts` | `Link`, `useRouter`... qui gardent la langue. Utilise-les à la place de ceux de Next.js. |
-| `src/app/[locale]/layout.tsx` | Le cadre commun : `<html lang>`, en-tête, pied de page, avis si l'API ne répond pas. |
+| `src/app/[locale]/layout.tsx` | Le cadre commun : `<html lang>`, script du thème, en-tête fixe, pied de page, avis si l'API ne répond pas. |
 | `src/app/[locale]/page.tsx` | La page d'accueil. |
 | `src/app/[locale]/analyses/[id]/page.tsx` | La page d'une analyse. Vérifie que l'identifiant est un UUID. |
 | `src/app/[locale]/not-found.tsx` | La page 404, traduite. |
-| `src/app/fonts/` | Les polices Atkinson Hyperlegible et leur licence OFL. Servies par le site lui-même. |
-| `src/components/analysis-form.tsx` | Le champ de saisie et les exemples. |
+| `src/app/fonts/`, `src/app/fonts.ts` | Les polices Saira, Saira Condensed et IBM Plex Mono, et leurs licences OFL. Servies par le site lui-même. |
+| `src/app/globals.css` | **La seule source des couleurs** : les jetons des thèmes clair et sombre (voir `docs/design.fr.md`). |
+| `public/theme.js` | Le petit script qui pose le thème choisi avant l'affichage. |
+| `src/components/site-header.tsx` | L'en-tête fixe : logo, champ d'analyse, thème, langue. |
+| `src/components/theme-switcher.tsx` | Les boutons Système, Clair, Sombre. |
+| `src/components/analysis-form.tsx` | Le champ de saisie et les exemples de la page d'accueil. |
 | `src/components/analysis-tracker.tsx` | Le suivi : interroge l'API chaque seconde, puis affiche le rapport. |
-| `src/components/report/` | Les morceaux du rapport : verdict, cartes d'outils, alertes, hors des outils, source. |
+| `src/components/report/` | Les blocs du rapport, un composant par bloc (voir la partie 9). |
 | `src/components/raw-text.tsx` | **RawText**, le seul moyen d'afficher un texte venu d'un tiers. |
 | `src/components/engine-text.tsx` | Affiche un texte du moteur ; ses paramètres passent par RawText. |
-| `src/components/ui/` | Les composants shadcn/ui : bouton, champ, carte, badge, alerte, squelette. |
+| `src/components/param-text.tsx` | Affiche un texte de l'interface dont un paramètre vient d'un tiers (par RawText). |
+| `src/components/icons.tsx` | Les icônes en SVG, dont celles des six voyants. |
 | `src/lib/analysis.ts` | Les types des réponses de l'API, et leur vérification. |
 | `src/lib/api-client.ts` | Les deux appels à l'API : lancer une analyse, lire son état. |
 | `src/lib/icu.ts` | Traduit les textes du moteur (format Python) en format ICU pour next-intl. |
 | `src/lib/engine-messages.ts` | Télécharge les textes du moteur et les garde 1 heure en mémoire. |
 | `src/lib/invisible-characters.json` | La liste des caractères invisibles, **générée par le moteur**. Ne pas l'éditer à la main. |
 | `src/lib/security-headers.ts` | La CSP et les autres en-têtes de sécurité. |
+| `src/lib/report.ts` | Les petits calculs d'affichage du rapport (voyants allumés, outil ouvert par défaut, emplacements). |
+| `src/lib/theme.ts` | Le choix du thème : lecture, écriture dans `localStorage`, classe sur `<html>`. |
 | `tests/unit/` | Tests Vitest et Testing Library (sans navigateur). |
 | `tests/e2e/` | Tests Playwright dans un vrai Chromium, avec une API simulée. |
+| `tests/fixtures/` | Les rapports de référence, **générés par le vrai moteur** (voir leur `README.md`). |
 | `tests/e2e/stack/` | Le test sur la vraie pile (compose lancé), hors des tests par défaut. |
 
 ## 2. Le trajet d'une analyse, fichier par fichier
@@ -65,9 +73,8 @@ Exemple : tu tapes `uvx mcp-server-fetch` et tu cliques sur « Analyser ».
    ou répond quelque chose d'anormal : état gris « non vérifié ».
 7. Chaque réponse passe par `parseAnalysisView` dans `src/lib/analysis.ts`. Une réponse qui n'a
    pas la forme attendue donne `null`, donc du gris. Jamais du vert par défaut.
-8. Quand l'état est `done` ou `failed`, `src/components/report/report-view.tsx` affiche le rapport
-   dans cet ordre : verdict, emplacement (vide) pour la notice de l'IA, une carte par outil,
-   ce qui est trouvé hors des outils, la source analysée.
+8. Quand l'état est `done` ou `failed`, `src/components/report/report-view.tsx` affiche le rapport,
+   bloc par bloc (voir la partie 9).
 
 ## 3. Composant serveur ou composant client ?
 
@@ -192,3 +199,73 @@ caractère brut dans un fichier.
   rendues à la demande (`await connection()` dans le layout).
 - Pas d'attribut `style={...}` dans les composants : la CSP de production bloque les styles en
   ligne. Utilise les classes Tailwind.
+
+## 8. Le thème clair et sombre, pas à pas
+
+Le site a deux thèmes. Sans choix de ta part, il suit le réglage de ton système. Les boutons Système, Clair
+et Sombre de l'en-tête changent ce choix.
+
+1. **Les couleurs sont des variables CSS.** Dans `src/app/globals.css`, le bloc `:root` définit le thème
+   clair (`--page: #F5F7FA;`) et le bloc `@variant dark` le thème sombre (`--page: #0C131B;`). Les composants
+   n'écrivent jamais une couleur : ils écrivent `bg-page`, `text-ink`. Tailwind remplace par `var(--page)`.
+2. **La variante `dark` couvre deux cas.** Elle s'applique si `<html>` porte la classe `th-dark`, ou si le
+   système est en sombre et que `<html>` ne porte pas `th-light`. Sans JavaScript, il n'y a pas de classe :
+   c'est le système qui décide (`@media (prefers-color-scheme: dark)`).
+3. **Le choix est gardé dans `localStorage`** (clé `mcplain-theme`, valeur `light` ou `dark`). Système
+   efface la clé. Aucun cookie.
+4. **Un script pose la classe avant l'hydratation.** `public/theme.js` lit la clé et ajoute `th-light` ou
+   `th-dark` sur `<html>`. La classe règle aussi `color-scheme`, donc les barres de défilement et les champs
+   suivent. Le layout le charge avec `<Script src="/theme.js" strategy="beforeInteractive" nonce={nonce} />`.
+5. **Le nonce.** La CSP n'accepte que les scripts qui portent le nonce de la requête. `src/proxy.ts` tire un
+   nonce au hasard, l'écrit dans la CSP et dans l'en-tête de requête `x-nonce` ; le layout lit `x-nonce` avec
+   `headers()` et le donne au `<Script>`. C'est la méthode de la documentation de Next.js 16.3.8
+   (`node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`). Interdits :
+   `dangerouslySetInnerHTML`, un script en ligne sans nonce, assouplir la CSP.
+6. **Le bouton.** `src/components/theme-switcher.tsx` lit le choix avec `useSyncExternalStore` (le serveur
+   ne connaît pas `localStorage`, il affiche « Système » ; le navigateur corrige juste après), écrit la clé,
+   change la classe et met `aria-pressed` sur le bouton actif.
+
+Bon à savoir : dans l'App Router, Next.js ne pose pas un `<script>` bloquant pour `beforeInteractive`. Il
+écrit une petite ligne qui ajoute `/theme.js` à une liste, et son amorce le charge avant l'hydratation
+(`node_modules/next/dist/client/script.js`, `app-bootstrap.js`). Le script tourne donc très tôt, mais pas
+forcément avant le tout premier affichage : sur une machine lente, un éclair du thème du système reste
+possible quand ton choix est différent du système.
+
+## 9. La page de rapport, bloc par bloc
+
+`src/components/report/report-view.tsx` assemble la page. Chaque bloc est un composant qui reçoit seulement
+ce dont il a besoin. Le moteur a déjà tout décidé (couleur, voyants, niveau des outils) : les blocs
+affichent.
+
+| Ordre | Composant | Ce qu'il reçoit | Ce qu'il affiche |
+| --- | --- | --- | --- |
+| 1 | `identity-line.tsx` | la vue et la source | paquet, version, origine, date `analyzed_at` |
+| 2 | `verdict-block.tsx` (+ `gauge.tsx`) | la vue et le résultat | la jauge, le mot, le titre et la phrase du moteur, « Relancer » si besoin |
+| 3 | `ai-notice-slot.tsx` | rien | rien pour l'instant (notice de l'IA, séance 7) |
+| 4 | `plain-summary.tsx` | le résultat et le serveur | EN CLAIR : ce qu'il peut faire, ce qu'on a trouvé, ce que tu peux faire |
+| 5 | `lamp-cluster.tsx` | le serveur | les six voyants, leur état écrit, le compteur |
+| 6 | `alert-points.tsx` | le résultat, les outils, deux fonctions de clic | DANGER (n) puis À VÉRIFIER (n), une ligne par alerte |
+| 7 | `tool-grid.tsx` | les outils, l'outil choisi, une fonction de clic | une carte par outil, avec son contour |
+| 8 | `tool-sheet.tsx` | l'outil choisi et ses alertes | la fiche : pourquoi, passage du code, texte de l'auteur, ce que son code peut faire |
+| 9 | `tech-details.tsx` | la vue, le résultat, le serveur, ouvert ou non | les détails techniques, repliés |
+| 10 | `report-end.tsx`, `back-to-top.tsx` | la vue | la date du code lu, la mention du cache, la flèche de remontée |
+
+Deux états vivent dans `report-view.tsx` : l'outil choisi et l'ouverture des détails. Un clic sur une ligne
+d'alerte ou sur une carte change l'outil choisi ; le lien `#fiche` fait défiler la page jusqu'à la fiche.
+Le défilement est fluide (`scroll-behavior: smooth`), instantané si tu as demandé moins d'animations. La
+fiche s'arrête sous l'en-tête fixe grâce à `scroll-margin-top`, calculé avec la hauteur réelle de
+l'en-tête (`header-height.tsx` la mesure et la range dans `--header-height`).
+
+Cas particuliers : plusieurs serveurs dans le lien donnent `candidates-list.tsx` (pas de verdict) ; une liste
+de liens donne `link-list-notice.tsx`.
+
+## 10. Un texte d'interface avec un paramètre venu d'un tiers
+
+Exemple : « Rien de dangereux. Il va seulement sur : {domains} ». Les domaines viennent du code analysé, donc
+d'un tiers : ils doivent passer par RawText.
+
+1. Dans `messages/fr.json`, sous `plain` : `"foundNothingDomains": "Rien de dangereux. Il va seulement sur : {domains}"`.
+2. Pareil dans `messages/en.json`.
+3. Dans le composant : `<InterfaceText code="plain.foundNothingDomains" params={{ domains: liste }} />`.
+   `InterfaceText` remplace chaque paramètre par un composant `RawText`. N'utilise pas `t("...", { domains })`
+   pour un texte de tiers : il serait posé tel quel.
