@@ -4,6 +4,7 @@ import json
 import os
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import docker
@@ -13,6 +14,25 @@ from docker import DockerClient
 from docker.models.containers import Container
 
 pytestmark = pytest.mark.docker
+
+REPOSITORY = Path(__file__).resolve().parents[2]
+WEB_PORT_VARIABLE = "MCPLAIN_WEB_PORT"
+DEFAULT_WEB_PORT = "3000"
+
+
+def web_port() -> str:
+    """Return the host port of the website, as compose reads it: environment, then .env, then 3000"""
+
+    value = os.environ.get(WEB_PORT_VARIABLE)
+    if value:
+        return value
+    env_file = REPOSITORY / ".env"
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            name, _, setting = line.partition("=")
+            if name.strip() == WEB_PORT_VARIABLE and setting.strip():
+                return setting.strip()
+    return DEFAULT_WEB_PORT
 
 API_URL = os.environ.get("MCPLAIN_API_URL", "http://127.0.0.1:8000")
 PROJECT = "mcplain"
@@ -204,7 +224,7 @@ def test_web_container_is_closed(client: DockerClient) -> None:
     assert attrs["HostConfig"]["CapDrop"] == ["ALL"]
     assert attrs["Config"]["User"] == "10003:10003"
     assert all("docker.sock" not in mount["Source"] for mount in attrs["Mounts"])
-    assert attrs["HostConfig"]["PortBindings"] == {"3000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "3000"}]}
+    assert attrs["HostConfig"]["PortBindings"] == {"3000/tcp": [{"HostIp": "127.0.0.1", "HostPort": web_port()}]}
 
 
 @pytest.mark.network

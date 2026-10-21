@@ -150,6 +150,7 @@ Playwright a besoin d'un Chromium : `pnpm exec playwright install --only-shell c
 Sur Ubuntu, Chromium demande aussi deux bibliothèques système : `sudo apt install libnss3 libnspr4`.
 
 Avec Docker, le site tourne dans la pile : `docker compose up -d --build`, puis http://127.0.0.1:3000.
+Si un autre projet occupe déjà le port 3000, choisis-en un autre dans `.env` : `MCPLAIN_WEB_PORT=3010`, puis http://127.0.0.1:3010. Les tests docker et `pnpm test:stack` lisent ce réglage.
 
 ## 6. Afficher un texte venu d'un tiers
 

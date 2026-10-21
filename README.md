@@ -75,7 +75,7 @@ curl -s -X POST http://127.0.0.1:8000/api/analyses -H "Content-Type: application
 curl -s http://127.0.0.1:8000/api/analyses/<id>
 ```
 
-The website is then on http://127.0.0.1:3000, and the API on `127.0.0.1:8000`. Both only listen on
+The website is then on http://127.0.0.1:3000 (another port with `MCPLAIN_WEB_PORT` in `.env`, for example `MCPLAIN_WEB_PORT=3010` when another project already uses 3000), and the API on `127.0.0.1:8000`. Both only listen on
 `127.0.0.1`. `GITHUB_TOKEN` in `.env` is optional: it raises the GitHub API limit and only the
 dispatcher receives it.
 

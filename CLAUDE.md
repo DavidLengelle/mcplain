@@ -219,7 +219,7 @@ pnpm test:stack   # Playwright on the real stack: compose and the site must be r
 
 `pnpm test:e2e` needs `pnpm exec playwright install --only-shell chromium` once (and, on Ubuntu,
 `libnss3` and `libnspr4`). The website container: `docker compose up -d --build`, then
-`http://127.0.0.1:3000`.
+`http://127.0.0.1:3000`, or the port set by `MCPLAIN_WEB_PORT` in `.env` (the compose tests and `pnpm test:stack` read it too).
 
 ## Code style
 

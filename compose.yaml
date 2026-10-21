@@ -96,7 +96,7 @@ services:
     environment:
       MCPLAIN_API_URL: http://api:8000
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${MCPLAIN_WEB_PORT:-3000}:3000"
     networks:
       - front
     read_only: true
