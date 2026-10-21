@@ -97,6 +97,7 @@ NODE_TYPES: tuple[str, ...] = (
     "lambda",
     "comment",
     "pair",
+    "return_statement",
 )
 SIMPLE_ESCAPES: dict[str, str] = {
     "\\": "\\",
@@ -204,6 +205,15 @@ def module_names(path: str) -> list[str]:
     return names
 
 
+def _at_module_level(definition: Node) -> bool:
+    """Tell whether a function definition stands at module level, decorated or not"""
+
+    parent = definition.parent
+    if parent is not None and parent.type == "decorated_definition":
+        parent = parent.parent
+    return parent is not None and parent.type == "module"
+
+
 def _runs_immediately(function: Node) -> bool:
     """Tell whether a lambda runs at once, like the function given to map, filter or sorted"""
 
@@ -262,6 +272,7 @@ class _PythonFile:
         self.function_names: set[str] = set()
         self.class_constants: dict[str, Node] = {}
         self.clients: list[tuple[str, int, int, str]] = []
+        self.client_factories: dict[str, str] = {}
         self.tool_definitions: set[int] = set()
         self.tables: list[tuple[str, int, int, list[tuple[str, Node]]]] = []
         self.instances: list[tuple[str, int, int, tuple[str, str | None]]] = []
@@ -1307,11 +1318,33 @@ class _PythonFile:
         qualified, imported = self._resolve(parts)
         if imported and qualified in PYTHON_NETWORK_CLIENTS:
             return qualified
+        if len(parts) == 1 and not imported:
+            return self.client_factories.get(parts[0])
         return None
 
-    def _index_clients(self) -> None:
-        """Remember variables that hold a network client, from assignments and with ... as v"""
+    def _index_client_factories(self) -> None:
+        """Remember module functions of this file whose every return gives the same kind of network client"""
 
+        returns: dict[str, list[str | None]] = {}
+        for statement in self.nodes["return_statement"]:
+            function = statement.parent
+            while function is not None and function.type not in ("function_definition", "lambda", "class_definition"):
+                function = function.parent
+            if function is None or function.type != "function_definition" or not _at_module_level(function):
+                continue
+            name = function.child_by_field_name("name")
+            if name is None or not statement.named_children:
+                continue
+            returns.setdefault(node_text(name), []).append(self._client_constructor(statement.named_children[0]))
+        for name, constructors in returns.items():
+            constructor = constructors[0]
+            if len(set(constructors)) == 1 and constructor is not None and name in self.functions:
+                self.client_factories[name] = constructor
+
+    def _index_clients(self) -> None:
+        """Remember variables that hold a network client, from assignments, with ... as v and client factories"""
+
+        self._index_client_factories()
         for assignment in self.nodes["assignment"]:
             left = assignment.child_by_field_name("left")
             constructor = self._client_constructor(assignment.child_by_field_name("right"))

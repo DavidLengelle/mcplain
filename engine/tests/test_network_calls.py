@@ -162,3 +162,60 @@ def test_lowlevel_single_tool_network_through_client(fixtures: Path) -> None:
     assert [step.function for step in get[0].call_chain] == ["fetch_url"]
     text = render(analyze_directory(fixtures / "python_lowlevel_single"), Translator("en"))
     assert "        - network (network access):\n            via fetch_url (server.py:8), URL dynamic\n" in text
+
+
+def test_python_client_from_a_factory_of_the_same_file(tmp_path: Path) -> None:
+    """A module function that returns a client makes its result a client, with or without async with"""
+
+    findings = python_network(
+        tmp_path,
+        """import httpx
+
+
+def make_client(timeout):
+    return httpx.AsyncClient(timeout=timeout)
+
+
+async def read(url):
+    async with make_client(5) as client:
+        await client.get(url)
+
+
+def check():
+    client = make_client(5)
+    client.get("https://status.example.com/health")
+""",
+    )
+    calls = {finding.function: finding for finding in findings if finding.function in {"read", "check"}}
+    assert calls["read"].url_kind is UrlKind.DYNAMIC
+    assert calls["check"].url_kind is UrlKind.LITERAL
+    assert calls["check"].url_host == "status.example.com"
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [
+        "def make_client(flag):\n    if flag:\n        return httpx.AsyncClient()\n    return None\n",
+        "class Pool:\n    def make_client(self):\n        return httpx.AsyncClient()\n",
+        "def outer():\n    def make_client():\n        return httpx.AsyncClient()\n    return 1\n",
+    ],
+    ids=["not_always_a_client", "method", "nested"],
+)
+def test_python_client_factory_stays_prudent(tmp_path: Path, factory: str) -> None:
+    """A function that does not always return a client, a method or a nested function is not followed"""
+
+    source = f"import httpx\n\n\n{factory}\n\nasync def read(url):\n    client = make_client()\n    await client.get(url)\n"
+    findings = python_network(tmp_path, source)
+    assert all(finding.function != "read" for finding in findings)
+
+
+def test_client_factory_server_is_orange_on_the_open_tool_only(fixtures: Path) -> None:
+    """A tool that sends a request to the AI's address through a client factory raises O01; a fixed address does not"""
+
+    result = analyze_directory(fixtures / "python_client_factory")
+    open_network = [alert for alert in result.verdict.alerts if alert.rule == "O01"]
+    assert [alert.tool for alert in open_network] == ["read_page"]
+    assert result.verdict.color.value == "orange"
+    status = next(tool for tool in result.servers[0].tools if tool.name == "service_status")
+    hosts = {finding.url_host for finding in status.findings if finding.capability is Capability.NETWORK}
+    assert "status.example.com" in hosts
