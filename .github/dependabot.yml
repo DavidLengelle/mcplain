@@ -12,6 +12,9 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+    groups:
+      web-minor-and-patch:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: uv
     directories:
@@ -22,6 +25,9 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    groups:
+      python-minor-and-patch:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -30,6 +36,9 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    groups:
+      actions-minor-and-patch:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: docker
     directory: /docker
@@ -43,6 +52,9 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: python
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    groups:
+      docker-minor-and-patch:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: docker-compose
     directory: /

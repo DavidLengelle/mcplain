@@ -114,6 +114,8 @@ A Vitest test keeps the option, and another test fails if either file is tracked
 Keep `exclude-newer = "7 days"` in `[tool.uv]` of `engine/pyproject.toml` and `api/pyproject.toml`, and never add a
 `uv.toml` next to them (uv would then ignore `[tool.uv]`); to lift the delay for one package, follow the README
 "Security" section. Docker base images are pinned by digest; GitHub Actions by full commit SHA.
+Dependabot groups minor and patch updates into one pull request per ecosystem and folder (no lockfile
+conflicts between them); major updates stay one per pull request. Python stays on 3.12 in the images.
 
 For `web/`:
 
