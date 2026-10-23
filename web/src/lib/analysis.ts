@@ -663,3 +663,14 @@ export function parseErrorInfo(value: unknown): ErrorInfo | null {
 export function isRunning(state: AnalysisState): state is RunningState {
   return (RUNNING_STATES as readonly string[]).includes(state);
 }
+
+export function parseAnalysisResult(value: unknown): AnalysisResult | null {
+  try {
+    return result(value);
+  } catch (error) {
+    if (error instanceof InvalidResponse) {
+      return null;
+    }
+    throw error;
+  }
+}

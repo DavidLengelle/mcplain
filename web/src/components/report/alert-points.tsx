@@ -10,25 +10,7 @@ import { cn } from "@/lib/utils";
 import { EngineText } from "../engine-text";
 import { CheckCircleIcon } from "../icons";
 import { RawText } from "../raw-text";
-
-type PointColor = "red" | "orange";
-
-const DOT: Record<PointColor, string> = {
-  red: "bg-red shadow-[0_0_10px_var(--red-glow)]",
-  orange: "bg-warn shadow-[0_0_10px_var(--warn-glow)]",
-};
-
-const BADGE: Record<PointColor, string> = {
-  red: "border-red bg-transparent text-red",
-  orange: "border-warn bg-warn-badge-bg text-warn-text",
-};
-
-function pointColor(alert: Alert): PointColor {
-  if (alert.color === "red") {
-    return "red";
-  }
-  return "orange";
-}
+import { BADGE, DOT, pointColor, type PointColor } from "./point-styles";
 
 type PointsProps = {
   result: AnalysisResult;

@@ -20,7 +20,7 @@ const WORD_COLORS: Record<VerdictColor, string> = {
 const RETRY_CASES = new Set(["timeout", "error"]);
 const JOB_PREFIX = "job.";
 
-function MessageText({ message }: { message: Message | null }) {
+export function MessageText({ message }: { message: Message | null }) {
   if (message === null) {
     return null;
   }
@@ -31,33 +31,69 @@ export function canRetry(analysis: AnalysisView, result: AnalysisResult): boolea
   return analysis.state === "failed" || RETRY_CASES.has(result.verdict.gray_case ?? "");
 }
 
-type VerdictFrameProps = { color: VerdictColor; title: ReactNode; children?: ReactNode };
+export type VerdictSize = "full" | "compact";
 
-export function VerdictFrame({ color, title, children }: VerdictFrameProps) {
+type VerdictFrameProps = {
+  color: VerdictColor;
+  title: ReactNode;
+  children?: ReactNode;
+  size?: VerdictSize;
+  titleId?: string;
+};
+
+const FRAME: Record<VerdictSize, string> = {
+  full: "gap-x-12 gap-y-6 px-6 py-7 sm:px-8",
+  compact: "gap-x-11 gap-y-5 px-5 py-6 sm:px-[30px] sm:py-[26px]",
+};
+
+const WORD: Record<VerdictSize, string> = {
+  full: "text-[44px] sm:text-[56px]",
+  compact: "text-[44px] sm:text-[52px]",
+};
+
+const TITLE: Record<VerdictSize, string> = {
+  full: "mt-3.5 mb-2 text-[28px] leading-tight",
+  compact: "mt-3 mb-2 text-[25px] leading-[1.2]",
+};
+
+function VerdictTitle({ size, id, children }: { size: VerdictSize; id: string; children: ReactNode }) {
+  const className = cn("font-semibold", TITLE[size]);
+  if (size === "compact") {
+    return (
+      <h3 id={id} className={className}>
+        {children}
+      </h3>
+    );
+  }
+  return (
+    <h1 id={id} className={className}>
+      {children}
+    </h1>
+  );
+}
+
+export function VerdictFrame({ color, title, children, size = "full", titleId = VERDICT_TITLE_ID }: VerdictFrameProps) {
   const t = useTranslations("verdict");
   const word = t(`word.${color}`);
 
   return (
     <section
-      aria-labelledby={VERDICT_TITLE_ID}
+      aria-labelledby={titleId}
       data-verdict={color}
-      className="flex flex-wrap items-center gap-x-12 gap-y-6 rounded-[22px] bg-panel px-6 py-7 sm:px-8"
+      className={cn("flex flex-wrap items-center rounded-[22px] bg-panel", FRAME[size])}
     >
-      <Gauge color={color} word={word} />
-      <div className="min-w-0 flex-[999_1_420px]">
+      <Gauge color={color} word={word} size={size} />
+      <div className={cn("min-w-0", size === "full" && "flex-[999_1_420px]", size === "compact" && "flex-[999_1_380px]")}>
         <p className="font-condensed text-[15px] font-semibold tracking-[0.14em] text-muted">{t("heading")}</p>
         <p
           data-verdict-word={color}
-          className={cn(
-            "mt-1 font-condensed text-[44px] leading-none font-bold tracking-[0.02em] sm:text-[56px]",
-            WORD_COLORS[color],
-          )}
+          className={cn("mt-1 font-condensed leading-none font-bold tracking-[0.02em]", WORD[size], WORD_COLORS[color])}
         >
           {word}
         </p>
-        <h1 id={VERDICT_TITLE_ID} className="mt-3.5 mb-2 text-[28px] leading-tight font-semibold">
+        <VerdictTitle size={size} id={titleId}>
           {title}
-        </h1>
+        </VerdictTitle>
         {children}
       </div>
     </section>

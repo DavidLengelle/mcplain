@@ -1,4 +1,4 @@
-import type { Alert, AnalysisResult, Finding, Lamp, Server, Tool, VerdictColor } from "./analysis";
+import { LAMP_IDS, type Alert, type AnalysisResult, type Finding, type Lamp, type Server, type Tool, type VerdictColor } from "./analysis";
 
 export const SERVER_CODE = "server_code";
 export const MAX_CANDIDATES = 50;
@@ -13,6 +13,10 @@ export type LampCount = { lit: number; danger: number; total: number };
 export type Place = { function: string | null; file: string; line: number | null };
 
 export type InvisibleCount = { label: string; count: number };
+
+export function offLamps(): Lamp[] {
+  return LAMP_IDS.map((id) => ({ id, state: "off", rules: [] }));
+}
 
 export function litLamps(lamps: Lamp[]): Lamp[] {
   return lamps.filter((lamp) => lamp.state !== "off");
