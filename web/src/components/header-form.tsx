@@ -6,6 +6,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { INPUT_MAX_CHARACTERS } from "@/lib/api-client";
 
 import { StartErrorText } from "./start-error";
+import { SubmitLabel } from "./submit-label";
 import { useAnalysisStart } from "./use-analysis-start";
 
 export const HEADER_INPUT_ID = "header-input";
@@ -22,11 +23,6 @@ export function HeaderForm() {
     if (!accepted) {
       input.current?.focus();
     }
-  }
-
-  let submitLabel = t("submit");
-  if (pending) {
-    submitLabel = t("submitting");
   }
 
   return (
@@ -59,7 +55,7 @@ export function HeaderForm() {
           disabled={pending}
           className="h-12 shrink-0 cursor-pointer rounded-[10px] bg-accent px-[22px] font-condensed text-[19px] font-bold tracking-[0.06em] text-on-accent hover:bg-accent-hover disabled:cursor-wait"
         >
-          {submitLabel}
+          <SubmitLabel idle={t("submit")} busy={t("submitting")} pending={pending} />
         </button>
       </div>
       <p id="header-error" aria-live="polite" className="text-sm font-semibold text-red">
