@@ -99,6 +99,8 @@ The repository is public: never commit secrets or local files. The remote is SSH
   and `pnpm test` pass.
 - Push only when all relevant test suites pass (engine, api, web: Vitest and Playwright). Never push a red
   build.
+- Never pipe a test command into tail, head or grep before a push: the pipe hides the exit code. Run tests
+  without a pipe, or with `set -o pipefail`, and check the exit code.
 - Never force push. Never rewrite history that is already pushed.
 
 ## Agent instruction files
