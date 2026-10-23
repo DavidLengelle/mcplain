@@ -23,16 +23,21 @@ affichage), `messages/` le menu dans deux langues.
 | `src/i18n/routing.ts` | Les langues : `en` (par défaut, sans préfixe) et `fr` (préfixe `/fr`). |
 | `src/i18n/request.ts` | Charge, pour chaque requête, les textes de l'interface et ceux du moteur. |
 | `src/i18n/navigation.ts` | `Link`, `useRouter`... qui gardent la langue. Utilise-les à la place de ceux de Next.js. |
-| `src/app/[locale]/layout.tsx` | Le cadre commun : `<html lang>`, script du thème, en-tête fixe, pied de page, avis si l'API ne répond pas. |
-| `src/app/[locale]/page.tsx` | La page d'accueil. |
+| `src/app/[locale]/layout.tsx` | Le cadre commun : `<html lang>`, script du thème, en-tête fixe, pied de page, avis si l'API ne répond pas. Son `<main>` prend toute la largeur : chaque page pose son conteneur. |
+| `src/app/[locale]/page.tsx` | La page d'accueil : la zone outil, puis le guide (voir la partie 11). |
 | `src/app/[locale]/analyses/[id]/page.tsx` | La page d'une analyse. Vérifie que l'identifiant est un UUID. |
 | `src/app/[locale]/not-found.tsx` | La page 404, traduite. |
 | `src/app/fonts/`, `src/app/fonts.ts` | Les polices Saira, Saira Condensed et IBM Plex Mono, et leurs licences OFL. Servies par le site lui-même. |
 | `src/app/globals.css` | **La seule source des couleurs** : les jetons des thèmes clair et sombre (voir `docs/design.fr.md`). |
 | `public/theme.js` | Le petit script qui pose le thème choisi avant l'affichage. |
-| `src/components/site-header.tsx` | L'en-tête fixe : logo, champ d'analyse, thème, langue. |
+| `src/components/site-header.tsx` | L'en-tête fixe : logo, champ d'analyse (sauf sur l'accueil), thème, langue. |
+| `src/components/header-field.tsx` | Le champ de l'en-tête. Il ne s'affiche pas sur l'accueil, qui a déjà son grand champ. |
+| `src/components/page-container.tsx` | `PageContainer` : le conteneur centré (1180 px) des pages autres que l'accueil. |
 | `src/components/theme-switcher.tsx` | Les boutons Système, Clair, Sombre. |
-| `src/components/analysis-form.tsx` | Le champ de saisie et les exemples de la page d'accueil. |
+| `src/components/analysis-field.tsx` | Le champ d'analyse, en deux tailles : `header` (en-tête) et `hero` (grand champ de l'accueil, avec ses 3 exemples). |
+| `src/components/submit-label.tsx` | Le texte du bouton d'envoi : ANALYSER et ENVOI… sont superposés, le bouton garde la largeur du plus long. |
+| `src/components/home/` | La page d'accueil, un composant par chapitre (voir la partie 11). |
+| `src/content/example-report.json` | Le rapport d'exemple du chapitre 07, **généré par le moteur** (voir la partie 11). |
 | `src/components/analysis-tracker.tsx` | Le suivi : interroge l'API chaque seconde, puis affiche le rapport. |
 | `src/components/report/` | Les blocs du rapport, un composant par bloc (voir la partie 9). |
 | `src/components/raw-text.tsx` | **RawText**, le seul moyen d'afficher un texte venu d'un tiers. |
@@ -41,6 +46,7 @@ affichage), `messages/` le menu dans deux langues.
 | `src/components/icons.tsx` | Les icônes en SVG, dont celles des six voyants. |
 | `src/lib/analysis.ts` | Les types des réponses de l'API, et leur vérification. |
 | `src/lib/api-client.ts` | Les deux appels à l'API : lancer une analyse, lire son état. |
+| `src/lib/example-report.ts` | Lit le rapport d'exemple avec le même contrôle que les réponses de l'API. |
 | `src/lib/icu.ts` | Traduit les textes du moteur (format Python) en format ICU pour next-intl. |
 | `src/lib/engine-messages.ts` | Télécharge les textes du moteur et les garde 1 heure en mémoire. |
 | `src/lib/invisible-characters.json` | La liste des caractères invisibles, **générée par le moteur**. Ne pas l'éditer à la main. |
@@ -56,8 +62,8 @@ affichage), `messages/` le menu dans deux langues.
 
 Exemple : tu tapes `uvx mcp-server-fetch` et tu cliques sur « Analyser ».
 
-1. `src/components/analysis-form.tsx` retire les espaces au début et à la fin, puis appelle
-   `startAnalysis` dans `src/lib/api-client.ts`.
+1. `src/components/analysis-field.tsx` (avec `use-analysis-start.ts`) retire les espaces au début et à la fin,
+   puis appelle `startAnalysis` dans `src/lib/api-client.ts`.
 2. `startAnalysis` envoie `POST /api/analyses` avec `{"input": "uvx mcp-server-fetch"}`.
    Le navigateur parle au site, jamais directement à l'API.
 3. `next.config.ts` renvoie toute adresse `/api/...` vers l'API (`MCPLAIN_API_URL`,
@@ -90,8 +96,10 @@ Comment savoir ? Regarde la première ligne du fichier.
 | Fichier | Type | Pourquoi |
 | --- | --- | --- |
 | `src/app/[locale]/layout.tsx` | serveur | Il charge les messages pour la requête. |
-| `src/app/[locale]/page.tsx` | serveur | Il ne fait qu'assembler le titre et le formulaire. |
-| `src/components/analysis-form.tsx` | client | Il réagit à la frappe et au clic. |
+| `src/app/[locale]/page.tsx` | serveur | Il ne fait qu'assembler la zone outil et les chapitres. |
+| `src/components/home/chapter-*.tsx` | serveur | Ils affichent du texte, sans clic ni état. |
+| `src/components/home/analyze-link.tsx` | client | Au clic, il met le curseur dans le grand champ. |
+| `src/components/analysis-field.tsx` | client | Il réagit à la frappe et au clic. |
 | `src/components/analysis-tracker.tsx` | client | Il interroge l'API chaque seconde. |
 | `src/components/locale-switcher.tsx` | client | Il a besoin de l'adresse de la page en cours. |
 | `src/components/raw-text.tsx` | client | Le bouton « Afficher tout » change son état. |
@@ -260,6 +268,10 @@ l'en-tête (`header-height.tsx` la mesure et la range dans `--header-height`).
 Cas particuliers : plusieurs serveurs dans le lien donnent `candidates-list.tsx` (pas de verdict) ; une liste
 de liens donne `link-list-notice.tsx`.
 
+`Gauge` (`size` : `full`, `compact`, `small`), `VerdictFrame` (`size` : `full`, `compact`) et `LampPanel` (`size` :
+`full`, `compact`, `hero`) ont plusieurs tailles. Le rapport utilise `full` ; l'accueil réutilise les mêmes
+composants dans leurs autres tailles. `LampCluster` est le `LampPanel` du rapport.
+
 ## 10. Un texte d'interface avec un paramètre venu d'un tiers
 
 Exemple : « Rien de dangereux. Il va seulement sur : {domains} ». Les domaines viennent du code analysé, donc
@@ -270,3 +282,115 @@ d'un tiers : ils doivent passer par RawText.
 3. Dans le composant : `<InterfaceText code="plain.foundNothingDomains" params={{ domains: liste }} />`.
    `InterfaceText` remplace chaque paramètre par un composant `RawText`. N'utilise pas `t("...", { domains })`
    pour un texte de tiers : il serait posé tel quel.
+
+## 11. La page d'accueil, chapitre par chapitre
+
+La page d'accueil a deux zones. En haut, **l'outil** : on colle un lien et on lance l'analyse. Dessous,
+**le guide** : neuf courts chapitres pour comprendre les MCP. `src/app/[locale]/page.tsx` ne fait que les poser
+l'un après l'autre. Tous ces composants sont des composants serveur, sauf le champ et le lien « Analyser un MCP ».
+
+Pense à un livre : la zone outil est la couverture, `guide-opening.tsx` le sommaire, chaque `chapter-*.tsx`
+un chapitre.
+
+| Ordre | Composant (`src/components/home/`) | Ce qu'il reçoit | Ce qu'il affiche |
+| --- | --- | --- | --- |
+| 1 | `tool-zone.tsx` | rien | `id="analyser"` : sur-titre, titre h1, phrase, `AnalysisField variant="hero"`, trois points, les six voyants éteints (`LampPanel size="hero"`) |
+| 2 | `guide-opening.tsx` | rien | « LE GUIDE », le titre h2, la phrase et le sommaire (9 pastilles 01 à 09) |
+| 3 | `chapter-mcp.tsx` | rien | 01 `#mcp` : le texte et le schéma « assistant, prises MCP, 3 outils » (`aria-hidden`) |
+| 4 | `chapter-usage.tsx` | rien | 02 `#usage` : les 4 cartes et la phrase en gras |
+| 5 | `chapter-danger.tsx` | rien | 03 `#danger` : le piège de la description, puis le triangle mortel |
+| 6 | `chapter-story.tsx` | rien | 04 `#histoire` : postmark-mcp, la frise des versions, la leçon |
+| 7 | `chapter-protect.tsx` | rien | 05 `#proteger` : les 5 réflexes |
+| 8 | `chapter-read.tsx` | rien | 06 `#lire` : les 4 verdicts (`Gauge size="small"`) et les voyants |
+| 9 | `chapter-example.tsx` (+ `example-report.tsx`) | le rapport d'exemple | 07 `#exemple` : un vrai rapport rouge, en version compacte |
+| 10 | `chapter-limits.tsx` | rien | 08 `#limites` : les 5 limites |
+| 11 | `chapter-glossary.tsx` | rien | 09 `#lexique` : 8 définitions dans un `<dl>` |
+| 12 | `guide-end.tsx` | rien | « À toi de jouer » et le lien ANALYSER UN MCP |
+
+Les morceaux communs sont dans `guide-parts.tsx` : `Chapter` (la `<section>` avec son `id` et son
+`scroll-margin-top`), `ChapterHeading` (le sur-titre « 01 · LE PRINCIPE » et le titre h2), `ExternalLink` et les
+classes répétées (`EYEBROW`, `SECTION_TITLE`...). Les `id` des chapitres et les liens des sources sont dans
+`src/lib/constants.ts` (`CHAPTER_IDS`, `GUIDE_SOURCES`).
+
+Les titres suivent une seule règle : h1 dans la zone outil, h2 pour l'ouverture du guide, chaque chapitre et
+la fin, h3 et h4 à l'intérieur d'un chapitre.
+
+### Ajouter un chapitre
+
+Exemple : un chapitre 10 « Les alternatives », d'`id` `alternatives`.
+
+1. Dans `src/lib/constants.ts`, ajoute `"alternatives"` à la fin de `CHAPTER_IDS`. Le sommaire et le numéro 10
+   suivent tout seuls.
+2. Dans `messages/fr.json`, sous `home.chapters`, ajoute un bloc `alternatives` avec au moins `toc` (le texte de
+   la pastille), `eyebrow` (le sur-titre) et `title`. Fais pareil dans `messages/en.json`.
+3. Crée `src/components/home/chapter-alternatives.tsx` :
+
+   ```tsx
+   import { useTranslations } from "next-intl";
+
+   import { Chapter, ChapterHeading } from "./guide-parts";
+
+   export function ChapterAlternatives() {
+     const t = useTranslations("home.chapters.alternatives");
+
+     return (
+       <Chapter id="alternatives">
+         <ChapterHeading id="alternatives" />
+         <p className="mt-3.5 text-[19px] text-ink2">{t("intro")}</p>
+       </Chapter>
+     );
+   }
+   ```
+
+4. Pose `<ChapterAlternatives />` dans `src/app/[locale]/page.tsx`, à sa place.
+5. Lance `pnpm test` : un test vérifie que chaque pastille du sommaire mène à un chapitre qui existe, et que les
+   deux langues ont les mêmes clés.
+
+### Un mot en gras ou un lien au milieu d'une phrase : `t.rich`
+
+Le JSON ne contient jamais de HTML. Il contient des **balises** inventées, que le composant remplace.
+
+```json
+"p1": "Un <b>MCP</b> (Model Context Protocol) est une prise standard qui branche un outil sur ton assistant IA."
+```
+
+```tsx
+<p>{t.rich("p1", { b: Bold })}</p>
+```
+
+`Bold` (dans `guide-parts.tsx`) reçoit le morceau entre `<b>` et `</b>` et le rend dans un `<strong>`. Pour un
+lien vers une source : `"source": "... de la <link>documentation officielle de MCP</link> (en anglais)."`, puis
+`t.rich("source", { link: linkTo(GUIDE_SOURCES.mcpIntro) })`. `linkTo` pose `target="_blank"` et
+`rel="noopener noreferrer"` ; un test le vérifie pour chaque lien externe. Une phrase avec plusieurs liens prend
+une balise par lien (`<postmark>`, `<darkreading>`...).
+
+Deux pièges :
+
+- **Une apostrophe juste avant une balise** (`l'<b>outil</b>`) : en ICU, elle protège la balise, qui s'affiche
+  alors telle quelle. Le test des messages le détecte (aucun `<` ni `>` ne doit rester dans le texte final).
+- **Un texte venu d'un tiers** ne passe jamais par `t.rich` : il passe par `RawText` (partie 6).
+
+En français, une source en anglais garde la mention « (en anglais) » ; en anglais, la mention disparaît.
+
+### Le rapport d'exemple du chapitre 07
+
+Le chapitre 07 montre un **vrai** rapport du moteur, jamais un rapport écrit à la main. La couleur, les voyants
+et l'alerte viennent de ce fichier : le site n'écrit aucune couleur. Le fichier est
+`src/content/example-report.json` (le code de production n'importe rien depuis `tests/`). On le produit sur la
+fixture `engine/tests/fixtures/postmark_like`, avec la même commande que les rapports de référence :
+
+```bash
+cd engine
+uv run mcplain --local tests/fixtures/postmark_like --json > ../web/src/content/example-report.json
+```
+
+Régénère-le après chaque changement de la sortie du moteur. Deux tests te le rappellent :
+
+- côté moteur, `engine/tests/test_example_report.py` vérifie que le fichier suit le schéma de sortie, qu'il est
+  rouge avec une alerte R05, qu'il porte la version des règles du moteur actuel, et qu'il est identique à une
+  analyse fraîche de la fixture ;
+- côté site, `tests/unit/home.test.tsx` le lit avec le contrôle des réponses de l'API, compare sa version des
+  règles à `RULES_VERSION` du moteur, et vérifie que le chapitre suit la couleur du rapport.
+
+Avec `--local`, le rapport ne connaît pas de version de paquet : la ligne d'identité montre seulement le nom du
+serveur, suivi de « serveur de démonstration ».

@@ -93,11 +93,46 @@ ci-dessous est tiré du fichier CSS ; si tu changes une valeur, change-la dans `
 Polices : Saira Condensed pour les titres, Saira pour le texte, IBM Plex Mono pour le code, les noms
 techniques et les chemins (et rien d'autre). Elles sont servies par le site (`web/src/app/fonts/`, licence OFL).
 
+## La page d'accueil : deux zones
+
+La maquette de référence est `docs/design/maquette-accueil.html` (validée le 23 octobre 2026). Comme celle du
+rapport, c'est une spécification visuelle, pas du code à reprendre. La page a deux zones qui se distinguent au
+premier coup d'oeil : **l'outil** en haut (on agit), **le guide** dessous (on lit).
+
+**La bande outil** (`id="analyser"`) occupe toute la largeur de l'écran : fond `--panel`, trait `--line` en
+bas. Son contenu reste dans le conteneur habituel (1180 px, centré). À gauche : sur-titre en `--accent`, titre
+h1 (Saira Condensed, de 42 à 70 px selon la largeur), phrase en `--ink2`, grand champ (60 px de haut, fond
+`--panel2`, bord `--input-border`, rayon 12 px) et bouton ANALYSER (`--accent`, 22 px), puis « Essaie avec : » et
+les trois exemples (bord `--btn-border`, rayon 10 px, police de code), puis trois petits points `--accent`.
+À droite (dessous sur téléphone) : le bloc des voyants, `--cluster-bg`, rayon 22 px, les six ampoules
+**éteintes** sur trois colonnes, « Aucun MCP analysé » et une phrase. Aucune jauge : sans analyse, pas de verdict.
+L'état « Éteint » n'est pas répété sous chaque ampoule : « Aucun MCP analysé » le dit une fois pour toutes, et
+chaque ampoule garde son état écrit pour les lecteurs d'écran.
+
+**L'ouverture du guide** est sur le fond `--page` : deux traits `--btn-border` de part et d'autre de
+« LE GUIDE » et de l'icône de livre (`--accent`), puis, centrés, le titre h2 (44 px), la phrase et le sommaire.
+Chaque entrée du sommaire est une pastille `--panel` (rayon 999 px, 44 px de haut) avec son numéro 01 à 09 en
+`--accent`, `--row-hover` au survol.
+
+**Les chapitres** s'empilent avec 72 px d'écart. Chacun commence par un sur-titre « 01 · LE PRINCIPE »
+(`--accent`, 15 px, espacé) et un titre h2 (44 px, 38 px sur téléphone). Les cartes sont en `--panel`, rayon 18 px ;
+les grands blocs (histoire vraie, fin du guide) en `--panel`, rayon 26 px. Ce qui signale un danger dans le
+guide (consigne cachée, « 1 + 2 + 3 », version 1.0.16) utilise `--red-note` et `--red-ring`. L'étiquette
+EXEMPLE INVENTÉ ou EXEMPLE utilise `--demo-bg` et `--demo-fg`. La première carte des réflexes porte l'anneau
+`--sel-ring`. Les liens des sources sont soulignés, en `--accent`.
+
+**Jetons ajoutés pour l'accueil : aucun.** Toutes les couleurs de la maquette existaient déjà dans
+`web/src/app/globals.css`.
+
 ## Qui décide d'une couleur ?
 
 Jamais le site. Le moteur Python décide de la couleur du verdict (`engine/src/mcplain/verdict.py`), de l'état
 de chaque voyant et du niveau de chaque outil (`engine/src/mcplain/lamps.py`). Le site traduit seulement ces
 décisions en jetons : `red` devient `text-red`, un voyant `danger` devient `bg-lamp-danger-bg`.
+
+Sur l'accueil aussi : l'exemple rouge du chapitre 07 est un vrai rapport du moteur
+(`web/src/content/example-report.json`), et sa couleur vient de ce fichier. Les légendes du chapitre 06 (les
+quatre verdicts, les trois états d'un voyant) montrent chaque couleur avec son nom ; elles ne jugent aucun code.
 
 ## Les voyants
 
