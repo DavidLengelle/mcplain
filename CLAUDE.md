@@ -14,6 +14,8 @@ secrets...) with a provisional verdict.
 - `web/`: the Next.js website (pnpm project, Next.js 16, React 19, next-intl, Tailwind CSS v4).
   A guided tour in French: `docs/web.fr.md`.
 
+Planned work and decisions for future sessions are in docs/roadmap.fr.md: read the relevant part before starting a session.
+
 ## The roles
 
 - **API** (`api/src/mcplain_api/app.py`, FastAPI): receives a request, validates it with `inputs.py`
