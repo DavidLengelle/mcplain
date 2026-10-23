@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test("uvx mcp-server-fetch gives an orange report with O01", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("MCP server to check").fill("uvx mcp-server-fetch");
-  await page.getByRole("button", { name: "Analyze", exact: true }).click();
+  await page.getByRole("button", { name: "Analyze uvx mcp-server-fetch", exact: true }).click();
+  await expect(page.getByLabel("MCP server link")).toHaveValue("uvx mcp-server-fetch");
   await expect(page).toHaveURL(/\/analyses\/[0-9a-f-]{36}$/);
   const word = page.locator("[data-verdict-word]");
   await expect(word).toBeVisible({ timeout: 150_000 });
