@@ -47,12 +47,15 @@ describe("interface messages", () => {
       },
     });
     for (const [key, message] of leaves(tree)) {
-      const values: Record<string, number> = {};
+      const values: Record<string, number | ((chunks: string[]) => string)> = {};
       for (const match of message.matchAll(/\{(\w+)/g)) {
         values[match[1]] = 1;
       }
+      for (const match of message.matchAll(/<(\w+)>/g)) {
+        values[match[1]] = (chunks) => chunks.join("");
+      }
       const formatted = t(key as never, values as never);
-      expect(formatted, key).not.toMatch(/[{}]/);
+      expect(formatted, key).not.toMatch(/[{}<>]/);
     }
   });
 });

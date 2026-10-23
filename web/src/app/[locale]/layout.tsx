@@ -52,7 +52,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
           </a>
           <SiteHeader />
           {!engineAvailable && <EngineNotice />}
-          <main id="main" className="mx-auto w-full max-w-[1180px] flex-1 px-4 pt-8 pb-10 sm:px-6">
+          <main id="main" className="w-full flex-1">
             {children}
           </main>
           <SiteFooter />

@@ -12,10 +12,8 @@ test("typing, then following, then an orange report", async ({ page }) => {
   await serveAnalysis(page, [view("queued", null), view("fetching", null), view("analyzing", null), reportView("orange")]);
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Fill the field with uvx mcp-server-fetch" }).click();
-  await expect(page.getByLabel("MCP server to check")).toHaveValue("uvx mcp-server-fetch");
-  await page.getByLabel("MCP server to check").fill("  uvx weather-demo  ");
-  await page.getByRole("button", { name: "Analyze", exact: true }).click();
+  await page.getByLabel("MCP server link").fill("  uvx weather-demo  ");
+  await page.getByRole("button", { name: "ANALYZE", exact: true }).click();
 
   await expect(page).toHaveURL(`/analyses/${ID}`);
   await expect(page.locator("[data-verdict]")).toBeVisible();

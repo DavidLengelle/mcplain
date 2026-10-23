@@ -4,7 +4,7 @@ test("an English browser stays on / in English", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL("/");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("MCP servers, explained before you install.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("MCP servers, explained before you install them.");
 });
 
 test.describe("with a French browser", () => {
@@ -15,7 +15,7 @@ test.describe("with a French browser", () => {
     await expect(page).toHaveURL("/fr");
     await expect(page.locator("html")).toHaveAttribute("lang", "fr");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      "Les serveurs MCP, expliqués avant de les installer.",
+      "Les serveurs MCP, expliqués avant que tu les installes.",
     );
   });
 });

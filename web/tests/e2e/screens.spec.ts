@@ -26,3 +26,16 @@ for (const verdict of VERDICTS) {
     }
   }
 }
+
+for (const theme of THEMES) {
+  for (const width of WIDTHS) {
+    test(`screenshot of the home page, ${theme} theme, ${width} px`, async ({ page }) => {
+      mkdirSync(SCREENS, { recursive: true });
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ colorScheme: theme });
+      await page.goto("/fr");
+      await expect(page.locator("#analyser")).toBeVisible();
+      await page.screenshot({ path: join(SCREENS, `home-${theme}-${width}.png`), fullPage: true });
+    });
+  }
+}

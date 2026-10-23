@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { AnalysisTracker } from "@/components/analysis-tracker";
+import { PageContainer } from "@/components/page-container";
 import { isAnalysisId } from "@/lib/api-client";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/analyses/[id]">): Promise<Metadata> {
@@ -16,5 +17,9 @@ export default async function AnalysisPage({ params }: PageProps<"/[locale]/anal
   if (!isAnalysisId(id)) {
     notFound();
   }
-  return <AnalysisTracker key={id} id={id} />;
+  return (
+    <PageContainer>
+      <AnalysisTracker key={id} id={id} />
+    </PageContainer>
+  );
 }

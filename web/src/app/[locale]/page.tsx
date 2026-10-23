@@ -1,21 +1,47 @@
-import { useTranslations } from "next-intl";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
-import { AnalysisForm } from "@/components/analysis-form";
-import { ShieldIcon } from "@/components/icons";
+import { ChapterDanger } from "@/components/home/chapter-danger";
+import { ChapterExample } from "@/components/home/chapter-example";
+import { ChapterGlossary } from "@/components/home/chapter-glossary";
+import { ChapterLimits } from "@/components/home/chapter-limits";
+import { ChapterMcp } from "@/components/home/chapter-mcp";
+import { ChapterProtect } from "@/components/home/chapter-protect";
+import { ChapterRead } from "@/components/home/chapter-read";
+import { ChapterStory } from "@/components/home/chapter-story";
+import { ChapterUsage } from "@/components/home/chapter-usage";
+import { GuideEnd } from "@/components/home/guide-end";
+import { GuideOpening } from "@/components/home/guide-opening";
+import { ToolZone } from "@/components/home/tool-zone";
+import { CONTAINER } from "@/components/page-container";
+import { BackToTop } from "@/components/report/back-to-top";
+import { EXAMPLE_REPORT } from "@/lib/example-report";
+import { cn } from "@/lib/utils";
+
+export async function generateMetadata({ params }: PageProps<"/[locale]">): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "home.meta" });
+  return { title: t("title"), description: t("description") };
+}
 
 export default function HomePage() {
-  const t = useTranslations("home");
-
   return (
-    <div className="flex max-w-4xl flex-col gap-8">
-      <div className="flex flex-col gap-3">
-        <h1 className="font-condensed text-4xl font-bold tracking-[0.02em] sm:text-5xl">{t("tagline")}</h1>
-        <p className="flex items-start gap-2 text-lg text-ink2">
-          <ShieldIcon className="mt-1 size-5 shrink-0 stroke-accent" />
-          <span>{t("staticAnalysis")}</span>
-        </p>
+    <>
+      <ToolZone />
+      <GuideOpening />
+      <div className={cn(CONTAINER, "flex flex-col gap-[72px] pt-16 pb-12")} data-guide="">
+        <ChapterMcp />
+        <ChapterUsage />
+        <ChapterDanger />
+        <ChapterStory />
+        <ChapterProtect />
+        <ChapterRead />
+        <ChapterExample report={EXAMPLE_REPORT} />
+        <ChapterLimits />
+        <ChapterGlossary />
+        <GuideEnd />
       </div>
-      <AnalysisForm />
-    </div>
+      <BackToTop />
+    </>
   );
 }
