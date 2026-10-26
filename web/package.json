@@ -14,11 +14,11 @@
     "test:stack": "playwright test --config playwright.stack.config.ts"
   },
   "dependencies": {
-    "cn": "0.4.0",
+    "cn": "0.5.0",
     "next": "16.4.2",
     "next-intl": "4.14.9",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
@@ -29,11 +29,11 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.4.0",
-    "jsdom": "30.1.2",
+    "eslint-config-next": "16.4.2",
+    "jsdom": "30.1.3",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
-    "vitest": "5.0.4"
+    "vitest": "5.0.5"
   },
   "packageManager": "pnpm@11.28.1"
 }
