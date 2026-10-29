@@ -119,6 +119,14 @@ class RawCopy:
     address: str
 
 
+@dataclass(frozen=True)
+class RawNetworkImport:
+    """Class that holds the import of a network library that the code uses for more than types and exceptions"""
+
+    library: str
+    offset: int
+
+
 @dataclass
 class FileReport:
     """Class that holds everything an adapter found in one file"""
@@ -143,3 +151,4 @@ class FileReport:
     flow_functions: list["FlowFunction"] = field(default_factory=list)
     comments: list[tuple[int, str]] = field(default_factory=list)
     copies: list[RawCopy] = field(default_factory=list)
+    network_imports: list[RawNetworkImport] = field(default_factory=list)

@@ -1,7 +1,7 @@
 """Verdict: the rule registry decides the color from the alerts of every registered rule, then the lamps"""
 
-from mcplain.capabilities import Capability
-from mcplain.lamps import lamp_states, level_for
+from mcplain.capabilities import Capability, belongs_to, is_request
+from mcplain.lamps import LampId, lamp_states, level_for
 from mcplain.models import (
     Alert,
     AnalysisResult,
@@ -14,6 +14,7 @@ from mcplain.models import (
     Message,
     ServerAnalysis,
     Tool,
+    UrlKind,
     Verdict,
     VerdictColor,
 )
@@ -42,6 +43,8 @@ STATUS_CASES: dict[AnalysisStatus, GrayCase] = {
 }
 TIMEOUT_ERRORS: frozenset[str] = frozenset({"job.atelier_timeout", "fetch.timeout"})
 LINK_LIST_NOTE = "note.mostly_documentation"
+NOT_FOLLOWED_NOTE = "lamp.internet.note_not_followed"
+ADDRESS_KINDS: frozenset[UrlKind] = frozenset({UrlKind.LITERAL, UrlKind.DYNAMIC})
 CAVEAT_PREFIX = "caveat."
 
 DEFAULT_REGISTRY = RuleRegistry()
@@ -56,6 +59,22 @@ def counted_findings(server: ServerAnalysis) -> list[Finding]:
     for tool in server.tools:
         findings.extend(tool.findings)
     return [finding for finding in findings if finding.location_kind is LocationKind.SERVER_CODE]
+
+
+def network_not_followed(server: ServerAnalysis) -> list[str]:
+    """Return the network libraries the server code imports and uses, but of which no request was recognized"""
+
+    requests = [
+        finding
+        for finding in counted_findings(server)
+        if finding.capability is Capability.NETWORK and is_request(finding.detail, finding.url_kind in ADDRESS_KINDS)
+    ]
+    libraries = {item.library for item in server.network_imports if item.location_kind is LocationKind.SERVER_CODE}
+    return sorted(
+        library
+        for library in libraries
+        if not any(finding.detail is not None and belongs_to(finding.detail, library) for finding in requests)
+    )
 
 
 def incomplete_reading(result: AnalysisResult) -> list[str]:
@@ -76,6 +95,8 @@ def incomplete_reading(result: AnalysisResult) -> list[str]:
         codes.append("caveat.incomplete_tracking")
     if any(tool.description_is_dynamic for tool in tools):
         codes.append("caveat.dynamic_descriptions")
+    if any(network_not_followed(server) for server in servers):
+        codes.append("caveat.network_unresolved")
     return codes
 
 
@@ -131,6 +152,9 @@ def headline(result: AnalysisResult, verdict: Verdict, unknown_network: bool) ->
         params: dict[str, str] = {}
         if verdict.gray_case is GrayCase.UNSUPPORTED_LANGUAGE:
             params["language"] = result.language or ""
+        if verdict.gray_case is GrayCase.NETWORK_UNRESOLVED:
+            libraries = sorted({library for server in result.servers for library in network_not_followed(server)})
+            params["library"] = ", ".join(libraries)
         prefix = f"gray.{verdict.gray_case.value}"
         return Message(code=f"{prefix}.reason", params=params), Message(code=f"{prefix}.advice", params=params)
     title = Message(code="verdict.green.title")
@@ -228,9 +252,17 @@ def attach_lamps(result: AnalysisResult) -> None:
     for server in result.servers:
         tools = [tool for tool in server.tools if tool.location_kind is LocationKind.SERVER_CODE]
         capabilities = {finding.capability for finding in counted_findings(server)}
+        server.network_not_followed = network_not_followed(server)
+        if server.network_not_followed:
+            capabilities.add(Capability.NETWORK)
         hidden = code_hides_text(server, None) or any(text_is_hidden(tool) for tool in tools)
         server.lamps = _lamps(capabilities, red_rules, hidden)
+        for lamp in server.lamps:
+            if lamp.id is LampId.INTERNET and server.network_not_followed:
+                lamp.note = NOT_FOLLOWED_NOTE
         server.internet_domains = internet_domains(server)
+        if server.network_not_followed:
+            server.internet_domains = None
         for tool in server.tools:
             attached = [alert for alert in alerts if alert.tool is not None and alert.tool == tool.name]
             tool_red = {alert.rule for alert in attached if alert.color is VerdictColor.RED}

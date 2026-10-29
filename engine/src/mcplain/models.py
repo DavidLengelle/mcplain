@@ -179,6 +179,7 @@ class Lamp(BaseModel):
     id: LampId
     state: LampState
     rules: list[str] = Field(default_factory=list)
+    note: str | None = None
 
 
 def check_lamps(lamps: list[Lamp]) -> list[Lamp]:
@@ -330,6 +331,15 @@ class SkippedFile(BaseModel):
     location_kind: LocationKind = LocationKind.SERVER_CODE
 
 
+class NetworkImport(BaseModel):
+    """Class that records where a network library is imported and used for more than types and exceptions"""
+
+    library: str
+    file: str
+    line: int
+    location_kind: LocationKind
+
+
 class ServerAnalysis(BaseModel):
     """Class that holds everything found in one MCP server"""
 
@@ -350,9 +360,11 @@ class ServerAnalysis(BaseModel):
     minified_files: list[str] = Field(default_factory=list)
     parse_errors: list[ParseError] = Field(default_factory=list)
     skipped_files: list[SkippedFile] = Field(default_factory=list)
+    network_imports: list[NetworkImport] = Field(default_factory=list)
     files_analyzed: int = 0
     lamps: Lamps = Field(default_factory=list)
     internet_domains: list[str] | None = None
+    network_not_followed: list[str] = Field(default_factory=list)
 
 
 class ServerCandidate(BaseModel):
@@ -417,6 +429,7 @@ class GrayCase(StrEnum):
     NO_TOOLS_FOUND = "no_tools_found"
     INCOMPLETE_TRACKING = "incomplete_tracking"
     DYNAMIC_DESCRIPTIONS = "dynamic_descriptions"
+    NETWORK_UNRESOLVED = "network_unresolved"
 
 
 class Message(BaseModel):

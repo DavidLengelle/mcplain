@@ -1,0 +1,6 @@
+{
+  "name": "status-reader-server",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0", "axios": "^1.7.0", "zod": "^3.25.0" }
+}

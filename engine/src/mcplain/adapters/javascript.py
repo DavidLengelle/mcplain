@@ -42,6 +42,7 @@ from mcplain.adapters.report import (
     RawFunction,
     RawGap,
     RawHandler,
+    RawNetworkImport,
     RawString,
     RawTool,
 )
@@ -66,6 +67,7 @@ from mcplain.capabilities import (
     RuleKind,
     find_sensitive_paths,
     is_secret_name,
+    javascript_network_library,
     match_rule,
     normalize_javascript_module,
     rewrite_javascript_chain,
@@ -188,6 +190,21 @@ IMMEDIATE_CALLBACK_METHODS: frozenset[str] = frozenset(
     {"map", "forEach", "filter", "reduce", "some", "every", "find", "flatMap", "then", "catch", "finally"}
 )
 PROMISE_CONSTRUCTOR = "Promise"
+TYPE_CONTEXTS: frozenset[str] = frozenset(
+    {
+        "type_annotation",
+        "type_arguments",
+        "type_parameters",
+        "type_alias_declaration",
+        "interface_declaration",
+        "type_query",
+        "implements_clause",
+        "satisfies_expression",
+    }
+)
+USE_TYPES: tuple[str, ...] = ("identifier", "shorthand_property_identifier")
+TYPE_KEYWORD = "type"
+INSTANCEOF = "instanceof"
 MAP_CONSTRUCTOR = "Map"
 LOOKUP_METHOD = "get"
 DYNAMIC_RECEIVERS: frozenset[str] = frozenset({"this", "globalThis", "window", "self", "global"})
@@ -375,6 +392,83 @@ def _function_label(parent: Node) -> str | None:
     return None
 
 
+def _is_type_only(statement: Node) -> bool:
+    """Tell whether an import statement only brings types, like import type X from y"""
+
+    return any(child.type == TYPE_KEYWORD for child in statement.children)
+
+
+def _clause_names(child: Node) -> list[Node]:
+    """Return the name nodes an import clause part binds, without the specifiers marked as types"""
+
+    if child.type == "identifier":
+        return [child]
+    if child.type == "namespace_import":
+        return [item for item in child.named_children if item.type == "identifier"]
+    if child.type != "named_imports":
+        return []
+    names = []
+    for specifier in child.named_children:
+        if specifier.type != "import_specifier" or any(part.type == TYPE_KEYWORD for part in specifier.children):
+            continue
+        alias = specifier.child_by_field_name("alias") or specifier.child_by_field_name("name")
+        if alias is not None:
+            names.append(alias)
+    return names
+
+
+def _pattern_names(pattern: Node) -> list[Node]:
+    """Return the name nodes bound by a require or a dynamic import"""
+
+    if pattern.type == "identifier":
+        return [pattern]
+    if pattern.type != "object_pattern":
+        return []
+    names = []
+    for child in pattern.named_children:
+        if child.type == "shorthand_property_identifier_pattern":
+            names.append(child)
+        elif child.type == "pair_pattern":
+            value = child.child_by_field_name("value")
+            if value is not None and value.type == "identifier":
+                names.append(value)
+        elif child.type == "object_assignment_pattern":
+            left = child.child_by_field_name("left")
+            if left is not None:
+                names.append(left)
+    return names
+
+
+def _inside_import(node: Node) -> bool:
+    """Tell whether a node is part of an import statement"""
+
+    current = node.parent
+    while current is not None:
+        if current.type == "import_statement":
+            return True
+        current = current.parent
+    return False
+
+
+def _exempt_use(node: Node) -> bool:
+    """Tell whether a name is used only as a type, or only on the right of instanceof"""
+
+    current = node.parent
+    while current is not None:
+        if current.type in TYPE_CONTEXTS:
+            return True
+        current = current.parent
+    child = node
+    current = node.parent
+    while current is not None and current.type == "member_expression" and current.child_by_field_name("object") == child:
+        child = current
+        current = current.parent
+    if current is None or current.type != "binary_expression":
+        return False
+    operator = current.child_by_field_name("operator")
+    return operator is not None and node_text(operator) == INSTANCEOF and current.child_by_field_name("right") == child
+
+
 class _JavaScriptFile:
     """Class that analyzes one parsed JavaScript or TypeScript file"""
 
@@ -393,6 +487,7 @@ class _JavaScriptFile:
         if language is JAVASCRIPT_LANGUAGE:
             node_types = NODE_TYPES
         self.nodes = collect_nodes(language, self.root, node_types)
+        self.language = language
         self.aliases: dict[str, str] = {}
         self.constants: dict[str, Node] = {}
         self.functions: dict[str, Node] = {}
@@ -415,11 +510,63 @@ class _JavaScriptFile:
         self._index_functions()
         self._find_tools()
         self._find_capabilities()
+        self._find_network_imports()
         self._find_calls()
         self._find_strings()
         self._find_comments_and_copies()
         self.report.flow_functions = JavaScriptLowering(self).functions()
         return self.report
+
+    def _import_bindings(self) -> list[tuple[Node, Node, str]]:
+        """Return each import or require of a network library, with the node that binds a name and the library"""
+
+        bindings: list[tuple[Node, Node, str]] = []
+        for statement in self.nodes["import_statement"]:
+            source = statement.child_by_field_name("source")
+            if source is None or source.type != "string" or _is_type_only(statement):
+                continue
+            library = javascript_network_library(self._decode_string(source).value)
+            if library is None:
+                continue
+            for clause in statement.named_children:
+                if clause.type != "import_clause":
+                    continue
+                for child in clause.named_children:
+                    for name in _clause_names(child):
+                        bindings.append((statement, name, library))
+        for declarator in self.nodes["variable_declarator"]:
+            name = declarator.child_by_field_name("name")
+            module = self._required_module(declarator.child_by_field_name("value"))
+            if name is None or module is None:
+                continue
+            library = javascript_network_library(module.split(".")[0])
+            if library is None:
+                library = javascript_network_library(module)
+            if library is not None:
+                for bound in _pattern_names(name):
+                    bindings.append((declarator, bound, library))
+        return bindings
+
+    def _find_network_imports(self) -> None:
+        """Record the network libraries imported and used for more than types and instanceof"""
+
+        bindings = self._import_bindings()
+        if not bindings:
+            return
+        bound = {name.id for _, name, _ in bindings}
+        uses: dict[str, list[Node]] = {}
+        found = collect_nodes(self.language, self.root, USE_TYPES)
+        for node in found["identifier"] + found["shorthand_property_identifier"]:
+            if node.id in bound or _inside_import(node):
+                continue
+            uses.setdefault(node_text(node), []).append(node)
+        seen: set[str] = set()
+        for statement, name, library in bindings:
+            if library in seen:
+                continue
+            if any(not _exempt_use(node) for node in uses.get(node_text(name), [])):
+                seen.add(library)
+                self.report.network_imports.append(RawNetworkImport(library=library, offset=statement.start_byte))
 
     def internal_file(self, specifier: str) -> str | None:
         """Resolve a relative import specifier to a file of the analyzed package"""

@@ -40,6 +40,7 @@ from mcplain.adapters.report import (
     RawFunction,
     RawGap,
     RawHandler,
+    RawNetworkImport,
     RawString,
     RawTool,
 )
@@ -64,6 +65,7 @@ from mcplain.capabilities import (
     find_sensitive_paths,
     is_secret_name,
     match_rule,
+    python_network_library,
 )
 from mcplain.manifests import load_toml, read_text, string_list, table
 from mcplain.models import DeclarationKind, InstallScript, ToolParameter, TrackingGap, UrlKind
@@ -131,6 +133,9 @@ ENTRY_POINTS_FILE = "entry_points.txt"
 DIST_INFO_SUFFIX = ".dist-info"
 SCRIPT_TABLES: tuple[str, ...] = ("scripts", "gui-scripts")
 INIT_MODULE = "__init__"
+TYPE_CHECKING_NAMES: frozenset[str] = frozenset({"TYPE_CHECKING", "typing.TYPE_CHECKING"})
+EXCEPT_CLAUSES: frozenset[str] = frozenset({"except_clause", "except_group_clause"})
+TYPE_CHECK_FUNCTION = "isinstance"
 SOURCE_ROOT = "src"
 REFERENCE_TYPES: frozenset[str] = frozenset({"identifier", "attribute"})
 CMDCLASS_KEYWORD = "cmdclass"
@@ -243,6 +248,73 @@ def docstring_node(definition: Node) -> Node | None:
     return None
 
 
+def _type_checking_only(statement: Node) -> bool:
+    """Tell whether an import sits in the body of an if TYPE_CHECKING block, which never runs"""
+
+    child = statement
+    current = statement.parent
+    while current is not None:
+        if current.type == "if_statement":
+            condition = current.child_by_field_name("condition")
+            consequence = current.child_by_field_name("consequence")
+            if (
+                condition is not None
+                and node_text(condition) in TYPE_CHECKING_NAMES
+                and consequence is not None
+                and consequence.id == child.id
+            ):
+                return True
+        child = current
+        current = current.parent
+    return False
+
+
+def _is_reference(node: Node) -> bool:
+    """Tell whether an identifier reads a name, rather than naming an import, an attribute or a keyword argument"""
+
+    parent = node.parent
+    if parent is None:
+        return False
+    if parent.type == "attribute" and parent.child_by_field_name("attribute") == node:
+        return False
+    if parent.type == "keyword_argument" and parent.child_by_field_name("name") == node:
+        return False
+    current: Node | None = parent
+    while current is not None:
+        if current.type in ("import_statement", "import_from_statement"):
+            return False
+        current = current.parent
+    return True
+
+
+def _exempt_use(node: Node) -> bool:
+    """Tell whether a name is used only as a type: in an annotation, an except clause or isinstance"""
+
+    child = node
+    current = node.parent
+    while current is not None:
+        if current.type == "type":
+            return True
+        if current.type in EXCEPT_CLAUSES:
+            return child.type != "block"
+        if current.type == "argument_list":
+            function = None
+            if current.parent is not None:
+                function = current.parent.child_by_field_name("function")
+            positional = [item for item in current.named_children if item.type != "keyword_argument"]
+            return (
+                function is not None
+                and node_text(function) == TYPE_CHECK_FUNCTION
+                and len(positional) > 1
+                and child.id != positional[0].id
+            )
+        if current.type in ("block", "module", "function_definition", "class_definition", "lambda"):
+            return False
+        child = current
+        current = current.parent
+    return False
+
+
 class _PythonFile:
     """Class that analyzes one parsed Python file"""
 
@@ -288,6 +360,7 @@ class _PythonFile:
         self._find_low_level_tools()
         self._find_dispatch_blocks()
         self._find_capabilities()
+        self._find_network_imports()
         self._find_calls()
         self._find_strings()
         self._find_comments_and_copies()
@@ -1560,6 +1633,57 @@ class _PythonFile:
                     if parent_name in PYTHON_ENV_GETTERS:
                         return
         self._add(Capability.ENV_READ, attribute, qualified)
+
+    def _import_bindings(self) -> list[tuple[Node, str, str]]:
+        """Return each import statement with the local name it binds and the qualified name of that name"""
+
+        bindings = []
+        for statement in self.nodes["import_statement"]:
+            for child in statement.named_children:
+                if child.type == "dotted_name":
+                    full = node_text(child)
+                    bindings.append((statement, full.split(".")[0], full))
+                elif child.type == "aliased_import":
+                    name = child.child_by_field_name("name")
+                    alias = child.child_by_field_name("alias")
+                    if name is not None and alias is not None:
+                        bindings.append((statement, node_text(alias), node_text(name)))
+        for statement in self.nodes["import_from_statement"]:
+            module = statement.child_by_field_name("module_name")
+            if module is None or module.type != "dotted_name":
+                continue
+            for child in statement.children_by_field_name("name"):
+                if child.type == "dotted_name":
+                    imported = node_text(child)
+                    bindings.append((statement, imported.split(".")[0], f"{node_text(module)}.{imported}"))
+                elif child.type == "aliased_import":
+                    name = child.child_by_field_name("name")
+                    alias = child.child_by_field_name("alias")
+                    if name is not None and alias is not None:
+                        bindings.append((statement, node_text(alias), f"{node_text(module)}.{node_text(name)}"))
+        return bindings
+
+    def _find_network_imports(self) -> None:
+        """Record the network libraries imported and used for more than exceptions, annotations and isinstance"""
+
+        wanted: list[tuple[Node, str, str]] = []
+        for statement, name, qualified in self._import_bindings():
+            library = python_network_library(qualified)
+            if library is not None and not _type_checking_only(statement):
+                wanted.append((statement, name, library))
+        if not wanted:
+            return
+        uses: dict[str, list[Node]] = {}
+        for node in collect_nodes(PYTHON_LANGUAGE, self.root, ("identifier",))["identifier"]:
+            if _is_reference(node):
+                uses.setdefault(node_text(node), []).append(node)
+        seen: set[str] = set()
+        for statement, name, library in wanted:
+            if library in seen:
+                continue
+            if any(not _exempt_use(node) for node in uses.get(name, [])):
+                seen.add(library)
+                self.report.network_imports.append(RawNetworkImport(library=library, offset=statement.start_byte))
 
     def _find_strings(self) -> None:
         """Decode every string literal for URLs, sensitive paths and invisible characters"""

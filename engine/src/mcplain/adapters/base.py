@@ -29,6 +29,7 @@ from mcplain.models import (
     InvisibleCategory,
     InvisibleUnicode,
     LocationKind,
+    NetworkImport,
     OutsideKind,
     ParseError,
     SensitivePathRef,
@@ -221,6 +222,11 @@ class Adapter(ABC):
                 line, column = report.source.position(report.error_offset)
                 analysis.parse_errors.append(
                     ParseError(file=path, line=line, column=column, location_kind=locations[path])
+                )
+            for imported in report.network_imports:
+                line, _ = report.source.position(imported.offset)
+                analysis.network_imports.append(
+                    NetworkImport(library=imported.library, file=path, line=line, location_kind=locations[path])
                 )
             for raw in report.tools:
                 line, _ = report.source.position(raw.offset)

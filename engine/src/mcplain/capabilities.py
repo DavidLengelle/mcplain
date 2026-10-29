@@ -421,6 +421,62 @@ JAVASCRIPT_CHAIN_REWRITES: tuple[tuple[str, str], ...] = (
 )
 
 
+def _network_libraries(rules: tuple[ApiRule, ...]) -> frozenset[str]:
+    """Return the module names of the network rules of a table: axios for axios.*, asyncio.open_connection as is"""
+
+    return frozenset(
+        rule.pattern.removesuffix(".*")
+        for rule in rules
+        if rule.kind is RuleKind.MODULE and rule.capability is Capability.NETWORK
+    )
+
+
+PYTHON_NETWORK_LIBRARIES: frozenset[str] = _network_libraries(PYTHON_RULES)
+JAVASCRIPT_NETWORK_LIBRARIES: frozenset[str] = _network_libraries(JAVASCRIPT_RULES)
+NOT_A_REQUEST: frozenset[str] = frozenset(
+    {"socket.socket", "socket.socketpair", "axios.isAxiosError", "axios.isCancel"}
+)
+
+
+def python_network_library(qualified: str) -> str | None:
+    """Return the network library a Python import loads, like httpx for httpx.AsyncClient, or None"""
+
+    parts = qualified.split(".")
+    for size in range(len(parts), 0, -1):
+        prefix = ".".join(parts[:size])
+        if prefix in PYTHON_NETWORK_LIBRARIES:
+            return prefix
+    return None
+
+
+def javascript_network_library(module: str) -> str | None:
+    """Return the network library a JavaScript module specifier loads, or None"""
+
+    name = normalize_javascript_module(module)
+    if name in JAVASCRIPT_NETWORK_LIBRARIES:
+        return name
+    return None
+
+
+def belongs_to(detail: str, library: str) -> bool:
+    """Tell whether the qualified name of a call belongs to a library"""
+
+    return detail == library or detail.startswith(library + ".")
+
+
+def is_request(detail: str | None, has_address: bool) -> bool:
+    """Tell whether a network call talks to the network, rather than only building a client or a settings object"""
+
+    if detail is None or detail in NOT_A_REQUEST:
+        return False
+    if detail in PYTHON_NETWORK_CLIENTS or detail in JAVASCRIPT_NETWORK_CLIENTS:
+        return False
+    last = detail.rsplit(".", 1)[-1]
+    if "." in detail and last[:1].isupper() and not has_address:
+        return False
+    return True
+
+
 def match_rule(rules: tuple[ApiRule, ...], name: str, kind: RuleKind) -> ApiRule | None:
     """Return the first rule of the given kind that matches a name"""
 
