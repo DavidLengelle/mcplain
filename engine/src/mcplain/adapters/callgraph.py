@@ -118,6 +118,14 @@ class Walk:
 
     reaches: list[Reach] = field(default_factory=list)
     gaps: set[TrackingGap] = field(default_factory=set)
+    places: set[tuple[str, int, TrackingGap]] = field(default_factory=set)
+
+    def add(self, file: str, places: set[tuple[int, TrackingGap]]) -> None:
+        """Record gaps met in one file, with the offset of each"""
+
+        for offset, gap in places:
+            self.gaps.add(gap)
+            self.places.add((file, offset, gap))
 
 
 class CallGraph:
@@ -264,27 +272,32 @@ class CallGraph:
     def region_gaps(self, region: Region, skipped: list[Region] | None = None) -> set[TrackingGap]:
         """Return why calls inside one region could not be followed"""
 
+        return {gap for _, gap in self.region_gap_places(region, skipped)}
+
+    def region_gap_places(self, region: Region, skipped: list[Region] | None = None) -> set[tuple[int, TrackingGap]]:
+        """Return the calls inside one region that could not be followed, as offset and reason"""
+
         nested = self._nested(region)
         excluded = skipped or []
-        gaps: set[TrackingGap] = set()
+        gaps: set[tuple[int, TrackingGap]] = set()
         for offset, gap in self._gap_offsets.get(region.file, []):
             if region.start <= offset < region.end and not _within(nested, offset):
                 if not _inside(excluded, region.file, offset):
-                    gaps.add(gap)
+                    gaps.add((offset, gap))
         start, end = self._between(self._method_offsets.get(region.file, []), region)
         for call in self._method_calls.get(region.file, [])[start:end]:
             if call.name in self.method_names and not _within(nested, call.offset):
                 if not _inside(excluded, region.file, call.offset):
-                    gaps.add(TrackingGap.UNKNOWN_TYPE)
+                    gaps.add((call.offset, TrackingGap.UNKNOWN_TYPE))
         for call in self._calls_in(region, nested):
             if _inside(excluded, region.file, call.offset):
                 continue
             if self.resolve(region.file, call) is None:
                 method = call.name.rsplit(".", 1)[-1]
                 if "." in call.name and method in self.method_names:
-                    gaps.add(TrackingGap.UNKNOWN_TYPE)
+                    gaps.add((call.offset, TrackingGap.UNKNOWN_TYPE))
             elif self.ambiguous(region.file, call):
-                gaps.add(TrackingGap.AMBIGUOUS)
+                gaps.add((call.offset, TrackingGap.AMBIGUOUS))
         return gaps
 
     def walk(
@@ -302,7 +315,7 @@ class CallGraph:
         queue: deque[tuple[tuple[str, int], tuple[Step, ...], bool]] = deque()
         for root in roots:
             nested = self._nested(root)
-            result.gaps |= self.region_gaps(root, skipped)
+            result.add(root.file, self.region_gap_places(root, skipped))
             for index in self._findings_in(root, nested):
                 offset = self.reports[root.file].findings[index].offset
                 if (root.file, index) not in seen and not _inside(skipped, root.file, offset):
@@ -318,15 +331,16 @@ class CallGraph:
             function = self.function(file, index)
             region = Region(file, function.start, function.end, own_body)
             nested = self._nested(region)
-            result.gaps |= self.region_gaps(region)
+            result.add(file, self.region_gap_places(region))
             for finding_index in self._findings_in(region, nested):
                 if (file, finding_index) not in seen:
                     seen.add((file, finding_index))
                     result.reaches.append(Reach(file, finding_index, chain))
             calls = self._calls_in(region, nested)
             if len(chain) >= self.max_depth:
-                if any(self._unvisited(file, call, visited) for call in calls):
-                    result.gaps.add(TrackingGap.MAX_DEPTH)
+                deeper = [call.offset for call in calls if self._unvisited(file, call, visited)]
+                if deeper:
+                    result.add(file, {(deeper[0], TrackingGap.MAX_DEPTH)})
                 continue
             for call in calls:
                 self._enqueue(file, call, chain, visited, queue, own_body)

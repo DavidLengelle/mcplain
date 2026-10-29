@@ -153,6 +153,11 @@ def build(index):
     )
     assert tool(analysis, "find").gaps == [TrackingGap.UNKNOWN_TYPE]
     assert tool(analysis, "count").gaps == []
+    places = tool(analysis, "find").gap_places
+    assert [(place.gap, place.file) for place in places] == [(TrackingGap.UNKNOWN_TYPE, "server.py")]
+    lines = (tmp_path / "server.py").read_text(encoding="utf-8").splitlines()
+    assert "index.search(text)" in lines[places[0].line - 1]
+    assert tool(analysis, "count").gap_places == []
 
 
 def test_python_instance_of_package_class_is_followed(tmp_path: Path) -> None:
@@ -274,6 +279,10 @@ def build():
 '''
     shallow = python(tmp_path, body, Limits(max_call_depth=1))
     assert tool(shallow, "deep").gaps == [TrackingGap.MAX_DEPTH]
+    depth = tool(shallow, "deep").gap_places
+    lines = (tmp_path / "server.py").read_text(encoding="utf-8").splitlines()
+    assert [place.gap for place in depth] == [TrackingGap.MAX_DEPTH]
+    assert "two()" in lines[depth[0].line - 1]
     enough = python(tmp_path, body, Limits(max_call_depth=2))
     assert tool(enough, "deep").gaps == []
 

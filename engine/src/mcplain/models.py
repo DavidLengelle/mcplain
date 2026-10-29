@@ -100,6 +100,14 @@ class TrackingGap(StrEnum):
     MAX_DEPTH = "max_depth"
 
 
+class GapPlace(BaseModel):
+    """Class that locates one call the call graph could not follow, and why"""
+
+    gap: TrackingGap
+    file: str
+    line: int
+
+
 class OutsideKind(StrEnum):
     """Class that tells when server code outside the tools runs"""
 
@@ -220,6 +228,7 @@ class Tool(BaseModel):
     annotations_are_dynamic: bool = False
     findings: list[Finding] = Field(default_factory=list)
     gaps: list[TrackingGap] = Field(default_factory=list)
+    gap_places: list[GapPlace] = Field(default_factory=list)
     lamps: Lamps = Field(default_factory=list)
     level: ToolLevel = ToolLevel.NONE
 

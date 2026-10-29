@@ -25,6 +25,7 @@ from mcplain.models import (
     DeclarationKind,
     DomainRef,
     Finding,
+    GapPlace,
     InstallScript,
     InvisibleCategory,
     InvisibleUnicode,
@@ -60,6 +61,7 @@ class _ToolSlot:
     regions: list[Region] = field(default_factory=list)
     seen: set[tuple[Capability, str, int]] = field(default_factory=set)
     gaps: set[TrackingGap] = field(default_factory=set)
+    places: set[tuple[str, int, TrackingGap]] = field(default_factory=set)
 
 
 @dataclass(frozen=True)
@@ -262,6 +264,7 @@ class Adapter(ABC):
             scopes.append(ToolScope(slot.model.name, roots, _tool_parameters(slot)))
             walk = graph.walk(roots)
             slot.model.gaps = sorted(walk.gaps | slot.gaps)
+            slot.model.gap_places = self._gap_places(reports, walk.places | slot.places)
             for reach in walk.reaches:
                 finding = self._finding(reports, locations, built, reach.file, reach.index)
                 key = (finding.capability, finding.file, finding.line)
@@ -367,9 +370,20 @@ class Adapter(ABC):
                 walk = graph.walk([region], branches, keys)
                 for slot in candidates:
                     slot.gaps |= walk.gaps
+                    slot.places |= walk.places
                 for reach in walk.reaches:
                     shared.setdefault((reach.file, reach.index), _call_steps(reports, reach.chain))
         return shared, scopes
+
+    def _gap_places(self, reports: dict[str, FileReport], places: set[tuple[str, int, TrackingGap]]) -> list[GapPlace]:
+        """Turn the offsets of calls that could not be followed into places, one per line and reason, sorted"""
+
+        found: set[tuple[str, int, TrackingGap]] = set()
+        for file, offset, gap in places:
+            line, _ = reports[file].source.position(offset)
+            found.add((file, line, gap))
+        ordered = sorted(found, key=lambda item: (item[0], item[1], item[2].value))
+        return [GapPlace(gap=gap, file=file, line=line) for file, line, gap in ordered[: self.limits.max_gap_places]]
 
     def _attach_table_entries(
         self,
