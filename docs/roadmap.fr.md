@@ -1,7 +1,34 @@
 # Travaux prévus
 
-Ce fichier garde les décisions prises pour les séances à venir. Rien de ce qui suit n'est codé : lis la partie
-qui concerne ta séance avant de commencer.
+Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
+commencer. La séance 7 est faite ; rien de ce qui suit la séance 7 n'est codé.
+
+## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
+
+- [x] Banc d'essai sur 52 vrais serveurs MCP (`bench/`, guide : `docs/bench.fr.md`), première mesure avant
+      correction gardée (`bench/results/2026-10-29-engine-0.2.1.md`).
+- [x] Verrou du vert (décidé le 29 octobre 2026) : nouveau cas gris `network_unresolved`, voyant « Va sur
+      Internet » avec la note « non suivi ». Conditions et exceptions : `docs/rules.fr.md`.
+- [x] Causes de gris corrigées : méthodes d'une classe ré-exportée par un paquet ; table de fonctions sans
+      pouvoir (`operator.add`) ; objet rendu par une fonction qui construit toujours la même classe ; paquets
+      serveur du SDK MCP v2 et SDK tmcp ; gros fichier de données qui faisait échouer l'analyse.
+- [x] Gris partiel : champ `verdict.coverage` et bloc « Ce que MCPlain a pu lire » sur le site.
+- [x] Banc chaque lundi en CI (`.github/workflows/bench.yml`), alerte si une couleur change.
+- [ ] Décisions de David en attente : les rouges de la première mesure (faux rouges ou vrais paquets
+      malveillants), la proposition sur O06 (alertes dont toutes les versions sont retirées du registre), la
+      proposition sur `require()` d'un fichier `.json`.
+
+Causes de gris restantes (à traiter dans une prochaine séance de fiabilité) :
+
+1. `not_a_server` (3 serveurs) : enveloppes dont le vrai code est dans une dépendance, et paquets empaquetés
+   sans dépendance déclarée. Piste : analyser la dépendance qui porte le code, ou lire les imports du code
+   empaqueté.
+2. `no_tools_found` (3) : outils déclarés dans des paquets séparés (MongoDB), ou d'une façon encore inconnue
+   (tmcp de Storybook, logfire-mcp).
+3. `incomplete_tracking` (2) : objets reçus en paramètre (postgres-mcp), code exécuté dans le navigateur
+   (server-puppeteer).
+4. `network_unresolved` (1) : client réseau passé en paramètre à une autre fonction (mcp-server-sentry).
+5. À refaire sur une machine normale : la mesure 0.3.0 a eu 7 délais dépassés de l'atelier (machine très lente).
 
 ## PROTECTIONS CONTRE LES ROBOTS ET QUOTAS (décidé le 23 octobre 2026)
 
