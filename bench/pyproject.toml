@@ -1,0 +1,26 @@
+[project]
+name = "mcplain-bench"
+version = "0.1.0"
+description = "Bench of MCPlain on real MCP servers, through the API of a running stack"
+authors = [
+    { name = "David Lengelle", email = "david.lengelle.1.10@gmail.com" }
+]
+license = "AGPL-3.0-only"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "respx>=0.23.1",
+]
+
+[tool.uv]
+package = false
+exclude-newer = "7 days"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

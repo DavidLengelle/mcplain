@@ -20,6 +20,7 @@ updates:
     directories:
       - /engine
       - /api
+      - /bench
     schedule:
       interval: weekly
     cooldown:
