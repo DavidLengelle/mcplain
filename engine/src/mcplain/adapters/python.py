@@ -395,17 +395,27 @@ class _PythonFile:
             if module_name is None:
                 continue
             self._note_import(module_name)
+            source = self.internal_target(module_name)
             for child in statement.children_by_field_name("name"):
                 if child.type == "dotted_name":
                     imported = node_text(child)
                     self.aliases[imported.split(".")[0]] = f"{module_name}.{imported}"
                     self._note_import(f"{module_name}.{imported}")
+                    self._note_reexport(source, imported, imported)
                 elif child.type == "aliased_import":
                     name = child.child_by_field_name("name")
                     alias = child.child_by_field_name("alias")
                     if name is not None and alias is not None:
                         self.aliases[node_text(alias)] = f"{module_name}.{node_text(name)}"
                         self._note_import(f"{module_name}.{node_text(name)}")
+                        self._note_reexport(source, node_text(alias), node_text(name))
+
+    def _note_reexport(self, source: tuple[str, str | None] | None, alias: str, name: str) -> None:
+        """Remember that a name imported from a package module can be reached through this file"""
+
+        if source is None or source[1] is not None or "." in name or source[0] == self.report.path:
+            return
+        self.report.reexports.setdefault(alias, (source[0], name))
 
     def _absolute_module(self, relative: str) -> str | None:
         """Turn a relative import like ..pkg.mod into an absolute module name"""

@@ -233,6 +233,10 @@ class CallGraph:
         if name in report.reexports:
             target_file, target_name = report.reexports[name]
             return self._exported(target_file, target_name, hops + 1)
+        head, _, member = name.partition(".")
+        if member and head in report.reexports:
+            target_file, target_name = report.reexports[head]
+            return self._exported(target_file, f"{target_name}.{member}", hops + 1)
         for star in report.star_exports:
             found = self._exported(star, name, hops + 1)
             if found is not None:
