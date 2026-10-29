@@ -345,6 +345,7 @@ class _PythonFile:
         self.class_constants: dict[str, Node] = {}
         self.clients: list[tuple[str, int, int, str]] = []
         self.client_factories: dict[str, str] = {}
+        self.instance_factories: dict[str, tuple[str, str | None]] = {}
         self.tool_definitions: set[int] = set()
         self.tables: list[tuple[str, int, int, list[tuple[str, Node]]]] = []
         self.instances: list[tuple[str, int, int, tuple[str, str | None]]] = []
@@ -584,9 +585,29 @@ class _PythonFile:
             current = current.parent
         return 0, len(self.source.data) + 1
 
+    def _index_instance_factories(self) -> None:
+        """Remember module functions of this file whose every return builds the same package class"""
+
+        returns: dict[str, list[tuple[str, str | None] | None]] = {}
+        for statement in self.nodes["return_statement"]:
+            function = statement.parent
+            while function is not None and function.type not in ("function_definition", "lambda", "class_definition"):
+                function = function.parent
+            if function is None or function.type != "function_definition" or not _at_module_level(function):
+                continue
+            name = function.child_by_field_name("name")
+            if name is None or not statement.named_children:
+                continue
+            returns.setdefault(node_text(name), []).append(self._constructed_class(statement.named_children[0]))
+        for name, classes in returns.items():
+            built = classes[0]
+            if len(set(classes)) == 1 and built is not None and name in self.functions:
+                self.instance_factories[name] = built
+
     def _index_dispatch(self) -> None:
         """Remember dispatch tables, instances of package classes and variables read from a lookup"""
 
+        self._index_instance_factories()
         for assignment in self.nodes["assignment"]:
             left = assignment.child_by_field_name("left")
             right = assignment.child_by_field_name("right")
@@ -667,6 +688,8 @@ class _PythonFile:
     def _constructed_class(self, node: Node | None) -> tuple[str, str | None] | None:
         """Return the package class created by a call like Store(...), as class name and file"""
 
+        if node is not None and node.type == "await" and node.named_children:
+            node = node.named_children[0]
         if node is None or node.type != "call":
             return None
         parts = dotted_parts(node.child_by_field_name("function"))
@@ -674,6 +697,8 @@ class _PythonFile:
             return None
         if len(parts) == 1 and parts[0] in self.classes:
             return parts[0], None
+        if len(parts) == 1 and parts[0] in self.instance_factories and parts[0] not in self.aliases:
+            return self.instance_factories[parts[0]]
         if parts[0] not in self.aliases:
             return None
         qualified, _ = self._resolve(parts)

@@ -117,3 +117,30 @@ def test_a_table_with_an_unknown_value_keeps_its_gap(tmp_path: Path) -> None:
     assert table_tool(tmp_path, 'action = None\nTABLE = {"a": operator.add, "b": action}').gaps == ["dict_call"]
     assert table_tool(tmp_path, 'TABLE = {"a": lambda value: value}').gaps == ["dict_call"]
     assert table_tool(tmp_path, "TABLE = {}").gaps == ["dict_call"]
+
+
+def test_an_object_returned_by_a_factory_has_the_type_it_builds(fixtures: Path) -> None:
+    """report = await load_report(name), where every return builds a Report: report.to_tool_result() is followed"""
+
+    result = analyze_directory(fixtures / "python_returned_instance")
+    show = tool(result.servers[0], "show_report")
+    assert show.gaps == []
+    assert capabilities(show) == {Capability.FS_READ}
+    assert [step.function for step in show.findings[0].call_chain] == ["Report.to_tool_result"]
+
+
+def test_a_function_that_does_not_always_build_the_same_class_gives_no_type(tmp_path: Path) -> None:
+    """One return builds a Report, another returns None: the type stays unknown"""
+
+    source = fixture_text("python_returned_instance").replace('return Report("index.txt")', "return None")
+    write(tmp_path, "pyproject.toml", '[project]\nname = "x"\nversion = "1"\ndependencies = ["mcp>=2"]\n')
+    write(tmp_path, "server.py", source)
+    show = tool(analyze_directory(tmp_path).servers[0], "show_report")
+    assert show.gaps == ["unknown_type"]
+
+
+def fixture_text(name: str) -> str:
+    """Return the text of the server file of a fixture"""
+
+    path = Path(__file__).parent / "fixtures" / name / "server.py"
+    return path.read_text(encoding="utf-8")
