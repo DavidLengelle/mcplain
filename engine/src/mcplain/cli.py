@@ -17,6 +17,7 @@ from mcplain.models import (
     Alert,
     AnalysisResult,
     AnalysisStatus,
+    Coverage,
     Finding,
     LocationKind,
     OutsideKind,
@@ -673,7 +674,35 @@ def _render_verdict(result: AnalysisResult, t: Translator, lines: list[str]) -> 
     domains = ", ".join(_safe(domain) for domain in verdict.contacted_domains)
     for reason in verdict.reasons:
         lines.append(f"{INDENT}- {t('reason.' + reason, domains=domains)}")
+    if verdict.coverage is not None:
+        _render_coverage(verdict.coverage, t, lines)
     lines.append(f"{INDENT}{t('cli.verdict.disclaimer')}")
+
+
+def _render_coverage(coverage: Coverage, t: Translator, lines: list[str]) -> None:
+    """Show what was checked in a server read only in part, then what was not"""
+
+    checked = t(
+        "coverage.checked",
+        followed=coverage.tools_followed,
+        total=coverage.tools_total,
+        read=coverage.files_read,
+        files=coverage.files_total,
+    )
+    lines.append(f"{INDENT}{checked} {t('coverage.nothing_found')}")
+    lines.append(f"{INDENT}{t('coverage.not_checked')}")
+    for item in coverage.not_checked:
+        place = ":".join(_safe(part) for part in (item.file, item.line) if part is not None)
+        parts = [t(f"coverage.kind.{item.kind.value}")]
+        if item.name is not None:
+            parts.append(_safe(item.name))
+        if place:
+            parts.append(place)
+        lines.append(f"{INDENT}{INDENT}- {' '.join(parts)}{t('cli.separator')}{t(f'coverage.reason.{item.reason}')}")
+    hidden = coverage.not_checked_count - len(coverage.not_checked)
+    if hidden > 0:
+        lines.append(f"{INDENT}{INDENT}{t('coverage.more', count=hidden)}")
+    lines.append(f"{INDENT}{t('verdict.gray.not_safe')}")
 
 
 if __name__ == "__main__":

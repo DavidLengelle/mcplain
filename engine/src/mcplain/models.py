@@ -442,6 +442,38 @@ class GrayCase(StrEnum):
     NETWORK_UNRESOLVED = "network_unresolved"
 
 
+class CoverageKind(StrEnum):
+    """Class that lists what part of a server could not be checked"""
+
+    CALL = "call"
+    DESCRIPTION = "description"
+    FILE = "file"
+    NETWORK = "network"
+    TOOLS = "tools"
+
+
+class CoverageItem(BaseModel):
+    """Class that names one thing that could not be checked: its kind, where it is, and why"""
+
+    kind: CoverageKind
+    reason: str
+    name: str | None = None
+    file: str | None = None
+    line: int | None = None
+    snippet: str | None = None
+
+
+class Coverage(BaseModel):
+    """Class that says what was checked in a server read only in part, and what was not"""
+
+    tools_total: int
+    tools_followed: int
+    files_total: int
+    files_read: int
+    not_checked: list[CoverageItem] = Field(default_factory=list)
+    not_checked_count: int = 0
+
+
 class Message(BaseModel):
     """Class that names an engine text and the parameters that fill it"""
 
@@ -461,6 +493,7 @@ class Verdict(BaseModel):
     gray_case: GrayCase | None = None
     title: Message | None = None
     summary: Message | None = None
+    coverage: Coverage | None = None
 
 
 class ReputationStatus(StrEnum):

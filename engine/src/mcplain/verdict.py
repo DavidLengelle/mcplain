@@ -1,11 +1,15 @@
 """Verdict: the rule registry decides the color from the alerts of every registered rule, then the lamps"""
 
 from mcplain.capabilities import Capability, belongs_to, is_request
+from mcplain.config import DEFAULT_LIMITS
 from mcplain.lamps import LampId, lamp_states, level_for
 from mcplain.models import (
     Alert,
     AnalysisResult,
     AnalysisStatus,
+    Coverage,
+    CoverageItem,
+    CoverageKind,
     Finding,
     GrayCase,
     InvisibleCategory,
@@ -42,6 +46,20 @@ STATUS_CASES: dict[AnalysisStatus, GrayCase] = {
     AnalysisStatus.ERROR: GrayCase.ERROR,
 }
 TIMEOUT_ERRORS: frozenset[str] = frozenset({"job.atelier_timeout", "fetch.timeout"})
+READING_CASES: frozenset[GrayCase] = frozenset(
+    {
+        GrayCase.PARTIALLY_COMPILED,
+        GrayCase.PARSE_ERRORS,
+        GrayCase.SKIPPED_FILES,
+        GrayCase.NO_TOOLS_FOUND,
+        GrayCase.INCOMPLETE_TRACKING,
+        GrayCase.DYNAMIC_DESCRIPTIONS,
+        GrayCase.NETWORK_UNRESOLVED,
+    }
+)
+DYNAMIC_DESCRIPTION_REASON = "dynamic_description"
+PARSE_ERROR_REASON = "parse_error"
+COMPILED_REASON = "compiled"
 LINK_LIST_NOTE = "note.mostly_documentation"
 NOT_FOLLOWED_NOTE = "lamp.internet.note_not_followed"
 ADDRESS_KINDS: frozenset[UrlKind] = frozenset({UrlKind.LITERAL, UrlKind.DYNAMIC})
@@ -98,6 +116,82 @@ def incomplete_reading(result: AnalysisResult) -> list[str]:
     if any(network_not_followed(server) for server in servers):
         codes.append("caveat.network_unresolved")
     return codes
+
+
+def not_checked(result: AnalysisResult) -> list[CoverageItem]:
+    """List what could not be checked in the server code: calls, descriptions, files, network libraries, tools"""
+
+    items: list[CoverageItem] = []
+    for server in result.servers:
+        if not server.tools:
+            items.append(CoverageItem(kind=CoverageKind.TOOLS, reason=GrayCase.NO_TOOLS_FOUND.value))
+        for tool in server.tools:
+            if tool.location_kind is not LocationKind.SERVER_CODE:
+                continue
+            for place in tool.gap_places:
+                items.append(
+                    CoverageItem(
+                        kind=CoverageKind.CALL,
+                        reason=place.gap.value,
+                        name=tool.name,
+                        file=place.file,
+                        line=place.line,
+                        snippet=place.snippet,
+                    )
+                )
+            if tool.gaps and not tool.gap_places:
+                items.extend(
+                    CoverageItem(kind=CoverageKind.CALL, reason=gap.value, name=tool.name, file=tool.file, line=tool.line)
+                    for gap in tool.gaps
+                )
+            if tool.description_is_dynamic:
+                items.append(
+                    CoverageItem(
+                        kind=CoverageKind.DESCRIPTION,
+                        reason=DYNAMIC_DESCRIPTION_REASON,
+                        name=tool.name,
+                        file=tool.file,
+                        line=tool.line,
+                    )
+                )
+        for library in network_not_followed(server):
+            imported = next(item for item in server.network_imports if item.library == library)
+            items.append(
+                CoverageItem(
+                    kind=CoverageKind.NETWORK,
+                    reason=GrayCase.NETWORK_UNRESOLVED.value,
+                    name=library,
+                    file=imported.file,
+                    line=imported.line,
+                )
+            )
+        for skipped in server.skipped_files:
+            if skipped.location_kind is LocationKind.SERVER_CODE:
+                items.append(CoverageItem(kind=CoverageKind.FILE, reason=skipped.reason, file=skipped.file))
+        for error in server.parse_errors:
+            if error.location_kind is LocationKind.SERVER_CODE:
+                items.append(CoverageItem(kind=CoverageKind.FILE, reason=PARSE_ERROR_REASON, file=error.file, line=error.line))
+        items.extend(CoverageItem(kind=CoverageKind.FILE, reason=COMPILED_REASON, file=file) for file in server.compiled_files)
+    return items
+
+
+def coverage(result: AnalysisResult) -> Coverage:
+    """Say what was checked in a server read only in part: tools fully followed, files read, and what was not checked"""
+
+    tools = [tool for server in result.servers for tool in server.tools if tool.location_kind is LocationKind.SERVER_CODE]
+    followed = [tool for tool in tools if not tool.gaps and not tool.description_is_dynamic]
+    analyzed = sum(server.files_analyzed for server in result.servers)
+    broken = {(index, error.file) for index, server in enumerate(result.servers) for error in server.parse_errors}
+    unread = sum(len(server.skipped_files) + len(server.compiled_files) for server in result.servers)
+    items = not_checked(result)
+    return Coverage(
+        tools_total=len(tools),
+        tools_followed=len(followed),
+        files_total=analyzed + unread,
+        files_read=analyzed - len(broken),
+        not_checked=items[: DEFAULT_LIMITS.max_coverage_items],
+        not_checked_count=len(items),
+    )
 
 
 def caveats(result: AnalysisResult) -> list[str]:
@@ -192,6 +286,8 @@ def compute_verdict(result: AnalysisResult, registry: RuleRegistry = DEFAULT_REG
     if not alerts and reasons:
         verdict.color = VerdictColor.GRAY
         verdict.gray_case = gray_case(result, reasons)
+        if verdict.gray_case in READING_CASES:
+            verdict.coverage = coverage(result)
     unknown = False
     if verdict.color is VerdictColor.GREEN:
         domains, unknown = network_domains(result)
