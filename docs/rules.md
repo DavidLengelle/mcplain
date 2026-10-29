@@ -27,6 +27,26 @@ Order of the verdict: red if a red rule fires; otherwise orange if an orange rul
 | [O07 lone-invisible-char](#o07-lone-invisible-char) | ORANGE | Lone invisible character |
 | [O08 powerful-capability](#o08-powerful-capability) | ORANGE | Powerful capability |
 
+## Conditions of green
+
+A verdict is green only when every condition below holds. If one of them is missing, the verdict is gray: MCPlain loses the label rather than invent one.
+
+1. No red or orange rule fires.
+2. The link holds one MCP server, written in Python, JavaScript or TypeScript, and its code is published as source.
+3. Every file of the server code was read: no compiled part, no syntax error, no file too large.
+4. At least one tool is recognized, every call of every tool is followed, and every description can be read.
+5. Green lock (decided on 29 October 2026): if the server code imports a network library and uses it, at least one request of that library must be recognized. Building a client is not a request. Otherwise the verdict is gray (`network_unresolved`) and the "Goes on the Internet" lamp is on, with the note "not followed". The lock never changes a red or an orange.
+
+Network libraries: in Python `aiohttp`, `asyncio.open_connection`, `asyncio.start_server`, `ftplib`, `http.client`, `httpx`, `paramiko`, `postmarker`, `pycurl`, `requests`, `sendgrid`, `smtplib`, `socket`, `telnetlib`, `urllib.request`, `urllib3`, `websocket`, `websockets`, `yagmail`; in JavaScript and TypeScript `@sendgrid/mail`, `axios`, `cross-fetch`, `dgram`, `dns`, `got`, `http`, `http2`, `https`, `isomorphic-fetch`, `ky`, `net`, `node-fetch`, `nodemailer`, `postmark`, `request`, `resend`, `socket.io-client`, `superagent`, `tls`, `undici`, `ws`. They come from the network tables of the engine (`engine/src/mcplain/capabilities.py`).
+
+These imports do not count for the lock (known false positives):
+
+- a name used only as an exception type, as in `except httpx.TimeoutException`;
+- a name used only in type annotations, `import type` or `import { type X }`;
+- an import inside an `if TYPE_CHECKING:` block, and a name used only in `isinstance()` or on the right of `instanceof`;
+- an imported name that is never used;
+- the parts of the standard library that cannot reach the network, such as `urllib.parse` or `http.HTTPStatus`.
+
 ## The lamps
 
 Every report shows six lamps, for the server and for each tool. A capability found in the code that counts for the verdict lights the lamp: it turns white, for information. A red rule that fires turns it to danger: it turns red. Orange rules never light a red lamp. A plain environment variable read (PORT, LOG_LEVEL) lights nothing. R11 (known malicious package) lights no lamp: it shows in the list of alerts. This table is generated from `engine/src/mcplain/lamps.py`.

@@ -1,5 +1,6 @@
 """Catalog of the verdict rules in Markdown, generated from the rule registry"""
 
+from mcplain.capabilities import JAVASCRIPT_NETWORK_LIBRARIES, PYTHON_NETWORK_LIBRARIES
 from mcplain.i18n import Translator
 from mcplain.lamps import LAMPS, LampSpec
 from mcplain.models import VerdictColor
@@ -8,6 +9,8 @@ from mcplain.verdict import DEFAULT_REGISTRY, RULES_VERSION
 
 FIXTURES_ROOT = "engine/tests/fixtures"
 FIXTURE_CASES = "positive, near_miss, false_positive"
+GREEN_CONDITIONS: tuple[str, ...] = ("no_alert", "status", "read", "followed", "network")
+GREEN_EXCEPTIONS: tuple[str, ...] = ("except", "types", "type_check", "unused", "not_network")
 
 
 def _anchor(rule: Rule) -> str:
@@ -44,6 +47,20 @@ def render_lamps(t: Translator) -> list[str]:
     return lines
 
 
+def render_green_conditions(t: Translator) -> list[str]:
+    """Return the conditions of a green verdict, with the green lock and its exceptions"""
+
+    python = ", ".join(f"`{name}`" for name in sorted(PYTHON_NETWORK_LIBRARIES))
+    javascript = ", ".join(f"`{name}`" for name in sorted(JAVASCRIPT_NETWORK_LIBRARIES))
+    lines = ["", f"## {t('catalog.green.title')}", "", t("catalog.green.intro"), ""]
+    lines.extend(f"{number}. {t(f'catalog.green.{key}')}" for number, key in enumerate(GREEN_CONDITIONS, start=1))
+    lines.extend(["", t("catalog.green.libraries", python=python, javascript=javascript), ""])
+    lines.append(t("catalog.green.exceptions"))
+    lines.append("")
+    lines.extend(f"- {t(f'catalog.green.exception.{key}')}" for key in GREEN_EXCEPTIONS)
+    return lines
+
+
 def render_catalog(t: Translator, registry: RuleRegistry = DEFAULT_REGISTRY) -> str:
     """Return the Markdown catalog of every registered rule, in one language"""
 
@@ -64,6 +81,7 @@ def render_catalog(t: Translator, registry: RuleRegistry = DEFAULT_REGISTRY) -> 
             f"| [{rule.identifier} {rule.slug}](#{_anchor(rule)}) | {t('color.' + rule.color.value)} "
             f"| {t(rule.text_key('title'))} |"
         )
+    lines.extend(render_green_conditions(t))
     lines.extend(render_lamps(t))
     for rule in rules:
         visible = t("cli.value." + str(rule.visible_in_code).lower())

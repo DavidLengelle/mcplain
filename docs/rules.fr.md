@@ -27,6 +27,26 @@ Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une
 | [O07 lone-invisible-char](#o07-lone-invisible-char) | ORANGE | Caractère invisible isolé |
 | [O08 powerful-capability](#o08-powerful-capability) | ORANGE | Capacité puissante |
 
+## Conditions du vert
+
+Un verdict n'est vert que si toutes les conditions ci-dessous sont remplies. S'il en manque une, le verdict est gris : MCPlain perd l'étiquette plutôt que d'en inventer une.
+
+1. Aucune règle rouge ni orange ne se déclenche.
+2. Le lien contient un seul serveur MCP, écrit en Python, JavaScript ou TypeScript, et son code est publié en source.
+3. Tous les fichiers du code serveur ont été lus : pas de partie compilée, pas d'erreur de syntaxe, pas de fichier trop gros.
+4. Au moins un outil est reconnu, chaque appel de chaque outil est suivi, et chaque description peut être lue.
+5. Verrou du vert (décidé le 29 octobre 2026) : si le code serveur importe une bibliothèque réseau et s'en sert, au moins une requête de cette bibliothèque doit être reconnue. Créer un client n'est pas une requête. Sinon le verdict est gris (`network_unresolved`) et le voyant « Va sur Internet » s'allume, avec la note « non suivi ». Le verrou ne change jamais un rouge ni un orange.
+
+Bibliothèques réseau : en Python `aiohttp`, `asyncio.open_connection`, `asyncio.start_server`, `ftplib`, `http.client`, `httpx`, `paramiko`, `postmarker`, `pycurl`, `requests`, `sendgrid`, `smtplib`, `socket`, `telnetlib`, `urllib.request`, `urllib3`, `websocket`, `websockets`, `yagmail` ; en JavaScript et TypeScript `@sendgrid/mail`, `axios`, `cross-fetch`, `dgram`, `dns`, `got`, `http`, `http2`, `https`, `isomorphic-fetch`, `ky`, `net`, `node-fetch`, `nodemailer`, `postmark`, `request`, `resend`, `socket.io-client`, `superagent`, `tls`, `undici`, `ws`. Elles viennent des tables réseau du moteur (`engine/src/mcplain/capabilities.py`).
+
+Ces imports ne comptent pas pour le verrou (faux positifs connus) :
+
+- un nom utilisé seulement comme type d'exception, comme dans `except httpx.TimeoutException` ;
+- un nom utilisé seulement dans des annotations de type, `import type` ou `import { type X }` ;
+- un import dans un bloc `if TYPE_CHECKING:`, et un nom utilisé seulement dans `isinstance()` ou à droite de `instanceof` ;
+- un nom importé qui n'est jamais utilisé ;
+- les parties de la bibliothèque standard qui ne peuvent pas aller sur le réseau, comme `urllib.parse` ou `http.HTTPStatus`.
+
 ## Les voyants
 
 Chaque rapport montre six voyants, pour le serveur et pour chaque outil. Une capacité trouvée dans le code qui compte pour le verdict allume le voyant : il devient blanc, pour information. Une règle rouge déclenchée le passe en danger : il devient rouge. Les règles orange n'allument jamais de rouge. Une simple lecture de variable d'environnement (PORT, LOG_LEVEL) n'allume rien. R11 (paquet malveillant connu) n'allume aucun voyant : il s'affiche dans la liste des alertes. Cette table est générée depuis `engine/src/mcplain/lamps.py`.
