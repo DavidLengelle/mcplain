@@ -38,6 +38,9 @@ function LampNote({ lamp, domains }: { lamp: Lamp; domains: string[] | null }) {
   if (lamp.state === "danger" && lamp.rules.length > 0) {
     return <EngineText code={`rule.${lamp.rules[0]}.plain_title`} />;
   }
+  if (lamp.note !== null) {
+    return <EngineText code={lamp.note} />;
+  }
   if (lamp.id === "internet" && lamp.state === "on" && domains !== null) {
     return <EngineText code="lamp.internet.note_domains" params={{ domains: domains.join(", ") }} />;
   }
@@ -46,6 +49,9 @@ function LampNote({ lamp, domains }: { lamp: Lamp; domains: string[] | null }) {
 
 function hasNote(lamp: Lamp, domains: string[] | null): boolean {
   if (lamp.state === "danger" && lamp.rules.length > 0) {
+    return true;
+  }
+  if (lamp.note !== null) {
     return true;
   }
   return lamp.id === "internet" && lamp.state === "on" && domains !== null;

@@ -1,26 +1,26 @@
 {
-  "id": "fca15eb8-31a3-456c-93dd-7b3415ea4b80",
+  "id": "6d055784-ecf7-4782-856d-14dce31eecf5",
   "input": "uvx mcp-server-time",
   "select": null,
   "state": "done",
-  "created_at": "2026-10-06T15:49:28.520839+00:00",
-  "finished_at": "2026-10-06T15:49:30.936309+00:00",
-  "analyzed_at": "2026-10-06T15:49:30.936309+00:00",
+  "created_at": "2026-10-29T17:50:49.577521+00:00",
+  "finished_at": "2026-10-29T17:50:51.807798+00:00",
+  "analyzed_at": "2026-10-29T17:50:51.807798+00:00",
   "from_cache": false,
   "result": {
     "error": null,
     "notes": [],
     "source": {
-      "url": "https://files.pythonhosted.org/packages/ad/d9/fcc7f85f0cdcfa8da9c650439128dd72be21855a126b745f17cf43f24b11/mcp_server_time-2026.8.18-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/b7/80/7dd02586d71de86aa433fa5d269104c0acccd613564be1e59fc50b4987c9/mcp_server_time-2026.10.28-py3-none-any.whl",
       "kind": "pypi",
       "name": "mcp-server-time",
       "origin": "published_package",
       "reason": "source.requested_package",
       "subdir": null,
-      "version": "2026.8.18",
+      "version": "2026.10.28",
       "artifact": "wheel",
       "revision": null,
-      "integrity": "sha256:1407583af42dc0163909d855c9ef20114a12b4981c3975033721a7906cdd212a",
+      "integrity": "sha256:4b8a1865e8c45da2d2247e72ca83ea087e5c8bc597c9ca93c63e9103aeb46c31",
       "reference": null,
       "repository": null,
       "requested_version": "latest"
@@ -35,31 +35,37 @@
         "lamps": [
           {
             "id": "files_read",
+            "note": null,
             "rules": [],
             "state": "off"
           },
           {
             "id": "files_write",
+            "note": null,
             "rules": [],
             "state": "off"
           },
           {
             "id": "internet",
+            "note": null,
             "rules": [],
             "state": "off"
           },
           {
             "id": "commands",
+            "note": null,
             "rules": [],
             "state": "off"
           },
           {
             "id": "secrets",
+            "note": null,
             "rules": [],
             "state": "off"
           },
           {
             "id": "hidden_text",
+            "note": null,
             "rules": [],
             "state": "off"
           }
@@ -68,36 +74,42 @@
           {
             "file": "mcp_server_time/server.py",
             "gaps": [],
-            "line": 132,
+            "line": 224,
             "name": "get_current_time",
             "lamps": [
               {
                 "id": "files_read",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "files_write",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "internet",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "commands",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "secrets",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "hidden_text",
+                "note": null,
                 "rules": [],
                 "state": "off"
               }
@@ -105,10 +117,11 @@
             "level": "none",
             "title": null,
             "findings": [],
+            "gap_places": [],
             "parameters": [
               {
                 "name": "timezone",
-                "type": "string",
+                "type": "Annotated[\n            str,\n            Field(\n                description=f\"IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use '{local_tz}' as local timezone if no timezone provided by the user.\"\n            ),\n        ]",
                 "description": "IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use '{}' as local timezone if no timezone provided by the user."
               }
             ],
@@ -118,7 +131,7 @@
               "idempotentHint": true,
               "destructiveHint": false
             },
-            "declaration": "low_level",
+            "declaration": "decorator",
             "description": "Get current time in a specific timezone",
             "location_kind": "server_code",
             "name_is_dynamic": false,
@@ -130,36 +143,42 @@
           {
             "file": "mcp_server_time/server.py",
             "gaps": [],
-            "line": 152,
+            "line": 240,
             "name": "convert_time",
             "lamps": [
               {
                 "id": "files_read",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "files_write",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "internet",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "commands",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "secrets",
+                "note": null,
                 "rules": [],
                 "state": "off"
               },
               {
                 "id": "hidden_text",
+                "note": null,
                 "rules": [],
                 "state": "off"
               }
@@ -167,20 +186,21 @@
             "level": "none",
             "title": null,
             "findings": [],
+            "gap_places": [],
             "parameters": [
               {
                 "name": "source_timezone",
-                "type": "string",
+                "type": "Annotated[\n            str,\n            Field(\n                description=f\"Source IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use '{local_tz}' as local timezone if no source timezone provided by the user.\"\n            ),\n        ]",
                 "description": "Source IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Use '{}' as local timezone if no source timezone provided by the user."
               },
               {
                 "name": "time",
-                "type": "string",
+                "type": "Annotated[\n            str, Field(description=\"Time to convert in 24-hour format (HH:MM)\")\n        ]",
                 "description": "Time to convert in 24-hour format (HH:MM)"
               },
               {
                 "name": "target_timezone",
-                "type": "string",
+                "type": "Annotated[\n            str,\n            Field(\n                description=f\"Target IANA timezone name (e.g., 'Asia/Tokyo', 'America/San_Francisco'). Use '{local_tz}' as local timezone if no target timezone provided by the user.\"\n            ),\n        ]",
                 "description": "Target IANA timezone name (e.g., 'Asia/Tokyo', 'America/San_Francisco'). Use '{}' as local timezone if no target timezone provided by the user."
               }
             ],
@@ -190,7 +210,7 @@
               "idempotentHint": true,
               "destructiveHint": false
             },
-            "declaration": "low_level",
+            "declaration": "decorator",
             "description": "Convert time between timezones",
             "location_kind": "server_code",
             "name_is_dynamic": false,
@@ -211,9 +231,11 @@
         "minified_files": [],
         "copy_recipients": [],
         "install_scripts": [],
+        "network_imports": [],
         "sensitive_paths": [],
         "internet_domains": null,
-        "invisible_unicode": []
+        "invisible_unicode": [],
+        "network_not_followed": []
       }
     ],
     "verdict": {
@@ -230,6 +252,7 @@
         "code": "verdict.green.summary",
         "params": {}
       },
+      "coverage": null,
       "gray_case": null,
       "rules_count": 20,
       "rules_version": "1",

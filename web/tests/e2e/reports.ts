@@ -17,6 +17,8 @@ export const REPORTS = {
   failed: "npm-not-found.view",
   multiple: "modelcontextprotocol-servers.view",
   awesome: "awesome-mcp-servers.view",
+  network: "network-unresolved.result",
+  partial: "partial-tracking.result",
 } as const;
 
 export type ReportName = keyof typeof REPORTS;

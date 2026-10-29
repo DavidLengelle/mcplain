@@ -133,7 +133,31 @@ test("smooth scrolling, and instant scrolling with reduced motion", async ({ pag
   expect(await page.evaluate(() => window.getComputedStyle(document.documentElement).scrollBehavior)).toBe("auto");
 });
 
-for (const name of ["green", "orange", "red", "failed", "multiple"] as const) {
+for (const theme of ["light", "dark"] as const) {
+  test(`the partial gray in the ${theme} theme says what was checked, then what was not`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: theme });
+    await serveAnalysis(page, [reportView("network")]);
+    await page.goto(`/fr/analyses/${ID}`);
+    await expect(page.locator('[data-verdict-word="gray"]')).toBeVisible();
+    await expect(page.locator("[data-verdict]")).toContainText("Ce code charge de quoi aller sur Internet (httpx)");
+    await expect(page.locator("[data-verdict]")).toContainText("Ça ne veut pas dire que ce MCP est sûr");
+    const coverage = page.locator("[data-coverage]");
+    await expect(coverage.locator('[data-coverage-part="checked"]')).toContainText("Outils entièrement suivis : 1 sur 1.");
+    await expect(coverage.locator('[data-coverage-item="network"]')).toContainText("clients.py:1");
+    await expect(page.locator('[data-lamp="internet"]')).toContainText("non suivi");
+    expect(await pageColor(page)).toBe(PAGE_COLORS[theme]);
+  });
+}
+
+test("a call not followed shows its line of code as raw text", async ({ page }) => {
+  await serveAnalysis(page, [reportView("partial")]);
+  await page.goto(`/analyses/${ID}`);
+  const item = page.locator('[data-coverage-item="call"]');
+  await expect(item).toContainText("Call not followed");
+  await expect(item.locator("[data-raw-text]")).toHaveCount(3);
+});
+
+for (const name of ["green", "orange", "red", "failed", "multiple", "network", "partial"] as const) {
   test(`the ${name} report fits a 390 pixel wide phone`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await serveAnalysis(page, [reportView(name)]);

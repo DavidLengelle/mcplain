@@ -42,7 +42,7 @@ Network libraries: in Python `aiohttp`, `asyncio.open_connection`, `asyncio.star
 These imports do not count for the lock (known false positives):
 
 - a name used only as an exception type, as in `except httpx.TimeoutException`;
-- a name used only in type annotations, `import type` or `import { type X }`;
+- a name used only in type annotations, or imported with `import type` or a `type` marker;
 - an import inside an `if TYPE_CHECKING:` block, and a name used only in `isinstance()` or on the right of `instanceof`;
 - an imported name that is never used;
 - the parts of the standard library that cannot reach the network, such as `urllib.parse` or `http.HTTPStatus`.

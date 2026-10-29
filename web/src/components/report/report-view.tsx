@@ -9,6 +9,7 @@ import { AiNoticeSlot } from "./ai-notice-slot";
 import { AlertPoints } from "./alert-points";
 import { BackToTop } from "./back-to-top";
 import { CandidatesList } from "./candidates-list";
+import { CoverageBlock } from "./coverage-block";
 import { IdentityLine } from "./identity-line";
 import { LampCluster } from "./lamp-cluster";
 import { LinkListNotice } from "./link-list-notice";
@@ -41,6 +42,7 @@ function FullReport({ analysis, result }: { analysis: AnalysisView; result: Anal
     <div className="flex flex-col gap-7" data-report="">
       <IdentityLine analysis={analysis} source={result.source} />
       <VerdictBlock analysis={analysis} result={result} />
+      {result.verdict.coverage !== null && <CoverageBlock coverage={result.verdict.coverage} />}
       <AiNoticeSlot />
       {server !== null && <PlainSummary result={result} server={server} />}
       {server !== null && <LampCluster server={server} />}

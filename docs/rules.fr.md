@@ -42,7 +42,7 @@ Bibliothèques réseau : en Python `aiohttp`, `asyncio.open_connection`, `asynci
 Ces imports ne comptent pas pour le verrou (faux positifs connus) :
 
 - un nom utilisé seulement comme type d'exception, comme dans `except httpx.TimeoutException` ;
-- un nom utilisé seulement dans des annotations de type, `import type` ou `import { type X }` ;
+- un nom utilisé seulement dans des annotations de type, ou importé avec `import type` ou une marque `type` ;
 - un import dans un bloc `if TYPE_CHECKING:`, et un nom utilisé seulement dans `isinstance()` ou à droite de `instanceof` ;
 - un nom importé qui n'est jamais utilisé ;
 - les parties de la bibliothèque standard qui ne peuvent pas aller sur le réseau, comme `urllib.parse` ou `http.HTTPStatus`.

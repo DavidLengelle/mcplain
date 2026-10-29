@@ -15,7 +15,7 @@ export type Place = { function: string | null; file: string; line: number | null
 export type InvisibleCount = { label: string; count: number };
 
 export function offLamps(): Lamp[] {
-  return LAMP_IDS.map((id) => ({ id, state: "off", rules: [] }));
+  return LAMP_IDS.map((id) => ({ id, state: "off", rules: [], note: null }));
 }
 
 export function litLamps(lamps: Lamp[]): Lamp[] {

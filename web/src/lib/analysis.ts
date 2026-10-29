@@ -13,6 +13,7 @@ export const OUTSIDE_KINDS = ["startup", "install", "never_called"] as const;
 export const LAMP_IDS = ["files_read", "files_write", "internet", "commands", "secrets", "hidden_text"] as const;
 export const LAMP_STATES = ["off", "on", "danger"] as const;
 export const TOOL_LEVELS = ["none", "warn", "danger"] as const;
+export const COVERAGE_KINDS = ["call", "description", "file", "network", "tools"] as const;
 export const MESSAGE_KEY_PATTERN = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/;
 
 export type VerdictColor = (typeof VERDICT_COLORS)[number];
@@ -23,8 +24,9 @@ export type OutsideKind = (typeof OUTSIDE_KINDS)[number];
 export type LampId = (typeof LAMP_IDS)[number];
 export type LampState = (typeof LAMP_STATES)[number];
 export type ToolLevel = (typeof TOOL_LEVELS)[number];
+export type CoverageKind = (typeof COVERAGE_KINDS)[number];
 
-export type Lamp = { id: LampId; state: LampState; rules: string[] };
+export type Lamp = { id: LampId; state: LampState; rules: string[]; note: string | null };
 
 export type Message = { code: string; params: Record<string, string> };
 
@@ -48,6 +50,24 @@ export type Alert = {
   detail: string | null;
 };
 
+export type CoverageItem = {
+  kind: CoverageKind;
+  reason: string;
+  name: string | null;
+  file: string | null;
+  line: number | null;
+  snippet: string | null;
+};
+
+export type Coverage = {
+  tools_total: number;
+  tools_followed: number;
+  files_total: number;
+  files_read: number;
+  not_checked: CoverageItem[];
+  not_checked_count: number;
+};
+
 export type Verdict = {
   color: VerdictColor;
   alerts: Alert[];
@@ -58,6 +78,7 @@ export type Verdict = {
   gray_case: string | null;
   title: Message | null;
   summary: Message | null;
+  coverage: Coverage | null;
 };
 
 export type Finding = {
@@ -144,6 +165,7 @@ export type Server = {
   files_analyzed: number;
   lamps: Lamp[];
   internet_domains: string[] | null;
+  network_not_followed: string[];
 };
 
 export type Source = {
@@ -356,6 +378,33 @@ function optionalMessageKey(value: unknown): string | null {
   return messageKey(value);
 }
 
+function coverageItem(value: unknown): CoverageItem {
+  const fields = object(value);
+  return {
+    kind: oneOf(fields.kind, COVERAGE_KINDS),
+    reason: messageKey(fields.reason),
+    name: optionalText(fields.name),
+    file: optionalText(fields.file),
+    line: optionalInteger(fields.line),
+    snippet: optionalText(fields.snippet),
+  };
+}
+
+function coverage(value: unknown): Coverage | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const fields = object(value);
+  return {
+    tools_total: integer(fields.tools_total),
+    tools_followed: integer(fields.tools_followed),
+    files_total: integer(fields.files_total),
+    files_read: integer(fields.files_read),
+    not_checked: list(fields.not_checked, coverageItem),
+    not_checked_count: optionalInteger(fields.not_checked_count) ?? 0,
+  };
+}
+
 function verdict(value: unknown): Verdict {
   const fields = object(value);
   return {
@@ -368,6 +417,7 @@ function verdict(value: unknown): Verdict {
     gray_case: optionalMessageKey(fields.gray_case),
     title: message(fields.title),
     summary: message(fields.summary),
+    coverage: coverage(fields.coverage),
   };
 }
 
@@ -377,6 +427,7 @@ function lamp(value: unknown): Lamp {
     id: oneOf(fields.id, LAMP_IDS),
     state: oneOf(fields.state, LAMP_STATES),
     rules: list(fields.rules, messageKey),
+    note: optionalMessageKey(fields.note),
   };
 }
 
@@ -523,6 +574,7 @@ function server(value: unknown): Server {
     files_analyzed: optionalInteger(fields.files_analyzed) ?? 0,
     lamps: lamps(fields.lamps),
     internet_domains: optionalTextList(fields.internet_domains),
+    network_not_followed: list(fields.network_not_followed, text),
   };
 }
 

@@ -21,7 +21,7 @@
   "catalog.green.libraries": "Network libraries: in Python {python}; in JavaScript and TypeScript {javascript}. They come from the network tables of the engine (`engine/src/mcplain/capabilities.py`).",
   "catalog.green.exceptions": "These imports do not count for the lock (known false positives):",
   "catalog.green.exception.except": "a name used only as an exception type, as in `except httpx.TimeoutException`;",
-  "catalog.green.exception.types": "a name used only in type annotations, `import type` or `import { type X }`;",
+  "catalog.green.exception.types": "a name used only in type annotations, or imported with `import type` or a `type` marker;",
   "catalog.green.exception.type_check": "an import inside an `if TYPE_CHECKING:` block, and a name used only in `isinstance()` or on the right of `instanceof`;",
   "catalog.green.exception.unused": "an imported name that is never used;",
   "catalog.green.exception.not_network": "the parts of the standard library that cannot reach the network, such as `urllib.parse` or `http.HTTPStatus`.",

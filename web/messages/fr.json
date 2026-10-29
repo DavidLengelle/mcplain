@@ -383,6 +383,11 @@
     "foundNothingDomains": "Rien de dangereux. Il va seulement sur : {domains}",
     "adviceNothing": "Rien ne s'y oppose. Repasse chaque nouvelle version au contrôle."
   },
+  "coverage": {
+    "heading": "CE QUE MCPLAIN A PU LIRE",
+    "checkedLabel": "VÉRIFIÉ",
+    "notCheckedLabel": "PAS VÉRIFIÉ"
+  },
   "lamps": {
     "heading": "LES VOYANTS",
     "count": "{lit, plural, =0 {Aucun allumé sur {total}} one {# allumé sur {total}} other {# allumés sur {total}}}",

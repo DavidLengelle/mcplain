@@ -24,6 +24,8 @@ const RED = "postmark-like.result";
 const GREEN_DOMAINS = "fixed-domains.result";
 const FAILED = "npm-not-found.view";
 const MULTIPLE = "modelcontextprotocol-servers.view";
+const NETWORK = "network-unresolved.result";
+const PARTIAL = "partial-tracking.result";
 const TRAP_MARK = "TRAP";
 const BIDI = "\u202E";
 const THIRD_PARTY_KEYS = new Set([
@@ -163,6 +165,66 @@ describe("lamps", () => {
   });
 });
 
+describe("lamps of a network not followed", () => {
+  it("lights the internet lamp and says it was not followed", () => {
+    const { container } = renderWithIntl(<LampCluster server={server(NETWORK)} />, "fr");
+    const internet = container.querySelector('[data-lamp="internet"]');
+    expect(internet?.getAttribute("data-state")).toBe("on");
+    expect(internet?.textContent).toContain("non suivi");
+    expect(internet?.textContent).not.toContain("Seulement");
+  });
+});
+
+describe("partial gray", () => {
+  it("shows the gray case of a network library not followed, then what was checked and what was not", () => {
+    const { container } = renderWithIntl(<ReportView analysis={loadView(NETWORK)} />, "fr");
+    const verdict = container.querySelector("[data-verdict]");
+    expect(verdict?.getAttribute("data-verdict")).toBe("gray");
+    expect(verdict?.textContent).toContain("Ce code charge de quoi aller sur Internet (httpx)");
+    expect(verdict?.textContent).toContain("Ça ne veut pas dire que ce MCP est sûr");
+    const coverage = container.querySelector("[data-coverage]");
+    expect(coverage).not.toBeNull();
+    expect(verdict?.compareDocumentPosition(coverage!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    const checked = coverage?.querySelector('[data-coverage-part="checked"]');
+    expect(checked?.textContent).toContain("VÉRIFIÉ");
+    expect(checked?.textContent).toContain("Outils entièrement suivis : 1 sur 1. Fichiers lus : 2 sur 2.");
+    expect(checked?.textContent).toContain("Rien de suspect dans ce qui a été lu.");
+    const missing = coverage?.querySelector('[data-coverage-part="not-checked"]');
+    expect(missing?.textContent).toContain("PAS VÉRIFIÉ");
+    const item = missing?.querySelector('[data-coverage-item="network"]');
+    expect(item?.textContent).toContain("Bibliothèque réseau");
+    expect(item?.textContent).toContain("httpx");
+    expect(item?.textContent).toContain("clients.py:1");
+    expect(item?.textContent).toContain("MCPlain n'a pas vu où il s'en sert");
+  });
+
+  it("lists a call not followed with its tool, its place and its line of code", () => {
+    const { container } = renderWithIntl(<ReportView analysis={loadView(PARTIAL)} />);
+    const coverage = container.querySelector("[data-coverage]");
+    expect(coverage?.textContent).toContain("Tools fully followed: 1 of 2. Files read: 1 of 1.");
+    const item = coverage?.querySelector('[data-coverage-item="call"]');
+    expect(item?.textContent).toContain("Call not followed");
+    expect(item?.textContent).toContain("find");
+    expect(item?.textContent).toContain("method of an object of unknown type");
+    expect(item?.textContent).toMatch(/server\.py:\d+/);
+    expect(item?.textContent).toContain("index.search(text)");
+    expect(item?.querySelectorAll("[data-raw-text]").length).toBe(3);
+  });
+
+  it("says how many points were left out of a long list", () => {
+    const raw = rawView(PARTIAL) as { result: { verdict: { coverage: Record<string, unknown> } } };
+    raw.result.verdict.coverage.not_checked_count = 45;
+    const view = parseAnalysisView(raw);
+    const { container } = renderWithIntl(<ReportView analysis={view!} />, "fr");
+    expect(container.querySelector("[data-coverage]")?.textContent).toContain("… et 44 autres points.");
+  });
+
+  it.each([ORANGE, RED, GREEN_DOMAINS, FAILED])("shows no coverage block for %s", (file) => {
+    const { container } = renderWithIntl(<ReportView analysis={loadView(file)} />);
+    expect(container.querySelector("[data-coverage]")).toBeNull();
+  });
+});
+
 describe("tool cards", () => {
   it("rings warn tools in orange, danger tools in red, and the selected one in blue", () => {
     const tools = server(ORANGE).tools;
@@ -227,7 +289,7 @@ describe("report view", () => {
     expect(screen.queryByRole("button", { name: "Run again" })).toBeNull();
   });
 
-  it.each([ORANGE, RED, GREEN_DOMAINS, FAILED, MULTIPLE])("shows every third-party field of %s with RawText", (file) => {
+  it.each([ORANGE, RED, GREEN_DOMAINS, FAILED, MULTIPLE, NETWORK, PARTIAL])("shows every third-party field of %s with RawText", (file) => {
     const trapped = trapThirdParty(rawView(file), trapper()) as Record<string, unknown>;
     const view = parseAnalysisView({ ...trapped, id: rawView(file).id });
     expect(view).not.toBeNull();

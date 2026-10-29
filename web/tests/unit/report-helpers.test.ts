@@ -4,7 +4,7 @@ import type { Alert, Lamp, Tool } from "@/lib/analysis";
 import { countLamps, defaultToolIndex, joinList, placeText, toolNumber } from "@/lib/report";
 
 function lamp(id: Lamp["id"], state: Lamp["state"]): Lamp {
-  return { id, state, rules: [] };
+  return { id, state, rules: [], note: null };
 }
 
 function tool(name: string, level: Tool["level"]): Tool {

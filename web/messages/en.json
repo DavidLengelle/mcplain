@@ -383,6 +383,11 @@
     "foundNothingDomains": "Nothing dangerous. It only goes to: {domains}",
     "adviceNothing": "Nothing stands in the way. Check each new version again."
   },
+  "coverage": {
+    "heading": "WHAT MCPLAIN COULD READ",
+    "checkedLabel": "CHECKED",
+    "notCheckedLabel": "NOT CHECKED"
+  },
   "lamps": {
     "heading": "THE LAMPS",
     "count": "{lit, plural, =0 {None lit out of {total}} other {# lit out of {total}}}",
