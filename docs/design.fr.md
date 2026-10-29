@@ -84,7 +84,7 @@ ci-dessous est tiré du fichier CSS ; si tu changes une valeur, change-la dans `
 | `--toggle-fg` | `#3B4E62` | `#9DB0C3` | texte d'un choix non actif |
 | `--toggle-on-bg` | `#0A62A6` | `#22303E` | fond du choix actif |
 | `--toggle-on-fg` | `#FFFFFF` | `#FFFFFF` | texte du choix actif |
-| `--counter-off` | `#AFBDCB` | `#22303E` | case vide du futur compteur d'analyses (séance 8) |
+| `--counter-off` | `#AFBDCB` | `#22303E` | case vide du futur compteur d'analyses (séance 9) |
 | `--demo-bg` | `#46596D` | `#9DB0C3` | fond de l'étiquette EXEMPLE FICTIF |
 | `--demo-fg` | `#FFFFFF` | `#0C131B` | texte de l'étiquette EXEMPLE FICTIF |
 | `--orig-bg` | `#0C131B` | `#EDF2F7` | fond de l'étiquette « Texte de l'auteur » |

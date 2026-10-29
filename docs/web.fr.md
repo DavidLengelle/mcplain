@@ -250,7 +250,7 @@ affichent.
 | --- | --- | --- | --- |
 | 1 | `identity-line.tsx` | la vue et la source | paquet, version, origine, date `analyzed_at` |
 | 2 | `verdict-block.tsx` (+ `gauge.tsx`) | la vue et le résultat | la jauge, le mot, le titre et la phrase du moteur, « Relancer » si besoin |
-| 3 | `ai-notice-slot.tsx` | rien | rien pour l'instant (notice de l'IA, séance 7) |
+| 3 | `ai-notice-slot.tsx` | rien | rien pour l'instant (notice de l'IA, séance 8) |
 | 4 | `plain-summary.tsx` | le résultat et le serveur | EN CLAIR : ce qu'il peut faire, ce qu'on a trouvé, ce que tu peux faire |
 | 5 | `lamp-cluster.tsx` | le serveur | les six voyants, leur état écrit, le compteur |
 | 6 | `alert-points.tsx` | le résultat, les outils, deux fonctions de clic | DANGER (n) puis À VÉRIFIER (n), une ligne par alerte |
