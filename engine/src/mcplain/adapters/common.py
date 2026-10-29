@@ -218,6 +218,11 @@ def extract_urls(value: str) -> list[tuple[str, str]]:
     return found
 
 
+UTF8_MAX_BYTES = 4
+UTF8_CONTINUATION_MASK = 0xC0
+UTF8_CONTINUATION = 0x80
+
+
 class SourceText:
     """Class that turns byte offsets into lines, columns and snippets"""
 
@@ -228,6 +233,11 @@ class SourceText:
         self.data = text.encode("utf-8")
         self.limits = limits
         self._line_starts = [0] + [match.end() for match in re.finditer(b"\n", self.data)]
+
+    def line_of(self, offset: int) -> int:
+        """Return the 1-based line of a byte offset, without decoding anything"""
+
+        return bisect_right(self._line_starts, offset)
 
     def position(self, offset: int) -> tuple[int, int]:
         """Return the 1-based line and column of a byte offset"""
@@ -247,16 +257,27 @@ class SourceText:
         return self.data[start:end].decode("utf-8", errors="replace").rstrip("\r\n")
 
     def snippet(self, offset: int) -> str:
-        """Return the source line around an offset, cut to the snippet limit"""
+        """Return the source line around an offset, cut to the snippet limit; a long line is read only near the offset"""
 
-        line, column = self.position(offset)
-        text = self.line_text(line)
+        line = self.line_of(offset)
         limit = self.limits.max_snippet_chars
-        stripped = text.strip()
-        if len(stripped) <= limit:
-            return stripped
-        start = max(0, column - 1 - limit // 4)
-        return text[start:start + limit]
+        start = self._line_starts[line - 1]
+        end = len(self.data)
+        if line < len(self._line_starts):
+            end = self._line_starts[line]
+        if end - start <= limit * UTF8_MAX_BYTES:
+            text = self.line_text(line)
+            stripped = text.strip()
+            if len(stripped) <= limit:
+                return stripped
+            _, column = self.position(offset)
+            begin = max(0, column - 1 - limit // 4)
+            return text[begin:begin + limit]
+        begin = max(start, offset - limit // 4)
+        while begin > start and self.data[begin] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION:
+            begin -= 1
+        window = self.data[begin:min(end, begin + limit * UTF8_MAX_BYTES)]
+        return window.decode("utf-8", errors="replace")[:limit].rstrip("\r\n")
 
     def is_minified(self, relative_path: str) -> bool:
         """Tell whether the file looks minified"""

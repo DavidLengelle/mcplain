@@ -1,9 +1,11 @@
 """Tests for incomplete tracking, dispatch tables, package class instances and code outside the tools"""
 
+import time
 from pathlib import Path
 
 import pytest
 
+from mcplain.adapters.common import SourceText
 from mcplain.adapters.javascript import JavaScriptAdapter
 from mcplain.adapters.python import PythonAdapter
 from mcplain.capabilities import Capability
@@ -432,3 +434,45 @@ process.on("SIGHUP", () => fs.rmSync("/tmp/x.invalid"));
     assert ("index.js", Capability.FS_READ, OutsideKind.STARTUP) in kinds
     assert ("index.js", Capability.FS_WRITE, OutsideKind.NEVER_CALLED) in kinds
     assert ("scripts/setup.js", Capability.FS_WRITE, OutsideKind.INSTALL) in kinds
+
+
+
+def test_a_snippet_on_a_bundled_line_reads_only_near_the_offset() -> None:
+    """A two megabyte line: a thousand snippets stay fast, and each one keeps the text around its offset"""
+
+    source = SourceText("a\n" + "x" * 1_000_000 + "index.search(text)" + "y" * 1_000_000 + "\n", Limits())
+    offset = 2 + 1_000_000
+    started = time.monotonic()
+    for _ in range(1000):
+        snippet = source.snippet(offset)
+    assert time.monotonic() - started < 2
+    assert "index.search(text)" in snippet
+    assert len(snippet) == Limits().max_snippet_chars
+    assert source.line_of(offset) == 2
+
+
+def test_gap_places_are_cut_to_the_limit(tmp_path: Path) -> None:
+    """Many calls not followed in one tool: only the first places are kept"""
+
+    calls = "\n".join(f"        index.search(text + '{number}')" for number in range(60))
+    body = f"""
+
+class Index:
+    def search(self, text):
+        return text
+
+
+def build(index):
+    mcp = FastMCP("x")
+
+    @mcp.tool()
+    def find(text: str) -> str:
+        \"\"\"Find text\"\"\"
+{calls}
+        return text
+
+    return mcp
+"""
+    places = tool(python(tmp_path, body), "find").gap_places
+    assert len(places) == Limits().max_gap_places
+    assert [place.line for place in places] == sorted(place.line for place in places)
