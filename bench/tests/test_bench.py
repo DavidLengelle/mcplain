@@ -291,6 +291,9 @@ def test_the_summary_never_names_a_red_server() -> None:
     assert bench.HIDDEN_NAME in markdown
     assert "The bench fails" in markdown
     assert "secret-name" not in bench.progress_line(records[0])
+    unlisted = bench.render_markdown(bench.build_run(records, {"servers": {}}, "0.3.0", "2026-10-29"))
+    assert "secret-name" not in unlisted
+    assert "Not in the baseline: b, 1 (name hidden" in unlisted
 
 
 def test_the_summary_lists_gray_causes_and_failures() -> None:
@@ -368,3 +371,13 @@ def test_the_baseline_command_writes_the_file(tmp_path: Path) -> None:
     assert bench.main(["baseline", str(results), "--baseline", str(target)]) == 0
     assert json.loads(target.read_text(encoding="utf-8"))["servers"]["a"]["color"] == "orange"
     assert bench.main(["baseline", str(tmp_path / "none.json"), "--baseline", str(target)]) == 2
+
+
+def test_the_summary_command_prints_a_results_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    results = tmp_path / "results.json"
+    bench.write_json(results, bench.build_run([record("secret-name", "red")], None, "0.2.1", "2026-10-29"))
+    assert bench.main(["summary", str(results)]) == 0
+    printed = capsys.readouterr().out
+    assert "| 0 | 0 | 1 | 0 | 0 |" in printed
+    assert "secret-name" not in printed
+    assert bench.main(["summary", str(tmp_path / "none.json")]) == 2

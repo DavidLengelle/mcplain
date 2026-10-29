@@ -36,3 +36,5 @@ npm-debug.log*
 Thumbs.db
 
 var/
+
+/bench/results/*.json

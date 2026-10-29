@@ -350,6 +350,16 @@ def shown_name(server_id: str, hidden: set[str]) -> str:
     return server_id
 
 
+def shown_names(server_ids: list[str], hidden: set[str]) -> str:
+    """Return a list of server ids for a summary, with the red ones counted but not named"""
+
+    names = [item for item in server_ids if item not in hidden]
+    count = len(server_ids) - len(names)
+    if count:
+        names.append(f"{count} {HIDDEN_NAME}")
+    return ", ".join(names) or "none"
+
+
 def render_markdown(run: dict[str, Any]) -> str:
     """Write the summary of a run in Markdown; the name of a red server is never written"""
 
@@ -411,14 +421,14 @@ def comparison_lines(comparison: dict[str, Any], hidden: set[str]) -> list[str]:
         )
         lines.append("")
     if comparison["unverified"]:
-        lines.extend(["### Not verified (failure apart)", "", ", ".join(comparison["unverified"]), ""])
+        lines.extend(["### Not verified (failure apart)", "", shown_names(comparison["unverified"], hidden), ""])
     if comparison["new"] or comparison["removed"]:
         lines.extend(
             [
                 "### List changes",
                 "",
-                f"Not in the baseline: {', '.join(comparison['new']) or 'none'}. "
-                f"Gone from the list: {', '.join(comparison['removed']) or 'none'}.",
+                f"Not in the baseline: {shown_names(comparison['new'], hidden)}. "
+                f"Gone from the list: {shown_names(comparison['removed'], hidden)}.",
                 "",
             ]
         )
@@ -535,6 +545,17 @@ def command_baseline(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def command_summary(arguments: argparse.Namespace) -> int:
+    """Print the Markdown summary of a results file, without the name of a red server"""
+
+    run = read_json(Path(arguments.results))
+    if run is None:
+        print(f"No results file: {arguments.results}", file=sys.stderr)
+        return 2
+    print(render_markdown(run), end="")
+    return 0
+
+
 def command_compare(arguments: argparse.Namespace) -> int:
     """Print the counts of two results files side by side, then the servers whose color changed"""
 
@@ -604,6 +625,9 @@ def parser() -> argparse.ArgumentParser:
     baseline.add_argument("results")
     baseline.add_argument("--baseline", default=str(BASELINE_FILE))
     baseline.set_defaults(handler=command_baseline)
+    summary = commands.add_parser("summary", help="print the summary of a results file")
+    summary.add_argument("results")
+    summary.set_defaults(handler=command_summary)
     versus = commands.add_parser("compare", help="compare two results files")
     versus.add_argument("before")
     versus.add_argument("after")
