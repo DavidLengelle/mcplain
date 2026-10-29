@@ -106,6 +106,7 @@ class GapPlace(BaseModel):
     gap: TrackingGap
     file: str
     line: int
+    snippet: str = ""
 
 
 class OutsideKind(StrEnum):

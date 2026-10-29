@@ -378,12 +378,16 @@ class Adapter(ABC):
     def _gap_places(self, reports: dict[str, FileReport], places: set[tuple[str, int, TrackingGap]]) -> list[GapPlace]:
         """Turn the offsets of calls that could not be followed into places, one per line and reason, sorted"""
 
-        found: set[tuple[str, int, TrackingGap]] = set()
+        found: dict[tuple[str, int, TrackingGap], str] = {}
         for file, offset, gap in places:
-            line, _ = reports[file].source.position(offset)
-            found.add((file, line, gap))
+            source = reports[file].source
+            line, _ = source.position(offset)
+            found.setdefault((file, line, gap), source.snippet(offset))
         ordered = sorted(found, key=lambda item: (item[0], item[1], item[2].value))
-        return [GapPlace(gap=gap, file=file, line=line) for file, line, gap in ordered[: self.limits.max_gap_places]]
+        return [
+            GapPlace(gap=gap, file=file, line=line, snippet=found[(file, line, gap)])
+            for file, line, gap in ordered[: self.limits.max_gap_places]
+        ]
 
     def _attach_table_entries(
         self,
