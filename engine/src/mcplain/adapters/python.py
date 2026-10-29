@@ -599,7 +599,9 @@ class _PythonFile:
             start, end = self._scope_of(assignment, wanted)
             if right.type == "dictionary" and (left.type == "identifier" or wanted == "class_definition"):
                 entries = self._table_entries(right)
-                if entries:
+                if not entries:
+                    entries = self._closed_table(right)
+                if entries is not None and (entries or right.named_children):
                     self.tables.append((name, start, end, entries))
                 continue
             instance = self._constructed_class(right)
@@ -631,6 +633,36 @@ class _PythonFile:
                 continue
             entries.append((text.value, value))
         return entries
+
+    def _closed_table(self, dictionary: Node) -> list[tuple[str, Node]] | None:
+        """Return the entries of a dict whose every value is a package function or an outside function with no capability"""
+
+        entries: list[tuple[str, Node]] = []
+        for pair in dictionary.named_children:
+            key = pair.child_by_field_name("key")
+            value = pair.child_by_field_name("value")
+            if pair.type != "pair" or key is None or value is None or value.type not in REFERENCE_TYPES:
+                return None
+            if self.call_target(value, value.start_byte) is not None:
+                text = self.static_text(key)
+                entries.append((text.value, value))
+                continue
+            if not self._inert_reference(value):
+                return None
+        return entries
+
+    def _inert_reference(self, node: Node) -> bool:
+        """Tell whether a name refers to an imported outside function that matches no capability, like operator.add"""
+
+        parts = dotted_parts(node)
+        if not parts or parts[0] not in self.aliases:
+            return False
+        qualified, imported = self._resolve(parts)
+        if not imported or self.internal_target(qualified) is not None:
+            return False
+        if qualified in PYTHON_OPEN_FUNCTIONS or qualified in PYTHON_ENV_GETTERS or qualified in PYTHON_ENV_MAPPINGS:
+            return False
+        return match_rule(PYTHON_RULES, qualified, RuleKind.MODULE) is None
 
     def _constructed_class(self, node: Node | None) -> tuple[str, str | None] | None:
         """Return the package class created by a call like Store(...), as class name and file"""
