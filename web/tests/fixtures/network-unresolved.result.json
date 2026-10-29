@@ -1,0 +1,220 @@
+{
+  "status": "ok",
+  "source": null,
+  "local_path": "tests/fixtures/python_network_elsewhere",
+  "reputation": {
+    "status": "not_checked",
+    "queried": 0,
+    "packages": []
+  },
+  "ignored_arguments": [],
+  "servers": [
+    {
+      "path": ".",
+      "name": "status-reader-server",
+      "language": "python",
+      "sdk": "mcp",
+      "tools": [
+        {
+          "name": "service_status",
+          "name_is_dynamic": false,
+          "description": "Tell whether the status page answers",
+          "description_is_dynamic": false,
+          "parameters": [],
+          "parameters_are_dynamic": false,
+          "file": "server.py",
+          "line": 8,
+          "declaration": "decorator",
+          "location_kind": "server_code",
+          "title": null,
+          "title_is_dynamic": false,
+          "annotations": {},
+          "annotations_are_dynamic": false,
+          "findings": [
+            {
+              "capability": "network",
+              "file": "clients.py",
+              "line": 6,
+              "column": 12,
+              "snippet": "return httpx.AsyncClient(timeout=10.0)",
+              "function": "make_client",
+              "location_kind": "server_code",
+              "detail": "httpx.AsyncClient",
+              "call_chain": [
+                {
+                  "function": "make_client",
+                  "file": "clients.py",
+                  "line": 4
+                }
+              ],
+              "shared_by_tools": false,
+              "outside": null,
+              "url_kind": "unknown",
+              "url_host": null,
+              "sends": false
+            }
+          ],
+          "gaps": [],
+          "gap_places": [],
+          "lamps": [
+            {
+              "id": "files_read",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "files_write",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "internet",
+              "state": "on",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "commands",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "secrets",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "hidden_text",
+              "state": "off",
+              "rules": [],
+              "note": null
+            }
+          ],
+          "level": "none"
+        }
+      ],
+      "findings": [],
+      "domains": [
+        {
+          "domain": "status.example.com",
+          "url": "https://status.example.com/health",
+          "file": "server.py",
+          "line": 12,
+          "location_kind": "server_code",
+          "tool": "service_status"
+        }
+      ],
+      "sensitive_paths": [],
+      "install_scripts": [],
+      "invisible_unicode": [],
+      "flows": [],
+      "text_matches": [],
+      "copy_recipients": [],
+      "compiled_files": [],
+      "minified_files": [],
+      "parse_errors": [],
+      "skipped_files": [],
+      "network_imports": [
+        {
+          "library": "httpx",
+          "file": "clients.py",
+          "line": 1,
+          "location_kind": "server_code"
+        }
+      ],
+      "files_analyzed": 2,
+      "lamps": [
+        {
+          "id": "files_read",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "files_write",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "internet",
+          "state": "on",
+          "rules": [],
+          "note": "lamp.internet.note_not_followed"
+        },
+        {
+          "id": "commands",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "secrets",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "hidden_text",
+          "state": "off",
+          "rules": [],
+          "note": null
+        }
+      ],
+      "internet_domains": null,
+      "network_not_followed": [
+        "httpx"
+      ]
+    }
+  ],
+  "available_servers": [],
+  "available_servers_truncated": false,
+  "language": null,
+  "compiled_files": [],
+  "notes": [],
+  "error": null,
+  "verdict": {
+    "color": "gray",
+    "alerts": [],
+    "reasons": [
+      "caveat.network_unresolved"
+    ],
+    "rules_version": "1",
+    "rules_count": 20,
+    "contacted_domains": [],
+    "gray_case": "network_unresolved",
+    "title": {
+      "code": "gray.network_unresolved.reason",
+      "params": {
+        "library": "httpx"
+      }
+    },
+    "summary": {
+      "code": "gray.network_unresolved.advice",
+      "params": {
+        "library": "httpx"
+      }
+    },
+    "coverage": {
+      "tools_total": 1,
+      "tools_followed": 1,
+      "files_total": 2,
+      "files_read": 2,
+      "not_checked": [
+        {
+          "kind": "network",
+          "reason": "network_unresolved",
+          "name": "httpx",
+          "file": "clients.py",
+          "line": 1,
+          "snippet": null
+        }
+      ],
+      "not_checked_count": 1
+    }
+  }
+}

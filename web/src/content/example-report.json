@@ -48,38 +48,45 @@
           "annotations_are_dynamic": false,
           "findings": [],
           "gaps": [],
+          "gap_places": [],
           "lamps": [
             {
               "id": "files_read",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             },
             {
               "id": "files_write",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             },
             {
               "id": "internet",
               "state": "danger",
               "rules": [
                 "R05"
-              ]
+              ],
+              "note": null
             },
             {
               "id": "commands",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             },
             {
               "id": "secrets",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             },
             {
               "id": "hidden_text",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             }
           ],
           "level": "danger"
@@ -107,42 +114,50 @@
       "minified_files": [],
       "parse_errors": [],
       "skipped_files": [],
+      "network_imports": [],
       "files_analyzed": 1,
       "lamps": [
         {
           "id": "files_read",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         },
         {
           "id": "files_write",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         },
         {
           "id": "internet",
           "state": "danger",
           "rules": [
             "R05"
-          ]
+          ],
+          "note": null
         },
         {
           "id": "commands",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         },
         {
           "id": "secrets",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         },
         {
           "id": "hidden_text",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         }
       ],
-      "internet_domains": null
+      "internet_domains": null,
+      "network_not_followed": []
     }
   ],
   "available_servers": [],
@@ -182,6 +197,7 @@
     "summary": {
       "code": "rule.R05.plain_found",
       "params": {}
-    }
+    },
+    "coverage": null
   }
 }

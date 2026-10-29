@@ -55,36 +55,43 @@
             }
           ],
           "gaps": [],
+          "gap_places": [],
           "lamps": [
             {
               "id": "files_read",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             },
             {
               "id": "files_write",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             },
             {
               "id": "internet",
               "state": "on",
-              "rules": []
+              "rules": [],
+              "note": null
             },
             {
               "id": "commands",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             },
             {
               "id": "secrets",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             },
             {
               "id": "hidden_text",
               "state": "off",
-              "rules": []
+              "rules": [],
+              "note": null
             }
           ],
           "level": "none"
@@ -140,42 +147,57 @@
       "minified_files": [],
       "parse_errors": [],
       "skipped_files": [],
+      "network_imports": [
+        {
+          "library": "requests",
+          "file": "server.py",
+          "line": 1,
+          "location_kind": "server_code"
+        }
+      ],
       "files_analyzed": 1,
       "lamps": [
         {
           "id": "files_read",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         },
         {
           "id": "files_write",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         },
         {
           "id": "internet",
           "state": "on",
-          "rules": []
+          "rules": [],
+          "note": null
         },
         {
           "id": "commands",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         },
         {
           "id": "secrets",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         },
         {
           "id": "hidden_text",
           "state": "off",
-          "rules": []
+          "rules": [],
+          "note": null
         }
       ],
       "internet_domains": [
         "api.example.com"
-      ]
+      ],
+      "network_not_followed": []
     }
   ],
   "available_servers": [],
@@ -206,6 +228,7 @@
       "params": {
         "domains": "api.example.com"
       }
-    }
+    },
+    "coverage": null
   }
 }

@@ -1,0 +1,254 @@
+{
+  "status": "ok",
+  "source": null,
+  "local_path": "tests/fixtures/python_partial_tracking",
+  "reputation": {
+    "status": "not_checked",
+    "queried": 0,
+    "packages": []
+  },
+  "ignored_arguments": [],
+  "servers": [
+    {
+      "path": ".",
+      "name": "word-index-server",
+      "language": "python",
+      "sdk": "mcp",
+      "tools": [
+        {
+          "name": "find",
+          "name_is_dynamic": false,
+          "description": "Find the words that contain a text",
+          "description_is_dynamic": false,
+          "parameters": [
+            {
+              "name": "text",
+              "type": "str",
+              "description": null
+            }
+          ],
+          "parameters_are_dynamic": false,
+          "file": "server.py",
+          "line": 19,
+          "declaration": "decorator",
+          "location_kind": "server_code",
+          "title": null,
+          "title_is_dynamic": false,
+          "annotations": {},
+          "annotations_are_dynamic": false,
+          "findings": [],
+          "gaps": [
+            "unknown_type"
+          ],
+          "gap_places": [
+            {
+              "gap": "unknown_type",
+              "file": "server.py",
+              "line": 22,
+              "snippet": "return \", \".join(index.search(text))"
+            }
+          ],
+          "lamps": [
+            {
+              "id": "files_read",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "files_write",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "internet",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "commands",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "secrets",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "hidden_text",
+              "state": "off",
+              "rules": [],
+              "note": null
+            }
+          ],
+          "level": "none"
+        },
+        {
+          "name": "count",
+          "name_is_dynamic": false,
+          "description": "Count the words of a text",
+          "description_is_dynamic": false,
+          "parameters": [
+            {
+              "name": "text",
+              "type": "str",
+              "description": null
+            }
+          ],
+          "parameters_are_dynamic": false,
+          "file": "server.py",
+          "line": 24,
+          "declaration": "decorator",
+          "location_kind": "server_code",
+          "title": null,
+          "title_is_dynamic": false,
+          "annotations": {},
+          "annotations_are_dynamic": false,
+          "findings": [],
+          "gaps": [],
+          "gap_places": [],
+          "lamps": [
+            {
+              "id": "files_read",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "files_write",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "internet",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "commands",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "secrets",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "hidden_text",
+              "state": "off",
+              "rules": [],
+              "note": null
+            }
+          ],
+          "level": "none"
+        }
+      ],
+      "findings": [],
+      "domains": [],
+      "sensitive_paths": [],
+      "install_scripts": [],
+      "invisible_unicode": [],
+      "flows": [],
+      "text_matches": [],
+      "copy_recipients": [],
+      "compiled_files": [],
+      "minified_files": [],
+      "parse_errors": [],
+      "skipped_files": [],
+      "network_imports": [],
+      "files_analyzed": 1,
+      "lamps": [
+        {
+          "id": "files_read",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "files_write",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "internet",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "commands",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "secrets",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "hidden_text",
+          "state": "off",
+          "rules": [],
+          "note": null
+        }
+      ],
+      "internet_domains": null,
+      "network_not_followed": []
+    }
+  ],
+  "available_servers": [],
+  "available_servers_truncated": false,
+  "language": null,
+  "compiled_files": [],
+  "notes": [],
+  "error": null,
+  "verdict": {
+    "color": "gray",
+    "alerts": [],
+    "reasons": [
+      "caveat.incomplete_tracking"
+    ],
+    "rules_version": "1",
+    "rules_count": 20,
+    "contacted_domains": [],
+    "gray_case": "incomplete_tracking",
+    "title": {
+      "code": "gray.incomplete_tracking.reason",
+      "params": {}
+    },
+    "summary": {
+      "code": "gray.incomplete_tracking.advice",
+      "params": {}
+    },
+    "coverage": {
+      "tools_total": 2,
+      "tools_followed": 1,
+      "files_total": 1,
+      "files_read": 1,
+      "not_checked": [
+        {
+          "kind": "call",
+          "reason": "unknown_type",
+          "name": "find",
+          "file": "server.py",
+          "line": 22,
+          "snippet": "return \", \".join(index.search(text))"
+        }
+      ],
+      "not_checked_count": 1
+    }
+  }
+}
