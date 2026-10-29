@@ -30,6 +30,7 @@ WORKDIR_PREFIX = "mcplain-"
 INPUT_FOLDER = "input"
 WORK_FOLDER = "work"
 EXTRACT_FOLDER = "source"
+LARGE_DATA_NOTE = "note.large_data_files_skipped"
 
 
 def not_checked() -> Reputation:
@@ -139,9 +140,10 @@ def analyze_job(job_input_dir: Path, work_dir: Path, limits: Limits = DEFAULT_LI
         job = read_job(job_input_dir, limits)
     except McplainError as error:
         return error_result(error)
+    skipped: list[str] = []
     try:
         archive = verified_archive(job_input_dir, job)
-        root = extract_archive(archive, work_dir / EXTRACT_FOLDER, limits)
+        root = extract_archive(archive, work_dir / EXTRACT_FOLDER, limits, skipped)
     except McplainError as error:
         result = error_result(error, job.source)
     else:
@@ -153,6 +155,8 @@ def analyze_job(job_input_dir: Path, work_dir: Path, limits: Limits = DEFAULT_LI
             limits=limits,
             reputation=read_reputation(job_input_dir, limits),
         )
+        if skipped:
+            result.notes.append(LARGE_DATA_NOTE)
     result.ignored_arguments = list(job.spec.ignored_arguments)
     return result
 

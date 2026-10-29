@@ -528,6 +528,12 @@ def _has_binary_signature(path: Path) -> bool:
             head = handle.read(PE_HEADER_READ)
     except OSError:
         return False
+    return binary_signature(head)
+
+
+def binary_signature(head: bytes) -> bool:
+    """Tell whether the first bytes of a file are those of an ELF, Mach-O, PE or WebAssembly binary"""
+
     if head.startswith(BINARY_MAGICS):
         return True
     if head.startswith(PE_MAGIC) and len(head) >= PE_OFFSET_POSITION + 4:

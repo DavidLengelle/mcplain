@@ -160,3 +160,36 @@ def test_corrupted_gzip_is_refused(tmp_path: Path) -> None:
 
     data = tar_gz({"a.txt": b"hello" * 1000})
     _refused(tmp_path, data[: len(data) // 2], "archive.corrupted")
+
+
+SMALL_FILES = Limits(max_extract_file_bytes=1000)
+
+
+@pytest.mark.parametrize("pack", [tar_gz, zip_bytes], ids=["tar", "zip"])
+def test_an_oversized_data_file_is_left_out(tmp_path: Path, pack: object) -> None:
+    """A database or an image above the per-file limit is not extracted, and the rest of the package is"""
+
+    data = pack({"package/data/nodes.db": b"SQLite format 3\x00" + b"a" * 2000, "package/index.js": b"x"})
+    skipped: list[str] = []
+    archive = tmp_path / "archive.bin"
+    archive.write_bytes(data)
+    root = extract_archive(archive, tmp_path / "out", SMALL_FILES, skipped)
+    assert (root / "index.js").read_bytes() == b"x"
+    assert not (root / "data" / "nodes.db").exists()
+    assert skipped == ["package/data/nodes.db"]
+
+
+@pytest.mark.parametrize(
+    ("name", "content"),
+    [
+        ("big.js", b"a" * 2000),
+        ("big.png", b"\x7fELF" + b"a" * 2000),
+        ("big.png", b"\x00asm" + b"a" * 2000),
+        ("big.node", b"a" * 2000),
+    ],
+    ids=["source", "elf_as_image", "wasm_as_image", "native_module"],
+)
+def test_an_oversized_file_that_may_be_code_is_still_refused(tmp_path: Path, name: str, content: bytes) -> None:
+    """Source code, binaries under a data name and native modules keep the refusal: nothing readable is hidden"""
+
+    _refused(tmp_path, tar_gz({name: content}), "archive.file_too_large", SMALL_FILES)

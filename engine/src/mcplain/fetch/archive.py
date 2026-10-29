@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import BinaryIO, Protocol
 
 from mcplain.config import DEFAULT_LIMITS, MEGABYTE, Limits
+from mcplain.detect import PE_HEADER_READ, binary_signature
 from mcplain.errors import ArchiveError
 
 GZIP_MAGIC = b"\x1f\x8b"
@@ -21,6 +22,33 @@ TAR_HEADER_ALLOWANCE = 3 * 512
 WINDOWS_DRIVE_PATTERN = re.compile(r"^[A-Za-z]:")
 ZIP_ENCRYPTED_FLAG = 0x1
 UNIX_ZIP_SYSTEM = 3
+
+
+DATA_SUFFIXES: frozenset[str] = frozenset(
+    {
+        ".db",
+        ".sqlite",
+        ".sqlite3",
+        ".csv",
+        ".tsv",
+        ".parquet",
+        ".map",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".ico",
+        ".pdf",
+        ".woff",
+        ".woff2",
+        ".ttf",
+        ".otf",
+        ".mp3",
+        ".mp4",
+        ".wav",
+    }
+)
 
 
 class _Readable(Protocol):
@@ -40,6 +68,7 @@ class _Budget:
         self.compressed_size = max(compressed_size, 1)
         self.entries = 0
         self.total = 0
+        self.skipped: list[str] = []
 
     def add_entry(self) -> None:
         """Count one archive entry"""
@@ -47,6 +76,19 @@ class _Budget:
         self.entries += 1
         if self.entries > self.limits.max_extract_files:
             raise ArchiveError("archive.too_many_files", limit=self.limits.max_extract_files)
+
+    def oversized_data(self, name: str, size: int) -> bool:
+        """Tell whether an entry is a data file, never read by the engine, above the per-file limit"""
+
+        return size > self.limits.max_extract_file_bytes and PurePosixPath(name).suffix.lower() in DATA_SUFFIXES
+
+    def skip(self, name: str, head: bytes) -> bool:
+        """Leave out an oversized data file unless its first bytes are those of a binary, and remember it"""
+
+        if binary_signature(head):
+            return False
+        self.skipped.append(name)
+        return True
 
     def check_declared(self, name: str, size: int) -> None:
         """Refuse an entry whose declared size is above the per-file limit"""
@@ -96,8 +138,13 @@ class _BoundedReader:
         return data
 
 
-def extract_archive(archive_path: Path, destination: Path, limits: Limits = DEFAULT_LIMITS) -> Path:
-    """Extract an archive safely and return its root folder"""
+def extract_archive(
+    archive_path: Path,
+    destination: Path,
+    limits: Limits = DEFAULT_LIMITS,
+    skipped: list[str] | None = None,
+) -> Path:
+    """Extract an archive safely and return its root folder; oversized data files are left out and listed in skipped"""
 
     with archive_path.open("rb") as handle:
         head = handle.read(512)
@@ -121,6 +168,8 @@ def extract_archive(archive_path: Path, destination: Path, limits: Limits = DEFA
         raise ArchiveError("archive.corrupted") from error
     except OSError as error:
         raise ArchiveError("archive.invalid_layout") from error
+    if skipped is not None:
+        skipped.extend(budget.skipped)
     return _content_root(destination)
 
 
@@ -156,10 +205,12 @@ def _extract_tar(stream: _BoundedReader, destination: Path, budget: _Budget) -> 
                 raise ArchiveError("archive.special_file", name=member.name)
             if relative is None:
                 raise ArchiveError("archive.bad_name", name=member.name)
-            budget.check_declared(member.name, member.size)
             source = archive.extractfile(member)
             if source is None:
                 raise ArchiveError("archive.special_file", name=member.name)
+            if budget.oversized_data(member.name, member.size) and budget.skip(member.name, source.read(PE_HEADER_READ)):
+                continue
+            budget.check_declared(member.name, member.size)
             _write_file(destination, relative, source, budget, member.size)
 
 
@@ -184,6 +235,10 @@ def _extract_zip(archive_path: Path, destination: Path, budget: _Budget) -> None
                 continue
             if relative is None:
                 raise ArchiveError("archive.bad_name", name=info.filename)
+            if budget.oversized_data(info.filename, info.file_size):
+                with archive.open(info) as source:
+                    if budget.skip(info.filename, source.read(PE_HEADER_READ)):
+                        continue
             budget.check_declared(info.filename, info.file_size)
             with archive.open(info) as source:
                 _write_file(destination, relative, source, budget, info.file_size)

@@ -1,6 +1,7 @@
 """Tests of the offline job step: a job folder holds a raw archive, job.json and reputation.json"""
 
 import hashlib
+import shutil
 import json
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import pytest
 from builders import tar_gz_folder
 
 from mcplain import __version__, atelier
+from mcplain.config import Limits
 from mcplain.analyze import analyze_directory, analyze_job
 from mcplain.job import reputation_json, reputation_sha256, write_job
 from mcplain.models import (
@@ -303,3 +305,16 @@ def test_command_keeps_stray_prints_off_stdout(
     captured = capsys.readouterr()
     assert "noise" in captured.err
     AnalysisResult.model_validate_json(captured.out)
+
+
+def test_an_oversized_data_file_is_left_out_with_a_note(fixtures: Path, tmp_path: Path) -> None:
+    """A big database in the package does not stop the analysis: the code is analyzed and a note says what was left out"""
+
+    package = tmp_path / "package"
+    shutil.copytree(fixtures / "python_fastmcp_clean", package)
+    (package / "nodes.db").write_bytes(b"SQLite format 3\x00" + b"a" * 2000)
+    build_job(tmp_path / "input", package)
+    result = analyze_job(tmp_path / "input", tmp_path / "work", Limits(max_extract_file_bytes=1000))
+    assert result.status is AnalysisStatus.OK
+    assert result.verdict.color is VerdictColor.GREEN
+    assert "note.large_data_files_skipped" in result.notes

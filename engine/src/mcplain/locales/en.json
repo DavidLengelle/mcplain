@@ -163,6 +163,7 @@
   "note.platform_binary_dependencies": "The package depends on platform-specific binary packages.",
   "note.native_build_backend": "The package builds native compiled code.",
   "note.partially_compiled": "Part of this server is compiled and cannot be read.",
+  "note.large_data_files_skipped": "Some large data files (images, databases, source maps...) were left out: MCPlain never reads them.",
   "capability.network": "network access",
   "capability.fs_read": "reads files",
   "capability.fs_write": "writes or deletes files",
