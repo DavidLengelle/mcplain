@@ -1,0 +1,390 @@
+# MCPlain bench: the list of real MCP servers analyzed by bench.py.
+#
+# How the list was built (2026-10-29):
+# 1. Reference servers of github.com/modelcontextprotocol/servers that are still published on npm or PyPI
+#    (fetch, filesystem, git, memory, sequential-thinking, time, everything), plus a few archived ones that
+#    are still downloaded (deprecated on npm, still installable).
+# 2. Official servers of known vendors, published on npm or PyPI by the vendor itself.
+# 3. The most downloaded MCP packages:
+#    - npm: registry search "keywords:mcp", "mcp server", "keywords:mcp-server", sorted by popularity,
+#      weekly downloads from api.npmjs.org (week ending 2026-10-28), servers only (no SDK, no client).
+#    - PyPI: hugovk/top-pypi-packages, monthly dump of 2026-10-01 (30 days of downloads), servers only.
+# 4. About 60 % JavaScript or TypeScript and 40 % Python.
+# 5. Witnesses whose answer is known: a Go server (gray, unsupported language) and the two engine
+#    references, `uvx mcp-server-fetch` and `npx -y @modelcontextprotocol/server-filesystem` (both orange).
+# 6. npx or uvx entries rather than GitHub links: without a token, the GitHub API allows 60 calls per hour.
+#
+# Fields: id (unique), input (what a user pastes), language, group (reference, vendor, popular, witness),
+# why (why it is in the list), expected (the known color, only when it is known), witness (the bench fails
+# when a witness does not get its expected color).
+# The bench always analyzes the latest version: no version is pinned here.
+
+[[server]]
+id = "fetch"
+input = "uvx mcp-server-fetch"
+language = "python"
+group = "witness"
+why = "Reference server; engine reference: a tool fetches any URL the AI gives (O01)"
+expected = "orange"
+witness = true
+
+[[server]]
+id = "filesystem"
+input = "npx -y @modelcontextprotocol/server-filesystem"
+language = "javascript"
+group = "witness"
+why = "Reference server; engine reference: writes and moves files (O08)"
+expected = "orange"
+witness = true
+
+[[server]]
+id = "github-go"
+input = "https://github.com/github/github-mcp-server"
+language = "go"
+group = "witness"
+why = "Official GitHub server, written in Go: the engine does not read Go"
+expected = "gray"
+witness = true
+
+[[server]]
+id = "time"
+input = "uvx mcp-server-time"
+language = "python"
+group = "reference"
+why = "Reference server; time zones only, a candidate for green"
+
+[[server]]
+id = "git"
+input = "uvx mcp-server-git"
+language = "python"
+group = "reference"
+why = "Reference server; runs git through GitPython"
+
+[[server]]
+id = "everything"
+input = "npx -y @modelcontextprotocol/server-everything"
+language = "javascript"
+group = "reference"
+why = "Reference server that exercises every feature of the protocol"
+
+[[server]]
+id = "memory"
+input = "npx -y @modelcontextprotocol/server-memory"
+language = "javascript"
+group = "reference"
+why = "Reference server; knowledge graph stored in a local file"
+
+[[server]]
+id = "sequential-thinking"
+input = "npx -y @modelcontextprotocol/server-sequential-thinking"
+language = "javascript"
+group = "reference"
+why = "Reference server; known case: orange O06 on the chalk dependency"
+
+[[server]]
+id = "pdf"
+input = "npx -y @modelcontextprotocol/server-pdf"
+language = "javascript"
+group = "reference"
+why = "Server of the modelcontextprotocol organization (ext-apps), 1.8 million weekly downloads"
+
+[[server]]
+id = "github-archived"
+input = "npx -y @modelcontextprotocol/server-github"
+language = "javascript"
+group = "reference"
+why = "Archived reference server, deprecated but still 185 000 weekly downloads"
+
+[[server]]
+id = "postgres-archived"
+input = "npx -y @modelcontextprotocol/server-postgres"
+language = "javascript"
+group = "reference"
+why = "Archived reference server, deprecated but still 179 000 weekly downloads"
+
+[[server]]
+id = "slack-archived"
+input = "npx -y @modelcontextprotocol/server-slack"
+language = "javascript"
+group = "reference"
+why = "Archived reference server, deprecated but still 146 000 weekly downloads"
+
+[[server]]
+id = "puppeteer-archived"
+input = "npx -y @modelcontextprotocol/server-puppeteer"
+language = "javascript"
+group = "reference"
+why = "Archived reference server; drives a browser"
+
+[[server]]
+id = "brave-search-archived"
+input = "npx -y @modelcontextprotocol/server-brave-search"
+language = "javascript"
+group = "reference"
+why = "Archived reference server; calls one fixed web API"
+
+[[server]]
+id = "sqlite-archived"
+input = "uvx mcp-server-sqlite"
+language = "python"
+group = "reference"
+why = "Archived reference server, still published on PyPI"
+
+[[server]]
+id = "sentry-archived"
+input = "uvx mcp-server-sentry"
+language = "python"
+group = "reference"
+why = "Archived reference server, still published on PyPI"
+
+[[server]]
+id = "notion"
+input = "npx -y @notionhq/notion-mcp-server"
+language = "javascript"
+group = "vendor"
+why = "Official Notion server"
+
+[[server]]
+id = "azure-devops"
+input = "npx -y @azure-devops/mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Microsoft Azure DevOps server"
+
+[[server]]
+id = "sentry"
+input = "npx -y @sentry/mcp-server"
+language = "javascript"
+group = "vendor"
+why = "Official Sentry server"
+
+[[server]]
+id = "supabase"
+input = "npx -y @supabase/mcp-server-supabase"
+language = "javascript"
+group = "vendor"
+why = "Official Supabase server"
+
+[[server]]
+id = "context7"
+input = "npx -y @upstash/context7-mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Upstash Context7 server, 570 000 weekly downloads"
+
+[[server]]
+id = "chrome-devtools"
+input = "npx -y chrome-devtools-mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Chrome DevTools server (Google), 3.3 million weekly downloads"
+
+[[server]]
+id = "playwright"
+input = "npx -y @playwright/mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Microsoft Playwright server, 8.5 million weekly downloads"
+
+[[server]]
+id = "firecrawl"
+input = "npx -y firecrawl-mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Firecrawl server"
+
+[[server]]
+id = "gcloud"
+input = "npx -y @google-cloud/gcloud-mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Google Cloud server"
+
+[[server]]
+id = "launchdarkly"
+input = "npx -y @launchdarkly/mcp-server"
+language = "javascript"
+group = "vendor"
+why = "Official LaunchDarkly server"
+
+[[server]]
+id = "mongodb"
+input = "npx -y mongodb-mcp-server"
+language = "javascript"
+group = "vendor"
+why = "Official MongoDB server"
+
+[[server]]
+id = "stripe"
+input = "npx -y @stripe/mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Stripe server"
+
+[[server]]
+id = "next-devtools"
+input = "npx -y next-devtools-mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Vercel Next.js server"
+
+[[server]]
+id = "hostinger"
+input = "npx -y hostinger-api-mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Hostinger server, 328 000 weekly downloads"
+
+[[server]]
+id = "storybook"
+input = "npx -y @storybook/mcp"
+language = "javascript"
+group = "vendor"
+why = "Official Storybook server, 3 million weekly downloads"
+
+[[server]]
+id = "desktop-commander"
+input = "npx -y @wonderwhy-er/desktop-commander"
+language = "javascript"
+group = "popular"
+why = "Popular: 759 000 weekly downloads; terminal and file editing"
+
+[[server]]
+id = "gitlab"
+input = "npx -y @zereight/mcp-gitlab"
+language = "javascript"
+group = "popular"
+why = "Popular: 245 000 weekly downloads"
+
+[[server]]
+id = "figma"
+input = "npx -y figma-developer-mcp"
+language = "javascript"
+group = "popular"
+why = "Popular: 136 000 weekly downloads"
+
+[[server]]
+id = "n8n"
+input = "npx -y n8n-mcp"
+language = "javascript"
+group = "popular"
+why = "Popular: 123 000 weekly downloads"
+
+[[server]]
+id = "xcodebuild"
+input = "npx -y xcodebuildmcp"
+language = "javascript"
+group = "popular"
+why = "Popular: 132 000 weekly downloads"
+
+[[server]]
+id = "ms-365"
+input = "npx -y @softeria/ms-365-mcp-server"
+language = "javascript"
+group = "popular"
+why = "Popular: 81 000 weekly downloads"
+
+[[server]]
+id = "calculator"
+input = "uvx mcp-server-calculator"
+language = "python"
+group = "popular"
+why = "Small community server; known case: gray (recursive function not followed)"
+
+[[server]]
+id = "atlassian"
+input = "uvx mcp-atlassian"
+language = "python"
+group = "popular"
+why = "Popular: rank 4729 on PyPI"
+
+[[server]]
+id = "blender"
+input = "uvx blender-mcp"
+language = "python"
+group = "popular"
+why = "Popular: rank 4873 on PyPI"
+
+[[server]]
+id = "postgres-pro"
+input = "uvx postgres-mcp"
+language = "python"
+group = "popular"
+why = "Popular: rank 5360 on PyPI"
+
+[[server]]
+id = "aws-documentation"
+input = "uvx awslabs-aws-documentation-mcp-server"
+language = "python"
+group = "vendor"
+why = "Official AWS server, rank 5765 on PyPI"
+
+[[server]]
+id = "clickhouse"
+input = "uvx mcp-clickhouse"
+language = "python"
+group = "vendor"
+why = "Official ClickHouse server, rank 7191 on PyPI"
+
+[[server]]
+id = "workspace"
+input = "uvx workspace-mcp"
+language = "python"
+group = "popular"
+why = "Popular: rank 7429 on PyPI; Google Workspace"
+
+[[server]]
+id = "excel"
+input = "uvx excel-mcp-server"
+language = "python"
+group = "popular"
+why = "Popular: rank 9893 on PyPI"
+
+[[server]]
+id = "chroma"
+input = "uvx chroma-mcp"
+language = "python"
+group = "vendor"
+why = "Official Chroma server, rank 10458 on PyPI"
+
+[[server]]
+id = "markitdown"
+input = "uvx markitdown-mcp"
+language = "python"
+group = "vendor"
+why = "Official Microsoft MarkItDown server, rank 12029 on PyPI"
+
+[[server]]
+id = "dbt"
+input = "uvx dbt-mcp"
+language = "python"
+group = "vendor"
+why = "Official dbt Labs server, rank 12547 on PyPI"
+
+[[server]]
+id = "pagerduty"
+input = "uvx pagerduty-mcp"
+language = "python"
+group = "vendor"
+why = "Official PagerDuty server, rank 11803 on PyPI"
+
+[[server]]
+id = "duckduckgo"
+input = "uvx duckduckgo-mcp-server"
+language = "python"
+group = "popular"
+why = "Popular: rank 13074 on PyPI"
+
+[[server]]
+id = "logfire"
+input = "uvx logfire-mcp"
+language = "python"
+group = "vendor"
+why = "Official Pydantic Logfire server, rank 13582 on PyPI"
+
+[[server]]
+id = "falcon"
+input = "uvx falcon-mcp"
+language = "python"
+group = "vendor"
+why = "Official CrowdStrike Falcon server, rank 13861 on PyPI"
