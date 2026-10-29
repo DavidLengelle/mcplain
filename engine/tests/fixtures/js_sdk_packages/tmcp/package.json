@@ -1,0 +1,6 @@
+{
+  "name": "notes-tmcp-server",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": { "tmcp": "^1.16.0", "valibot": "^1.1.0", "@tmcp/adapter-valibot": "^0.1.0" }
+}

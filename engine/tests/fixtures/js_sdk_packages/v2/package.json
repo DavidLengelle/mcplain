@@ -1,0 +1,6 @@
+{
+  "name": "notes-http-server",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": { "@modelcontextprotocol/node": "^2.0.0", "zod": "^4.0.0" }
+}

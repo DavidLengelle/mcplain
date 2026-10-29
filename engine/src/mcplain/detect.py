@@ -26,8 +26,13 @@ PYTHON_SDKS: tuple[str, ...] = ("mcp", "fastmcp")
 NPM_SDKS: tuple[str, ...] = (
     "@modelcontextprotocol/sdk",
     "@modelcontextprotocol/server",
+    "@modelcontextprotocol/node",
+    "@modelcontextprotocol/express",
+    "@modelcontextprotocol/hono",
+    "@modelcontextprotocol/fastify",
     "fastmcp",
     "mcp-framework",
+    "tmcp",
 )
 GO_SDKS: tuple[str, ...] = (
     "github.com/modelcontextprotocol/go-sdk",
@@ -49,7 +54,8 @@ SWIFT_SDK_MARKERS: tuple[str, ...] = ("modelcontextprotocol/swift-sdk",)
 
 PYTHON_IMPORT_PATTERN = re.compile(r"^\s*(?:from|import)\s+(mcp|fastmcp)\b", re.MULTILINE)
 JAVASCRIPT_IMPORT_PATTERN = re.compile(
-    r"(?:from\s*|require\(\s*|import\(\s*)[\"'](@modelcontextprotocol/(?:sdk|server)|fastmcp|mcp-framework)"
+    r"(?:from\s*|require\(\s*|import\(\s*)[\"']"
+    r"(@modelcontextprotocol/(?:sdk|server|node|express|hono|fastify)|fastmcp|mcp-framework|tmcp)"
     r"(?:/[^\"']*)?[\"']"
 )
 IMPORT_SCAN_BYTES = 256 * 1024

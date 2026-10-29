@@ -144,3 +144,25 @@ def fixture_text(name: str) -> str:
 
     path = Path(__file__).parent / "fixtures" / name / "server.py"
     return path.read_text(encoding="utf-8")
+
+
+def test_a_server_built_on_the_v2_sdk_packages_is_a_server(fixtures: Path) -> None:
+    """A package that depends on @modelcontextprotocol/node, not on @modelcontextprotocol/sdk, is still an MCP server"""
+
+    result = analyze_directory(fixtures / "js_sdk_packages" / "v2")
+    assert result.status.value == "ok"
+    assert result.servers[0].sdk == "@modelcontextprotocol/node"
+    assert [item.name for item in result.servers[0].tools] == ["now"]
+
+
+def test_a_tmcp_server_and_its_tools_are_read(fixtures: Path) -> None:
+    """tmcp declares a tool with server.tool({ name, description, schema }, handler)"""
+
+    result = analyze_directory(fixtures / "js_sdk_packages" / "tmcp")
+    assert result.status.value == "ok"
+    assert result.servers[0].sdk == "tmcp"
+    read = tool(result.servers[0], "read_note")
+    assert read.description == "Read one note of the notes folder"
+    assert [parameter.name for parameter in read.parameters] == ["name"]
+    assert capabilities(read) == {Capability.FS_READ}
+    assert read.gaps == []

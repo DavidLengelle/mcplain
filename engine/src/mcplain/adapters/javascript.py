@@ -1521,7 +1521,9 @@ class _JavaScriptFile:
                 continue
             method = property_name(function.child_by_field_name("property"))
             arguments = call_arguments(call)
-            if method == "tool" and arguments and not self.static_text(arguments[0]).dynamic:
+            if method == "tool" and len(arguments) >= 2 and self._as_object(arguments[0]) is not None:
+                self._config_tool(call, arguments)
+            elif method == "tool" and arguments and not self.static_text(arguments[0]).dynamic:
                 self._server_tool(call, arguments)
             elif method == "registerTool" and len(arguments) >= 2:
                 self._register_tool(call, arguments)
@@ -1535,6 +1537,19 @@ class _JavaScriptFile:
             self._tool_class(definition)
         self._find_low_level_tools()
         self._find_dispatch_blocks()
+
+    def _config_tool(self, call: Node, arguments: list[Node]) -> None:
+        """Read server.tool({ name, description, schema }, handler), the form of the tmcp SDK"""
+
+        config = self._as_object(arguments[0])
+        if config is None or self._object_value(config, "name") is None:
+            return
+        tool = self._object_tool(config, call.start_byte, DeclarationKind.SERVER_TOOL, "schema")
+        if tool is None or not self._is_handler(arguments[1]):
+            return
+        bodies, entries = self._handler(arguments[1])
+        tool.bodies.extend(bodies)
+        tool.entries.extend(entries)
 
     def _server_tool(self, call: Node, arguments: list[Node]) -> None:
         """Read server.tool(name, description?, schema?, annotations?, handler)"""
