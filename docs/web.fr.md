@@ -250,6 +250,7 @@ affichent.
 | --- | --- | --- | --- |
 | 1 | `identity-line.tsx` | la vue et la source | paquet, version, origine, date `analyzed_at` |
 | 2 | `verdict-block.tsx` (+ `gauge.tsx`) | la vue et le résultat | la jauge, le mot, le titre et la phrase du moteur, « Relancer » si besoin |
+| 2 bis | `coverage-block.tsx` | `verdict.coverage` | seulement pour un gris partiel : VÉRIFIÉ, puis PAS VÉRIFIÉ (voir plus bas) |
 | 3 | `ai-notice-slot.tsx` | rien | rien pour l'instant (notice de l'IA, séance 8) |
 | 4 | `plain-summary.tsx` | le résultat et le serveur | EN CLAIR : ce qu'il peut faire, ce qu'on a trouvé, ce que tu peux faire |
 | 5 | `lamp-cluster.tsx` | le serveur | les six voyants, leur état écrit, le compteur |
@@ -267,6 +268,38 @@ l'en-tête (`header-height.tsx` la mesure et la range dans `--header-height`).
 
 Cas particuliers : plusieurs serveurs dans le lien donnent `candidates-list.tsx` (pas de verdict) ; une liste
 de liens donne `link-list-notice.tsx`.
+
+### Le gris partiel
+
+Un verdict gris peut vouloir dire deux choses très différentes : « je n'ai rien pu lire » (langage non pris en
+charge, échec du téléchargement) ou « j'ai presque tout lu, mais pas tout ». Pour le second cas, le moteur
+ajoute un champ `verdict.coverage`. Le site l'affiche juste sous le verdict, dans `coverage-block.tsx`.
+
+Pense à un contrôle technique : le garagiste te dit ce qu'il a contrôlé, puis ce qu'il n'a pas pu voir.
+
+| Partie | Ce qu'elle affiche | D'où vient le texte |
+| --- | --- | --- |
+| Titre | CE QUE MCPLAIN A PU LIRE | `messages/*.json`, clé `coverage.heading` |
+| VÉRIFIÉ | « Outils entièrement suivis : 1 sur 2. Fichiers lus : 1 sur 1. » puis « Rien de suspect dans ce qui a été lu. » | moteur : `coverage.checked`, `coverage.nothing_found` |
+| PAS VÉRIFIÉ | une ligne par point : le type (appel, description, fichier, bibliothèque réseau, outils), le nom, l'emplacement `fichier:ligne`, la raison, et la ligne de code | moteur : `coverage.kind.*`, `coverage.reason.*` ; nom, emplacement et ligne de code par `RawText` |
+| Fin de liste | « … et 44 autres points. » quand le moteur a coupé la liste (30 points au plus) | moteur : `coverage.more` |
+
+Règles :
+
+- La couleur reste grise. La phrase « Ça ne veut pas dire que ce MCP est sûr » reste dans le bloc du verdict.
+- Le bloc n'existe que si le moteur l'envoie : jamais pour un vert, un orange, un rouge, ni pour un gris « rien
+  lu ». Le site ne calcule rien : il affiche les nombres du moteur.
+- Le nom d'un outil, un chemin de fichier ou une ligne de code viennent du code analysé : toujours `RawText`.
+  Le test « shows every third-party field … with RawText » le vérifie aussi sur ces rapports.
+
+Le nouveau cas gris `network_unresolved` (verrou du vert) s'affiche comme les autres cas gris : le titre et la
+phrase du moteur (« Ce code charge de quoi aller sur Internet (httpx), mais MCPlain n'a pas pu suivre où il s'en
+sert. »). Le nom de la bibliothèque est un paramètre, donc il passe par `RawText`. Le voyant « Va sur Internet »
+est allumé et montre la note du moteur (`lamp.note`, ici « non suivi ») à la place des domaines.
+
+Les deux rapports de référence de ces cas sont `tests/fixtures/network-unresolved.result.json` et
+`tests/fixtures/partial-tracking.result.json`. Les captures Playwright `network-*.png` et `partial-*.png`
+(clair, sombre, 390 et 1280 px) sont dans `test-results/screens/`.
 
 `Gauge` (`size` : `full`, `compact`, `small`), `VerdictFrame` (`size` : `full`, `compact`) et `LampPanel` (`size` :
 `full`, `compact`, `hero`) ont plusieurs tailles. Le rapport utilise `full` ; l'accueil réutilise les mêmes

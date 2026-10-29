@@ -14,6 +14,8 @@ enters the repository.
 | `awesome-mcp-servers.view.json` | list of links | local stack, `https://github.com/punkpeye/awesome-mcp-servers` |
 | `postmark-like.result.json` | red | command line, from `engine/`: `uv run mcplain --local tests/fixtures/postmark_like --json` |
 | `fixed-domains.result.json` | green, fixed domains | command line, from `engine/`: `uv run mcplain --local tests/fixtures/rules/O01/near_miss --json` |
+| `network-unresolved.result.json` | gray, network library not followed, with coverage | command line, from `engine/`: `uv run mcplain --local tests/fixtures/python_network_elsewhere --json` |
+| `partial-tracking.result.json` | gray, a call not followed, with coverage | command line, from `engine/`: `uv run mcplain --local tests/fixtures/python_partial_tracking --json` |
 
 `*.view.json` files are what the API answers; `*.result.json` files are engine results, wrapped in a view by
 the test helpers (`tests/unit/reports.ts`, `tests/e2e/reports.ts`). Generate them again after a change of the
