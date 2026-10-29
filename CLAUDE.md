@@ -131,6 +131,9 @@ For `web/`:
 - `allowBuilds` runs no install script: each listed package is refused (`false`) with its reason. Any
   script allowed one day must be justified in a comment.
 - Versions are pinned exactly in `package.json`, and `pnpm-lock.yaml` is committed.
+- `web/next.config.ts` sets `experimental: { agentUpgrade: "security" }` in plain sight. If Next.js prints an
+  upgrade reminder or a Vulnerability Insight, never run `next upgrade`: report it to David. Upgrades go through
+  Dependabot and the 7-day rule (security fixes: exact version, with a comment).
 
 ## Tests
 

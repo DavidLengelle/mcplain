@@ -50,6 +50,11 @@ describe("technical inspection of the site", () => {
     expect(config).toMatch(/^\s*agentRules:\s*false,\s*$/m);
   });
 
+  it("writes the agent upgrade policy in plain sight", () => {
+    const config = readFileSync(join(process.cwd(), "next.config.ts"), "utf-8");
+    expect(config).toMatch(/^\s*agentUpgrade:\s*"security",\s*$/m);
+  });
+
   it("finds none of them in src/ and public/", () => {
     const files = [...sourceFiles(SOURCE_FOLDER), ...sourceFiles(PUBLIC_FOLDER)];
     expect(files.length).toBeGreaterThan(0);
