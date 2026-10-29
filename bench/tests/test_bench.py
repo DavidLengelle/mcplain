@@ -305,12 +305,20 @@ def test_the_summary_lists_gray_causes_and_failures() -> None:
     assert "| timeout (job.atelier_timeout) | 1 |" in markdown
     assert "| down | network_failure | fetch.network_error |" in markdown
     assert "No baseline" in markdown
+    assert "List changes" not in markdown
 
 
-def test_the_baseline_refuses_a_red_verdict() -> None:
-    run = bench.build_run([record("a", "red")], None, "0.3.0", "2026-10-29")
-    with pytest.raises(ValueError, match="reviewed"):
-        bench.make_baseline(run, "results.json")
+def test_the_baseline_leaves_out_red_verdicts_and_timeouts() -> None:
+    records = [
+        record("secret-name", "red"),
+        record("slow", "gray", gray_case="timeout", error_code="job.atelier_timeout"),
+        record("broken", "gray", gray_case="error", error_code="job.atelier_error"),
+        record("a", "gray", gray_case="no_tools_found"),
+    ]
+    baseline = bench.make_baseline(bench.build_run(records, None, "0.3.0", "2026-10-29"), "results.json")
+    assert list(baseline["servers"]) == ["a"]
+    assert baseline["left_out"] == 3
+    assert "secret-name" not in json.dumps(baseline)
 
 
 def test_the_baseline_keeps_the_color_of_each_analyzed_server() -> None:

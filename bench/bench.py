@@ -422,7 +422,7 @@ def comparison_lines(comparison: dict[str, Any], hidden: set[str]) -> list[str]:
         lines.append("")
     if comparison["unverified"]:
         lines.extend(["### Not verified (failure apart)", "", shown_names(comparison["unverified"], hidden), ""])
-    if comparison["new"] or comparison["removed"]:
+    if comparison["baseline"] and (comparison["new"] or comparison["removed"]):
         lines.extend(
             [
                 "### List changes",
@@ -450,19 +450,22 @@ def build_run(records: list[dict[str, Any]], baseline: dict[str, Any] | None, ve
 
 
 def make_baseline(run: dict[str, Any], source: str) -> dict[str, Any]:
-    """Build the baseline from a run; refuse a red verdict, which must be reviewed by a human first"""
+    """Build the baseline from a run; a red verdict waits for a human review and a timeout is no color: both stay out"""
 
-    if red_ids(run["records"]):
-        raise ValueError("a red verdict on a real package must be reviewed before it enters the baseline")
+    kept = [
+        record
+        for record in run["records"]
+        if record["outcome"] == VERDICT and record["color"] != "red" and record["gray_case"] not in DETAILED_CASES
+    ]
     servers = {
         record["id"]: {"color": record["color"], "gray_case": record["gray_case"], "version": record["version"]}
-        for record in run["records"]
-        if record["outcome"] == VERDICT
+        for record in kept
     }
     return {
         "engine_version": run["engine_version"],
         "date": run["date"],
         "source": source,
+        "left_out": len(run["records"]) - len(kept),
         "servers": servers,
     }
 
@@ -535,13 +538,9 @@ def command_baseline(arguments: argparse.Namespace) -> int:
     if run is None:
         print(f"No results file: {arguments.results}", file=sys.stderr)
         return 2
-    try:
-        baseline = make_baseline(run, Path(arguments.results).name)
-    except ValueError as error:
-        print(str(error), file=sys.stderr)
-        return 1
+    baseline = make_baseline(run, Path(arguments.results).name)
     write_json(Path(arguments.baseline), baseline)
-    print(f"Baseline written: {arguments.baseline} ({len(baseline['servers'])} servers)")
+    print(f"Baseline written: {arguments.baseline} ({len(baseline['servers'])} servers, {baseline['left_out']} left out)")
     return 0
 
 

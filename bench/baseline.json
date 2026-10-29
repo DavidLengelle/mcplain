@@ -1,0 +1,223 @@
+{
+  "engine_version": "0.3.0",
+  "date": "2026-10-29T18:29:46+00:00",
+  "source": "2026-10-29-engine-0.3.0.json",
+  "left_out": 9,
+  "servers": {
+    "fetch": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2026.10.28"
+    },
+    "filesystem": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.1.0"
+    },
+    "github-go": {
+      "color": "gray",
+      "gray_case": "unsupported_language",
+      "version": null
+    },
+    "time": {
+      "color": "green",
+      "gray_case": null,
+      "version": "2026.10.28"
+    },
+    "git": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2026.10.28"
+    },
+    "everything": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.1.0"
+    },
+    "memory": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.0.1"
+    },
+    "sequential-thinking": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.0.0"
+    },
+    "pdf": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.0.4"
+    },
+    "github-archived": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2025.4.8"
+    },
+    "postgres-archived": {
+      "color": "green",
+      "gray_case": null,
+      "version": "0.6.2"
+    },
+    "slack-archived": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2025.4.25"
+    },
+    "puppeteer-archived": {
+      "color": "gray",
+      "gray_case": "incomplete_tracking",
+      "version": "2025.5.12"
+    },
+    "brave-search-archived": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.6.2"
+    },
+    "sqlite-archived": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2025.4.25"
+    },
+    "sentry-archived": {
+      "color": "gray",
+      "gray_case": "network_unresolved",
+      "version": "2025.1.14"
+    },
+    "notion": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.6.1"
+    },
+    "azure-devops": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.11.0"
+    },
+    "supabase": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.15.0"
+    },
+    "context7": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "4.4.4"
+    },
+    "chrome-devtools": {
+      "color": "gray",
+      "gray_case": "not_a_server",
+      "version": "1.12.0"
+    },
+    "playwright": {
+      "color": "gray",
+      "gray_case": "not_a_server",
+      "version": "0.0.83"
+    },
+    "firecrawl": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "3.36.0"
+    },
+    "mongodb": {
+      "color": "gray",
+      "gray_case": "no_tools_found",
+      "version": "3.2.2"
+    },
+    "stripe": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.3.3"
+    },
+    "next-devtools": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.4.0"
+    },
+    "storybook": {
+      "color": "gray",
+      "gray_case": "no_tools_found",
+      "version": "10.6.5"
+    },
+    "figma": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.13.2"
+    },
+    "n8n": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.99.2"
+    },
+    "ms-365": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.176.1"
+    },
+    "calculator": {
+      "color": "green",
+      "gray_case": null,
+      "version": "0.2.1"
+    },
+    "atlassian": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.23.1"
+    },
+    "blender": {
+      "color": "gray",
+      "gray_case": "not_a_server",
+      "version": "2.0.0"
+    },
+    "postgres-pro": {
+      "color": "gray",
+      "gray_case": "incomplete_tracking",
+      "version": "0.3.0"
+    },
+    "aws-documentation": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "1.2.3"
+    },
+    "clickhouse": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.7.0"
+    },
+    "excel": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.2.2"
+    },
+    "chroma": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.2.6"
+    },
+    "markitdown": {
+      "color": "green",
+      "gray_case": null,
+      "version": "0.0.1a8"
+    },
+    "dbt": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.9.0"
+    },
+    "pagerduty": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "1.1.0"
+    },
+    "duckduckgo": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.7.0"
+    },
+    "logfire": {
+      "color": "gray",
+      "gray_case": "no_tools_found",
+      "version": "0.9.0"
+    }
+  }
+}
