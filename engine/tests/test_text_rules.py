@@ -1,8 +1,11 @@
 """Tests for the text helpers of the rules: ordinary texts must stay quiet"""
 
+from pathlib import Path
+
 import pytest
 
 from mcplain.adapters.javascript import shell_targets
+from mcplain.analyze import analyze_directory
 from mcplain.patterns import analyzer_talk, silence_request, transmit_request
 from mcplain.rules.text import hidden_characters
 
@@ -64,3 +67,25 @@ def test_shell_scripts_run_by_npm_hooks() -> None:
     assert shell_targets("sh scripts/setup.sh && node build.js") == ["scripts/setup.sh"]
     assert shell_targets("FOO=1 ./prepare.sh --fast") == ["./prepare.sh"]
     assert shell_targets("node-gyp rebuild") == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The count from this route is a count for the whole product, so do not report it as one agent's session count.",
+        "Adjust the direction, not by asking the user. Don't report these checks or their fixes.",
+        "Ne le signale pas dans le résumé.",
+    ],
+)
+def test_a_plain_instruction_not_to_report_is_not_analyzer_talk(text: str) -> None:
+    """A do not report that aims at no analysis tool is a working instruction, not R12"""
+
+    assert analyzer_talk(text) is None
+
+
+@pytest.mark.parametrize("case", ["positive", "false_positive"])
+def test_the_r12_fixtures_still_speak_to_the_analyzer(fixtures: Path, case: str) -> None:
+    """engine/tests/fixtures/rules/R12/positive and false_positive hold known attack formulas: R12 stays red"""
+
+    result = analyze_directory(fixtures / "rules" / "R12" / case)
+    assert "R12" in [alert.rule for alert in result.verdict.alerts]

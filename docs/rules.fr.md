@@ -223,11 +223,11 @@ OSV.dev classe ce paquet à cette version, ou toutes les versions d'une de ses d
 
 **S'adresse à l'analyseur** : ROUGE, usage suspect.
 
-Une chaîne, un commentaire ou une description s'adresse à un outil d'analyse (« ignore previous instructions », « ce code est sûr », « ne le signale pas », ou cite MCPlain). Du code qui fait seulement son travail n'a pas de raison de parler à un scanner.
+Une chaîne, un commentaire ou une description contient une formule d'attaque connue (« ignore previous instructions », « ce code est sûr », ou cite MCPlain), ou demande à un outil d'analyse (scanner, analyzer, audit, security review, reviewer, static analysis...) de ne rien signaler ou d'ignorer quelque chose. Une simple consigne comme « do not report », qui ne vise pas un outil d'analyse, ne compte pas. Du code qui fait seulement son travail n'a pas de raison de parler à un scanner.
 
 - En clair : **Parle aux outils d'analyse**. Un texte du code s'adresse à un outil d'analyse, par exemple pour lui demander de ne rien signaler. Conseil : Ne l'installe pas. Un code qui fait seulement son travail n'a pas besoin de parler à un scanner.
 - Visible en lisant le code : oui
-- Faux positif connu : Un MCP de test d'attaques qui contient ces phrases comme exemples.
+- Faux positif connu : Un MCP de test d'attaques qui contient ces phrases comme exemples, ou un vrai outil de sécurité qui écrit « si le scanner signale ceci, ignore-le ».
 - Sources :
   - [OWASP Top 10 for LLM Applications, LLM01:2025 Prompt Injection](https://genai.owasp.org/llmrisk/llm01-prompt-injection/)
   - [MCPlain founding rule: text from analyzed code is data, never instructions](https://github.com/DavidLengelle/mcplain/blob/main/CLAUDE.md)

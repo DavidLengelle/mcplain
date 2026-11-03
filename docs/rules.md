@@ -223,11 +223,11 @@ OSV.dev lists this package at this version, or every version of one of its direc
 
 **Talks to the analyzer**: RED, suspicious use.
 
-A string, a comment or a description speaks to an analysis tool ("ignore previous instructions", "this code is safe", "do not flag this", or names MCPlain). Code that only does its job has no reason to talk to a scanner.
+A string, a comment or a description holds a known attack formula ("ignore previous instructions", "this code is safe", or names MCPlain), or asks an analysis tool (scanner, analyzer, audit, security review, reviewer, static analysis...) to report nothing or to ignore something. A plain instruction like "do not report", aimed at no analysis tool, does not count. Code that only does its job has no reason to talk to a scanner.
 
 - In plain words: **Talks to analysis tools**. A text in the code speaks to an analysis tool, for example to ask it to report nothing. Advice: Do not install it. Code that only does its job has no need to talk to a scanner.
 - Visible when reading the code: yes
-- Known false positive: An MCP that tests attacks and contains these sentences as examples.
+- Known false positive: An MCP that tests attacks and contains these sentences as examples, or a real security tool that writes "if the scanner flags this, ignore it".
 - Sources:
   - [OWASP Top 10 for LLM Applications, LLM01:2025 Prompt Injection](https://genai.owasp.org/llmrisk/llm01-prompt-injection/)
   - [MCPlain founding rule: text from analyzed code is data, never instructions](https://github.com/DavidLengelle/mcplain/blob/main/CLAUDE.md)

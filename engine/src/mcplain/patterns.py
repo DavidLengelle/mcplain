@@ -55,11 +55,6 @@ ANALYZER_PATTERNS: tuple[re.Pattern[str], ...] = (
         re.IGNORECASE,
     ),
     re.compile(
-        r"\b(?:do\s+not|don['’]t|never)\s+(?:flag|report|scan)\s+"
-        r"(?:this|these|it|me|us|the\s+(?:code|package|server|tool|file|repository))\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
         r"\b(?:security|code|malware|static|ai|llm|automated)\s+(?:scanner|analy[sz]er|reviewer|auditor)s?\s*:",
         re.IGNORECASE,
     ),
@@ -74,16 +69,38 @@ ANALYZER_PATTERNS: tuple[re.Pattern[str], ...] = (
         re.IGNORECASE,
     ),
     re.compile(
-        r"\bne\s+(?:le\s+|la\s+|les\s+)?(?:signale|signalez|analyse|analysez|scanne|scannez)\s+pas\b|"
-        r"\bne\s+pas\s+(?:signaler|analyser|scanner)\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
         r"\b(?:scanner|analyseur|relecteur|réviseur|auditeur)s?\s+(?:de\s+sécurité|ia|de\s+code)\s*:",
         re.IGNORECASE,
     ),
     re.compile(r"\bmcplain\b", re.IGNORECASE),
 )
+DISMISS_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(?:do\s+not|don['’]t|never)\s+(?:flag|report|scan|mention)\s+"
+        r"(?:this|these|that|those|it|them|me|us|the\s+(?:code|package|server|tool|file|repository))\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bignore\s+(?:it|this|that|them|these|those|the\s+(?:warning|alert|finding|result)s?)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bne\s+(?:le\s+|la\s+|les\s+)?(?:signale|signalez|analyse|analysez|scanne|scannez|mentionne|mentionnez)\s+pas\b|"
+        r"\bne\s+pas\s+(?:signaler|analyser|scanner|mentionner)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bignore[rz]?-(?:le|la|les)\b|\bignore[rz]?\s+(?:ce|cette|ces)\s+(?:alertes?|avertissements?|signalements?|résultats?)\b",
+        re.IGNORECASE,
+    ),
+)
+ANALYSIS_TOOLS = re.compile(
+    r"\b(?:scanners?|scanning\s+tools?|analy[sz]ers?|static\s+analysis|code\s+analysis|security\s+(?:analysis|reviews?|tools?)|"
+    r"audits?|auditors?|reviewers?|code\s+reviews?|sast|mcplain|analyseurs?|analyse\s+statique|auditeurs?|"
+    r"relecteurs?|réviseurs?|revue\s+de\s+(?:sécurité|code)|outils?\s+(?:d['’]analyse|de\s+sécurité))\b",
+    re.IGNORECASE,
+)
+SENTENCE_END = re.compile(r"[.!?\n]")
 
 COPY_FIELDS: frozenset[str] = frozenset({"bcc", "cc"})
 COPY_METHODS: frozenset[str] = frozenset({"add_bcc", "add_cc", "set_bcc", "set_cc", "addbcc", "addcc", "setbcc", "setcc"})
@@ -150,11 +167,27 @@ def transmit_request(text: str, parameters: list[str]) -> str | None:
     return None
 
 
+def sentence_around(text: str, start: int, end: int) -> str:
+    """Return the sentence of a text that holds a match"""
+
+    first = start
+    while first > 0 and not SENTENCE_END.match(text[first - 1]):
+        first -= 1
+    last = end
+    while last < len(text) and not SENTENCE_END.match(text[last]):
+        last += 1
+    return text[first:last]
+
+
 def analyzer_talk(text: str) -> re.Match[str] | None:
-    """Find text that speaks to an analysis tool instead of describing the code"""
+    """Find a known attack formula, or a request not to report or to ignore aimed at an analysis tool"""
 
     for pattern in ANALYZER_PATTERNS:
         match = pattern.search(text)
         if match is not None:
             return match
+    for pattern in DISMISS_PATTERNS:
+        for match in pattern.finditer(text):
+            if ANALYSIS_TOOLS.search(sentence_around(text, match.start(), match.end())):
+                return match
     return None
