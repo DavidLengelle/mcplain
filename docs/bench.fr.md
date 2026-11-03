@@ -183,39 +183,40 @@ de ce dossier n'est décrit nulle part ailleurs.
 
 ## 8. Avant et après la séance 7
 
-Deux mesures le 29 octobre 2026, sur les 52 serveurs de la liste, avec la pile locale.
+La mesure de référence est la **mesure propre** du 3 novembre 2026 (moteur 0.4.0, règles version 2), faite sur
+une machine vérifiée avant de commencer : charge basse, aucun conteneur d'un autre projet. Elle n'a eu ni délai
+dépassé, ni échec réseau. On la compare à la première mesure, faite avant toute correction.
 
-| | Moteur 0.2.1 (avant) | Moteur 0.3.0 (après) |
+| | Moteur 0.2.1 (29 octobre, avant) | Moteur 0.4.0 (3 novembre, après) |
 | --- | --- | --- |
-| Vert | 3 | 4 |
-| Orange | 30 | 29 |
-| Rouge | 7 | 2 |
-| Gris | 12 | 17 |
-| dont délais dépassés de l'atelier | 0 | 7 |
+| Vert | 3 | 5 |
+| Orange | 30 | 30 |
+| Rouge | 7 | 7 |
+| Gris | 12 | 10 |
+| Délais dépassés | 0 | 0 |
 | Échecs à part | 0 | 0 |
-| Verdicts clairs (brut) | 78,4 % | 68,6 % |
-| Verdicts clairs sur les 44 serveurs comparables | 75,0 % | 79,5 % |
-
-Attention : pendant la mesure 0.3.0, la machine est devenue très lente (les tests du moteur prenaient 50 fois
-plus de temps que d'habitude). Sept analyses ont dépassé le délai de 120 s de l'atelier, alors qu'elles
-prenaient de 10 à 50 s avant. Le chiffre brut est donc faussé. La ligne « 44 serveurs comparables » retire ces
-sept serveurs et le témoin Go des deux mesures : c'est la vraie comparaison. Une partie de la lenteur venait
-aussi du moteur (les extraits de code d'un fichier empaqueté), corrigée ensuite ; la mesure est à refaire sur
-une machine normale.
+| Verdicts clairs | 78,4 % | 82,4 % |
 
 Ce qui a changé :
 
 - calculator : gris (appel à travers une table d'opérateurs) puis vert, tout est lu et suivi ;
+- sequential-thinking : orange puis vert. La version piratée de sa dépendance est retirée de npm (O06 se tait,
+  une ligne des détails techniques le dit), et son `require()` d'un `package.json` est une lecture de fichier ;
 - n8n : gris (un fichier de données de plus de 10 Mo faisait échouer l'analyse) puis orange ;
-- mongodb et storybook : « pas un serveur » puis « aucun outil reconnu » (le SDK est maintenant reconnu, les
-  outils pas encore) ;
+- mongodb et storybook : « pas un serveur » puis « aucun outil reconnu » (le SDK est reconnu, les outils pas
+  encore) ;
 - sentry-archived : suivi incomplet, puis verrou du vert (le client réseau est passé en paramètre à une autre
   fonction : ses requêtes ne sont pas suivies) ;
-- les rouges qui ne sont plus rouges sont en délai dépassé, pas corrigés : ils attendent la décision de David.
+- les sept rouges sont les mêmes avant et après. Ils attendent la décision de David (enquête dans le dossier
+  privé, partie 7).
+
+Une mesure intermédiaire (moteur 0.3.0, 29 octobre) avait été faussée par une machine très lente (sept délais
+dépassés) ; son résumé est gardé dans `bench/results/2026-10-29-engine-0.3.0.md`, mais elle ne sert pas de
+comparaison.
 
 ## 9. Les causes de gris restantes
 
-Sans compter les délais dépassés ni le témoin Go :
+Sans compter le témoin Go :
 
 | Cause | Serveurs | Pourquoi |
 | --- | --- | --- |

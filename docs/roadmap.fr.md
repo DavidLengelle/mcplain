@@ -31,7 +31,7 @@ Décisions du 29 octobre 2026, codées :
 - [x] Dossier privé `bench/private/` (hors de git) pour l'enquête sur les rouges.
 - [x] En CI, un rouge sur un vrai paquet est masqué (« red #n » et une empreinte) et fait échouer le banc.
 
-Causes de gris restantes, pour plus tard (mesure de la séance 7) :
+Causes de gris restantes, pour plus tard (mesure propre du 3 novembre 2026, moteur 0.4.0) :
 
 1. `not_a_server` (3 serveurs) : enveloppes dont le vrai code est dans une dépendance, et paquets empaquetés
    sans dépendance déclarée. Piste : analyser la dépendance qui porte le code, ou lire les imports du code
@@ -41,7 +41,6 @@ Causes de gris restantes, pour plus tard (mesure de la séance 7) :
 3. `incomplete_tracking` (2) : objets reçus en paramètre (postgres-mcp), code exécuté dans le navigateur
    (server-puppeteer).
 4. `network_unresolved` (1) : client réseau passé en paramètre à une autre fonction (mcp-server-sentry).
-5. À refaire sur une machine normale : la mesure 0.3.0 a eu 7 délais dépassés de l'atelier (machine très lente).
 
 ## PROTECTIONS CONTRE LES ROBOTS ET QUOTAS (décidé le 23 octobre 2026)
 
