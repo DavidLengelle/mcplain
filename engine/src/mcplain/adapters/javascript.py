@@ -155,6 +155,8 @@ LIST_TOOLS_SCHEMAS: tuple[str, ...] = ("ListToolsRequestSchema",)
 CALL_TOOL_SCHEMAS: tuple[str, ...] = ("CallToolRequestSchema",)
 LIST_TOOLS_METHOD = "tools/list"
 CALL_TOOL_METHOD = "tools/call"
+SDK_REGISTRY_FIELD = "_registeredTools"
+SDK_REGISTERING_METHOD = "registerTool"
 PROMISIFY_NAMES: frozenset[str] = frozenset({"promisify", "util.promisify"})
 TEXT_HELPERS: frozenset[str] = frozenset({"dedent", "String.raw", "outdent", "stripIndent"})
 EQUALITY_OPERATORS: frozenset[str] = frozenset({"===", "=="})
@@ -1682,6 +1684,8 @@ class _JavaScriptFile:
         method = node_text(schema)
         if schema.type == "string":
             method = self._decode_string(schema).value
+        if self._sdk_registry_handler(arguments[1]):
+            return
         if method == LIST_TOOLS_METHOD or method.endswith(LIST_TOOLS_SCHEMAS):
             self.list_handlers.append(arguments[1])
         elif method == CALL_TOOL_METHOD or method.endswith(CALL_TOOL_SCHEMAS):
@@ -1690,6 +1694,31 @@ class _JavaScriptFile:
                 self.report.call_handlers.append(RawHandler(start, end))
             for entry in entries:
                 self.report.call_handlers.append(RawHandler(reference=entry))
+
+    def _sdk_registry_handler(self, handler: Node) -> bool:
+        """Tell whether a tools handler is the MCP SDK's own: it reads this._registeredTools in the class that defines registerTool"""
+
+        reads_registry = any(
+            handler.start_byte <= member.start_byte < handler.end_byte
+            and node_text(member.child_by_field_name("object") or member) == "this"
+            and property_name(member.child_by_field_name("property")) == SDK_REGISTRY_FIELD
+            for member in self.nodes["member_expression"]
+        )
+        if not reads_registry:
+            return False
+        current = handler.parent
+        while current is not None and current.type not in CLASS_TYPES:
+            current = current.parent
+        if current is None:
+            return False
+        body = current.child_by_field_name("body")
+        if body is None:
+            return False
+        return any(
+            member.type == "method_definition"
+            and property_name(member.child_by_field_name("name")) == SDK_REGISTERING_METHOD
+            for member in body.named_children
+        )
 
     def _tool_class(self, definition: Node) -> None:
         """Read a class that extends MCPTool with name and description fields"""

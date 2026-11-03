@@ -166,3 +166,56 @@ def test_a_tmcp_server_and_its_tools_are_read(fixtures: Path) -> None:
     assert [parameter.name for parameter in read.parameters] == ["name"]
     assert capabilities(read) == {Capability.FS_READ}
     assert read.gaps == []
+
+
+BUNDLED_SDK = '''class McpServer {
+  constructor(info) {
+    this.info = info;
+    this._registeredTools = {};
+  }
+  registerTool(name, config, callback) {
+    this._registeredTools[name] = { description: config.description, callback };
+  }
+  listen(transport) {
+    transport.setRequestHandler(ListToolsRequestSchema, () => ({
+      tools: Object.entries(this._registeredTools).map(([name, tool]) => {
+        const definition = { name, description: tool.description, inputSchema: {} };
+        return definition;
+      }),
+    }));
+    transport.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+      const tool = this._registeredTools[request.params.name];
+      return tool.callback(request.params.arguments, extra.session.read());
+    });
+  }
+}
+'''
+ADD_TOOL = '''const server = new McpServer({ name: "calc", version: "1.0.0" });
+server.registerTool("add", { description: "Add two numbers" }, async ({ a, b }) => {
+  return { content: [{ type: "text", text: String(a + b) }] };
+});
+'''
+
+
+def test_the_tools_handlers_of_a_bundled_sdk_are_not_tools(tmp_path: Path) -> None:
+    """A bundle holds the SDK's McpServer class: its tools/list and tools/call handlers list the registered tools"""
+
+    write(tmp_path, "package.json", '{"name": "calc", "dependencies": {"@modelcontextprotocol/sdk": "^1.0.0"}}')
+    write(tmp_path, "dist/index.js", BUNDLED_SDK + ADD_TOOL)
+    result = analyze_directory(tmp_path)
+    server = result.servers[0]
+    assert [item.name for item in server.tools] == ["add"]
+    assert tool(server, "add").description == "Add two numbers"
+    assert tool(server, "add").gaps == []
+    assert result.verdict.color is VerdictColor.GREEN
+
+
+def test_a_tools_list_handler_outside_the_sdk_class_is_still_read(tmp_path: Path) -> None:
+    """The same handler in a class that does not define registerTool is an author's tool list, read as before"""
+
+    source = BUNDLED_SDK.replace("registerTool(name, config, callback)", "add(name, config, callback)")
+    write(tmp_path, "package.json", '{"name": "calc", "dependencies": {"@modelcontextprotocol/sdk": "^1.0.0"}}')
+    write(tmp_path, "dist/index.js", source.replace("class McpServer", "class Registry"))
+    server = analyze_directory(tmp_path).servers[0]
+    assert [item.name for item in server.tools] == ["name"]
+    assert tool(server, "name").description_is_dynamic
