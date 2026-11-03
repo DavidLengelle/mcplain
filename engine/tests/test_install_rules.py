@@ -207,3 +207,22 @@ def test_a_python_setup_download_for_this_system_is_o11(tmp_path: Path) -> None:
         {"domain": "downloads.example.invalid"}
     ]
     assert "R10" not in rules(result)
+
+
+def lit_lamps(result: AnalysisResult) -> set[LampId]:
+    """Return the lamps of the first server that are on or red"""
+
+    return {item.id for item in result.servers[0].lamps if item.state is not LampState.OFF}
+
+
+def test_the_lamps_of_the_three_new_rules(fixtures: Path) -> None:
+    """O09 lights no lamp, O10 lights the files lamp, O11 the Internet lamp; none of them is red"""
+
+    o09 = analyze_directory(fixtures / "rules" / "O09" / "positive")
+    o10 = analyze_directory(fixtures / "rules" / "O10" / "positive")
+    o11 = analyze_directory(fixtures / "rules" / "O11" / "positive")
+    assert lit_lamps(o09) == set()
+    assert LampId.FILES_WRITE in lit_lamps(o10)
+    assert LampId.INTERNET in lit_lamps(o11)
+    for result in (o09, o10, o11):
+        assert all(item.state is not LampState.DANGER for item in result.servers[0].lamps)

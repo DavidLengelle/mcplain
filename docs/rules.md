@@ -1,6 +1,6 @@
 # MCPlain rules
 
-Rules version 2: 23 rules, 12 red and 11 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
+Rules version 3: 23 rules, 12 red and 11 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
 
 Order of the verdict: red if a red rule fires; otherwise orange if an orange rule fires; otherwise gray if the status is not ok or if the code could not be fully read and followed; otherwise green. The rules apply to all server code (tools, code outside the tools, startup, install scripts, imported examples), never to tests or examples that the server does not import.
 

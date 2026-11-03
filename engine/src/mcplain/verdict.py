@@ -28,7 +28,7 @@ from mcplain.rules.orange import ORANGE_RULES, cleared_dependencies
 from mcplain.rules.red import RED_RULES
 from mcplain.rules.text import BIDI_CONTROLS, hidden_characters, tool_texts
 
-RULES_VERSION = "2"
+RULES_VERSION = "3"
 SEVERITY: dict[VerdictColor, int] = {
     VerdictColor.GREEN: 0,
     VerdictColor.GRAY: 0,
