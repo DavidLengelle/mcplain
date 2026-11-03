@@ -1,8 +1,8 @@
 {
-  "engine_version": "0.3.0",
-  "date": "2026-10-29T18:29:46+00:00",
-  "source": "2026-10-29-engine-0.3.0.json",
-  "left_out": 9,
+  "engine_version": "0.4.0",
+  "date": "2026-11-03T14:28:14+00:00",
+  "source": "2026-11-03-engine-0.4.0.json",
+  "reds_left_out": 7,
   "servers": {
     "fetch": {
       "color": "orange",
@@ -40,7 +40,7 @@
       "version": "2.0.1"
     },
     "sequential-thinking": {
-      "color": "orange",
+      "color": "green",
       "gray_case": null,
       "version": "2.0.0"
     },
@@ -102,7 +102,7 @@
     "context7": {
       "color": "orange",
       "gray_case": null,
-      "version": "4.4.4"
+      "version": "4.5.0"
     },
     "chrome-devtools": {
       "color": "gray",
@@ -112,12 +112,22 @@
     "playwright": {
       "color": "gray",
       "gray_case": "not_a_server",
-      "version": "0.0.83"
+      "version": "0.0.84"
     },
     "firecrawl": {
       "color": "orange",
       "gray_case": null,
       "version": "3.36.0"
+    },
+    "gcloud": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.5.3"
+    },
+    "launchdarkly": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.7.2"
     },
     "mongodb": {
       "color": "gray",
@@ -147,12 +157,12 @@
     "n8n": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.99.2"
+      "version": "2.100.0"
     },
     "ms-365": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.176.1"
+      "version": "0.178.0"
     },
     "calculator": {
       "color": "green",
@@ -177,7 +187,7 @@
     "aws-documentation": {
       "color": "orange",
       "gray_case": null,
-      "version": "1.2.3"
+      "version": "1.2.4"
     },
     "clickhouse": {
       "color": "orange",
@@ -187,7 +197,7 @@
     "excel": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.2.2"
+      "version": "2.2.6"
     },
     "chroma": {
       "color": "orange",
@@ -202,7 +212,7 @@
     "dbt": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.9.0"
+      "version": "2.10.0"
     },
     "pagerduty": {
       "color": "orange",
