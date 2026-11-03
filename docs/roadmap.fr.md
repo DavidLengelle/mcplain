@@ -82,7 +82,7 @@ En attente de la décision de David :
 4. Lecture, suites possibles (par fréquence) : objets reçus en paramètre, rangés dans `self` ou paramètres de
    lambda (6 serveurs) ; outils déclarés d'une façon inconnue (7 serveurs, 7 façons) ; descriptions tirées d'une
    table de définitions (4) ; appels réseau sous une forme non reconnue, comme `(0, undici_1.fetch)(...)` (4) ;
-   profondeur d'appels au-delà de 5 (4) ; `mcp.tool()(fn)` (logfire) ; `Context` de FastMCP (`ctx.info`).
+   profondeur d'appels au-delà de 5 (4) ; `mcp.tool()(fn)` ; `Context` de FastMCP (`ctx.info`).
 5. Un chemin de client MCP écrit en morceaux (`path.join(home, ".cursor", "mcp.json")`) n'est pas reconnu comme
    chemin sensible : ni R08 ni O10 ne se déclenchent alors (limite qui existait déjà pour R08). Une piste :
    composer les morceaux littéraux de `path.join`.
