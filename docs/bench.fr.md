@@ -186,23 +186,26 @@ Pourquoi : tant que la décision n'est pas prise, accuser un vrai paquet en publ
 d'un faux rouge, et dangereux s'il s'agit d'un vrai paquet malveillant (son auteur serait prévenu). Le contenu
 de ce dossier n'est décrit nulle part ailleurs.
 
-## 8. Avant et après la séance 7
+## 8. Avant et après les séances 7
 
-La mesure de référence est la **mesure propre** du 3 novembre 2026 (moteur 0.4.0, règles version 2), faite sur
-une machine vérifiée avant de commencer : charge basse, aucun conteneur d'un autre projet. Elle n'a eu ni délai
-dépassé, ni échec réseau. On la compare à la première mesure, faite avant toute correction.
+Trois mesures comptent. La première, faite avant toute correction (moteur 0.2.1). La mesure propre du
+3 novembre 2026 (moteur 0.4.0, règles version 2), qui sert encore de référence publique (`bench/baseline.json`).
+Et la mesure propre du 3 novembre au soir (moteur 0.5.0, règles version 3, séance 7 quater), faite après les
+corrections décidées ce jour-là. Les deux mesures propres ont été faites sur une machine vérifiée avant de
+commencer (charge basse, aucun conteneur d'un autre projet), avec des images reconstruites et des analyses
+fraîches (aucune servie par le cache).
 
-| | Moteur 0.2.1 (29 octobre, avant) | Moteur 0.4.0 (3 novembre, après) |
-| --- | --- | --- |
-| Vert | 3 | 5 |
-| Orange | 30 | 30 |
-| Rouge | 7 | 7 |
-| Gris | 12 | 10 |
-| Délais dépassés | 0 | 0 |
-| Échecs à part | 0 | 0 |
-| Verdicts clairs | 78,4 % | 82,4 % |
+| | Moteur 0.2.1 (29 octobre) | Moteur 0.4.0 (3 novembre) | Moteur 0.5.0 (3 novembre au soir) |
+| --- | --- | --- | --- |
+| Vert | 3 | 5 | 5 |
+| Orange | 30 | 30 | 36 |
+| Rouge | 7 | 7 | 1 |
+| Gris | 12 | 10 | 10 |
+| Délais dépassés | 0 | 0 | 0 |
+| Échecs à part | 0 | 0 | 0 |
+| Verdicts clairs | 78,4 % | 82,4 % | 82,4 % |
 
-Ce qui a changé :
+Ce qui a changé entre 0.2.1 et 0.4.0 (séances 7 et 7 bis) :
 
 - calculator : gris (appel à travers une table d'opérateurs) puis vert, tout est lu et suivi ;
 - sequential-thinking : orange puis vert. La version piratée de sa dépendance est retirée de npm (O06 se tait,
@@ -211,17 +214,32 @@ Ce qui a changé :
 - mongodb et storybook : « pas un serveur » puis « aucun outil reconnu » (le SDK est reconnu, les outils pas
   encore) ;
 - sentry-archived : suivi incomplet, puis verrou du vert (le client réseau est passé en paramètre à une autre
-  fonction : ses requêtes ne sont pas suivies) ;
-- les sept rouges sont les mêmes avant et après. Ils attendent la décision de David (enquête dans le dossier
-  privé, partie 7).
+  fonction : ses requêtes ne sont pas suivies).
+
+Ce qui a changé entre 0.4.0 et 0.5.0 (séance 7 quater) :
+
+- six des sept rouges deviennent orange, par les décisions du 3 novembre sur R04, R12, R02 (nouvelle O09) et R08
+  (nouvelle O10). Le septième reste rouge pour R10 : sa requête d'installation emporte des données que le moteur
+  ne peut pas prouver simples. Les noms restent dans le dossier privé (partie 7) ;
+- les couleurs des 45 autres serveurs ne changent pas ; leurs rapports, si : plusieurs raisons de lecture
+  incomplète disparaissent (descriptions qui insèrent une constante, gestionnaire `tools/list` du SDK empaqueté,
+  parties sans réseau d'une bibliothèque réseau), et des voyants s'éteignent (marques U+200E et U+200F d'une table
+  d'encodage, `__import__("pkgutil")`) ;
+- le pourcentage de verdicts clairs ne bouge pas : un rouge devenu orange reste un verdict clair. Les gris sont
+  les mêmes dix serveurs.
 
 Une mesure intermédiaire (moteur 0.3.0, 29 octobre) avait été faussée par une machine très lente (sept délais
 dépassés) ; son résumé est gardé dans `bench/results/2026-10-29-engine-0.3.0.md`, mais elle ne sert pas de
 comparaison.
 
+La référence publique n'est pas encore mise à jour avec la mesure 0.5.0 : il n'y reste qu'un rouge laissé de
+côté, et son nom se déduirait en comparant `baseline.json` à `servers.toml`. La référence proposée est dans le
+dossier privé, en attendant la décision de David. En attendant, le banc du lundi en CI échoue (couleurs
+changées et un rouge), sans nommer personne.
+
 ## 9. Les causes de gris restantes
 
-Sans compter le témoin Go :
+Mesure 0.5.0, sans compter le témoin Go (les mêmes qu'avec 0.4.0) :
 
 | Cause | Serveurs | Pourquoi |
 | --- | --- | --- |

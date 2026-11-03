@@ -1,7 +1,8 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. La séance 7 est faite ; rien de ce qui suit la séance 7 n'est codé.
+commencer. Les séances 7, 7 bis, 7 ter et 7 quater sont faites ; les parties « Protections » et « Adresses IP
+partagées » (séances 8 et 9) ne sont pas codées.
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
 
@@ -14,8 +15,8 @@ commencer. La séance 7 est faite ; rien de ce qui suit la séance 7 n'est codé
       serveur du SDK MCP v2 et SDK tmcp ; gros fichier de données qui faisait échouer l'analyse.
 - [x] Gris partiel : champ `verdict.coverage` et bloc « Ce que MCPlain a pu lire » sur le site.
 - [x] Banc chaque lundi en CI (`.github/workflows/bench.yml`), alerte si une couleur change.
-- [ ] Décision de David en attente : les rouges sur de vrais paquets (faux rouges ou vrais paquets
-      malveillants). L'enquête est dans `bench/private/rouges.md`, hors de git.
+- [x] Les rouges sur de vrais paquets : décidé le 3 novembre 2026 (faux rouges corrigés en séance 7 quater).
+      L'enquête est dans `bench/private/rouges.md`, hors de git.
 
 ## SÉANCE 7 BIS (novembre 2026, moteur 0.4.0, règles version 2)
 
@@ -41,6 +42,50 @@ Causes de gris restantes, pour plus tard (mesure propre du 3 novembre 2026, mote
 3. `incomplete_tracking` (2) : objets reçus en paramètre (postgres-mcp), code exécuté dans le navigateur
    (server-puppeteer).
 4. `network_unresolved` (1) : client réseau passé en paramètre à une autre fonction (mcp-server-sentry).
+
+## SÉANCE 7 QUATER (3 novembre 2026, moteur 0.5.0, règles version 3)
+
+Fait :
+
+- [x] Diagnostic de la mesure du 3 novembre (lecture incomplète des 31 serveurs gris dans la simulation de la
+      séance 7 ter, voyants suspects) dans `bench/private/diagnostic.md`, hors de git.
+- [x] Lecture, trois premières causes : gestionnaires `tools/list` et `tools/call` du SDK MCP empaqueté qui ne
+      sont plus pris pour un outil ; description qui insère une constante texte du même fichier (gabarit ou
+      f-string) ; parties d'une bibliothèque réseau qui ne peuvent pas envoyer (`net.BlockList`,
+      `tls.checkServerIdentity`, `http2.constants`, `urllib3.util.retry.Retry`...), sans compter pour le verrou.
+- [x] Voyants : « Texte caché » suit le jeu de contrôles bidirectionnels de R01 (pas U+200E, U+200F, U+061C) et
+      ignore les drapeaux émoji ; `__import__("x")` et `importlib.import_module("x")` avec un nom écrit dans le
+      code ne sont plus du code construit à l'exécution.
+- [x] Décisions du 3 novembre codées : R04 (champ nommé de l'environnement, connexion locale, socket Docker en
+      O08), R12 (il faut viser un outil d'analyse), R02 et nouvelle O09 « Demande de silence à vérifier », R08 et
+      nouvelle O10 (commande d'installation qui modifie la configuration d'un client MCP), R10 et nouvelle O11
+      « Contacte Internet dès l'installation ». Détails et faux positifs restants : `docs/rules.fr.md`.
+- [x] Les alertes portent un titre précis (`title`) et les paramètres de leurs textes (`params`) ; le site les
+      affiche avec `RawText`.
+- [x] Mesure propre (moteur 0.5.0) : 5 verts, 36 oranges, 1 rouge, 10 gris, 82,4 % (`docs/bench.fr.md`).
+- [x] Dependabot : aucune nouvelle demande depuis la #40.
+
+En attente de la décision de David :
+
+1. Publier la nouvelle référence du banc (`bench/baseline.json`) : elle est prête dans `bench/private/`, mais
+   avec un seul rouge laissé de côté, son nom se déduit de `servers.toml`. À décider avec le sens des couleurs.
+2. Le sens des couleurs (proposition de la séance 7 ter : O01 et O08 ne colorent plus). Simulation refaite sur la
+   mesure 0.5.0 : 14 verts, 3 oranges, 1 rouge, 34 gris ; cinq verts rassureraient à tort (voyants « Touche à
+   tes secrets » ou nombreux voyants allumés).
+3. Voyants, propositions qui changent leur sens (pas codées) :
+   - ignorer le code d'une bibliothèque embarquée jamais appelé (depd, function-bind, ajv, zod) : c'est la seule
+     chose qui allume « Lance des commandes » sur trois serveurs ;
+   - ignorer, pour « Texte caché », les caractères invisibles écrits en échappement dans des données (table des
+     entités HTML d'une bibliothèque embarquée) ;
+   - reconnaître comme tests ou scripts de build les dossiers `snapshot-tests`, `smoke-tests`, `benchmarks`, les
+     fichiers `test-*.js` et `build.js` à la racine, et les scripts de `scripts/` que le serveur n'importe pas.
+4. Lecture, suites possibles (par fréquence) : objets reçus en paramètre, rangés dans `self` ou paramètres de
+   lambda (6 serveurs) ; outils déclarés d'une façon inconnue (7 serveurs, 7 façons) ; descriptions tirées d'une
+   table de définitions (4) ; appels réseau sous une forme non reconnue, comme `(0, undici_1.fetch)(...)` (4) ;
+   profondeur d'appels au-delà de 5 (4) ; `mcp.tool()(fn)` (logfire) ; `Context` de FastMCP (`ctx.info`).
+5. Un chemin de client MCP écrit en morceaux (`path.join(home, ".cursor", "mcp.json")`) n'est pas reconnu comme
+   chemin sensible : ni R08 ni O10 ne se déclenchent alors (limite qui existait déjà pour R08). Une piste :
+   composer les morceaux littéraux de `path.join`.
 
 ## PROTECTIONS CONTRE LES ROBOTS ET QUOTAS (décidé le 23 octobre 2026)
 
