@@ -343,6 +343,7 @@ class _PythonFile:
         self.classes: dict[str, Node] = {}
         self.function_names: set[str] = set()
         self.class_constants: dict[str, Node] = {}
+        self.filling_templates = False
         self.clients: list[tuple[str, int, int, str]] = []
         self.client_factories: dict[str, str] = {}
         self.instance_factories: dict[str, tuple[str, str | None]] = {}
@@ -841,9 +842,11 @@ class _PythonFile:
             return dynamic_text()
         kind = node.type
         if kind == "string":
-            return self._decode_string(node)
+            return self._decode_string(node, depth)
         if kind == "concatenated_string":
-            return join_texts([self._decode_string(child) for child in node.named_children if child.type == "string"])
+            return join_texts(
+                [self._decode_string(child, depth) for child in node.named_children if child.type == "string"]
+            )
         if kind == "parenthesized_expression" and node.named_children:
             return self.static_text(node.named_children[0], depth + 1)
         if kind == "binary_operator":
@@ -899,10 +902,29 @@ class _PythonFile:
                 operands.append(current)
         return operands
 
-    def _decode_string(self, node: Node) -> TextValue:
+    def tool_text(self, node: Node | None) -> TextValue:
+        """Return a text the AI reads, a description or a title, also filling f-strings with texts known statically"""
+
+        self.filling_templates = True
+        text = self.static_text(node)
+        self.filling_templates = False
+        return text
+
+    def _interpolation_text(self, interpolation: Node, depth: int) -> TextValue | None:
+        """Return the text of {NAME} in an f-string when it is known statically, without conversion or format"""
+
+        if not self.filling_templates or len(interpolation.children) != 3 or len(interpolation.named_children) != 1:
+            return None
+        text = self.static_text(interpolation.named_children[0], depth + 1)
+        if text.dynamic:
+            return None
+        return text
+
+    def _decode_string(self, node: Node, depth: int = 0) -> TextValue:
         """Decode a string literal into its runtime value, keeping source positions"""
 
         pieces: list[Piece] = []
+        filled_ranges: list[tuple[int, int]] = []
         dynamic = False
         raw = False
         data = self.source.data
@@ -931,9 +953,16 @@ class _PythonFile:
                     chunk = data[cursor:child.end_byte].decode("utf-8", errors="replace")
                     pieces.append(Piece(chunk, cursor, True))
             elif child.type == "interpolation":
-                dynamic = True
-                pieces.append(Piece(DYNAMIC_PLACEHOLDER, child.start_byte, False))
-        return text_from_pieces(pieces, dynamic, node)
+                filled = self._interpolation_text(child, depth)
+                if filled is None:
+                    dynamic = True
+                    pieces.append(Piece(DYNAMIC_PLACEHOLDER, child.start_byte, False))
+                else:
+                    pieces.extend(filled.pieces)
+                    filled_ranges.extend(filled.ranges)
+        text = text_from_pieces(pieces, dynamic, node)
+        text.ranges.extend(filled_ranges)
+        return text
 
     def _function_tool(
         self,
@@ -967,12 +996,12 @@ class _PythonFile:
                 name = text.value
         description = None
         if "description" in keywords:
-            description = self.static_text(keywords["description"])
+            description = self.tool_text(keywords["description"])
         if description is None:
             doc = docstring_node(definition)
             description = TextValue()
             if doc is not None:
-                description = self.static_text(doc)
+                description = self.tool_text(doc)
         parameters, parameter_ranges = self._function_parameters(definition)
         tool = RawTool(
             name=name,
@@ -1000,7 +1029,7 @@ class _PythonFile:
         """Read the title and annotations the author declares for a tool"""
 
         if TITLE_KEY in keywords:
-            tool.title = self.static_text(keywords[TITLE_KEY])
+            tool.title = self.tool_text(keywords[TITLE_KEY])
             tool.text_ranges.extend(tool.title.ranges)
         if "annotations" in keywords:
             self._read_annotations(tool, keywords["annotations"], 0)
@@ -1026,7 +1055,7 @@ class _PythonFile:
             return
         for key, value in pairs:
             if key == TITLE_KEY and tool.title is None:
-                tool.title = self.static_text(value)
+                tool.title = self.tool_text(value)
                 tool.text_ranges.extend(tool.title.ranges)
             canonical = ANNOTATION_KEYS.get(key)
             if canonical is None or value.type in UNSET_NODES:
@@ -1100,14 +1129,14 @@ class _PythonFile:
                 if parts and parts[-1] == FIELD_FUNCTION:
                     _, keywords = split_arguments(current.child_by_field_name("arguments"))
                     if "description" in keywords:
-                        return self.static_text(keywords["description"])
+                        return self.tool_text(keywords["description"])
             if current.type == "generic_type" and node_text(current).startswith(ANNOTATED_NAME):
                 for parameter in current.named_children:
                     if parameter.type != "type_parameter":
                         continue
                     for item in parameter.named_children:
                         if item.named_children and item.named_children[0].type in STRING_TYPES:
-                            return self.static_text(item.named_children[0])
+                            return self.tool_text(item.named_children[0])
             stack.extend(reversed(current.named_children))
         return None
 
@@ -1240,7 +1269,7 @@ class _PythonFile:
                 name_is_dynamic = False
         description = dynamic_text()
         if "description" in keywords:
-            description = self.static_text(keywords["description"])
+            description = self.tool_text(keywords["description"])
         tool = RawTool(
             name=name,
             name_is_dynamic=name_is_dynamic,
@@ -1271,7 +1300,7 @@ class _PythonFile:
                 name = node_text(keywords["name"])
             description = TextValue()
             if "description" in keywords:
-                description = self.static_text(keywords["description"])
+                description = self.tool_text(keywords["description"])
             schema = keywords.get("input_schema") or keywords.get("inputSchema")
             parameters, dynamic, ranges = self._schema_parameters(schema, 0)
             tool = RawTool(
@@ -1343,7 +1372,7 @@ class _PythonFile:
                     type_text = self.static_text(type_node).value or None
                 description_node = self._dictionary_value(value, "description")
                 if description_node is not None:
-                    text = self.static_text(description_node)
+                    text = self.tool_text(description_node)
                     description = text.value
                     ranges.extend(text.ranges)
             parameters.append(

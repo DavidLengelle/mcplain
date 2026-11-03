@@ -506,6 +506,7 @@ class _JavaScriptFile:
         self.enum_members: dict[str, Node] = {}
         self.clients: list[tuple[str, int, int, str]] = []
         self.list_handlers: list[Node] = []
+        self.filling_templates = False
         self.seen_objects: set[int] = set()
         self.tables: list[tuple[str, int, int, list[tuple[str, Node]]]] = []
         self.instances: list[tuple[str, int, int, tuple[str, str | None]]] = []
@@ -1250,6 +1251,8 @@ class _JavaScriptFile:
         if current is None or depth > MAX_CONSTANT_DEPTH:
             return dynamic_text()
         kind = current.type
+        if kind == "template_string" and self.filling_templates:
+            return self._template_text(current, depth)
         if kind in TEXT_TYPES:
             return self._decode_string(current)
         if kind == "binary_expression":
@@ -1267,6 +1270,39 @@ class _JavaScriptFile:
         if kind == "member_expression":
             return self._member_text(current, depth)
         return dynamic_text()
+
+    def tool_text(self, node: Node | None) -> TextValue:
+        """Return a text the AI reads, a description or a title, also filling templates with texts known statically"""
+
+        self.filling_templates = True
+        text = self.static_text(node)
+        self.filling_templates = False
+        return text
+
+    def _template_text(self, node: Node, depth: int) -> TextValue:
+        """Decode a template literal, filling each ${...} that holds a text known statically, like a + concatenation"""
+
+        decoded = self._decode_string(node)
+        if not decoded.dynamic:
+            return decoded
+        parts: list[TextValue] = []
+        for child in node.named_children:
+            if child.type == "string_fragment":
+                text = node_text(child)
+                parts.append(TextValue(text, False, [Piece(text, child.start_byte, True)]))
+            elif child.type == "escape_sequence":
+                text = decode_escape(node_text(child))
+                parts.append(TextValue(text, False, [Piece(text, child.start_byte, False)]))
+            elif child.type == "template_substitution":
+                filled = dynamic_text()
+                if len(child.named_children) == 1:
+                    filled = self.static_text(child.named_children[0], depth + 1)
+                if filled.dynamic and not filled.value:
+                    filled = TextValue(DYNAMIC_PLACEHOLDER, True, [Piece(DYNAMIC_PLACEHOLDER, child.start_byte, False)])
+                parts.append(filled)
+        result = join_texts(parts)
+        result.ranges.insert(0, (node.start_byte, node.end_byte))
+        return result
 
     def _member_text(self, member: Node, depth: int) -> TextValue:
         """Read Enum.MEMBER or CONSTANT_OBJECT.key when it holds a literal of this file"""
@@ -1448,7 +1484,7 @@ class _JavaScriptFile:
             name = property_name(function.child_by_field_name("property"))
             arguments = call_arguments(current)
             if name == "describe" and arguments and description is None:
-                description = self.static_text(arguments[0])
+                description = self.tool_text(arguments[0])
             target = unwrap(function.child_by_field_name("object"))
             if target is not None and target.type == "identifier":
                 type_name = name
@@ -1459,7 +1495,7 @@ class _JavaScriptFile:
                 if options is not None:
                     option = self._object_value(options, "description")
                 if option is not None and description is None:
-                    description = self.static_text(option)
+                    description = self.tool_text(option)
             current = target
         return type_name, description
 
@@ -1483,7 +1519,7 @@ class _JavaScriptFile:
                     type_name = self.static_text(type_node).value or None
                 description_node = self._object_value(value, "description")
                 if description_node is not None:
-                    text = self.static_text(description_node)
+                    text = self.tool_text(description_node)
                     description = text.value
                     ranges.extend(text.ranges)
             parameters.append(ToolParameter(name=name, type=type_name, description=description))
@@ -1574,7 +1610,7 @@ class _JavaScriptFile:
         if rest:
             first = rest[0]
             if self._as_object(first) is None and unwrap(first) is not None and unwrap(first).type != "call_expression":
-                description = self.static_text(first)
+                description = self.tool_text(first)
                 rest = rest[1:]
             if rest:
                 schema = rest[0]
@@ -1598,7 +1634,7 @@ class _JavaScriptFile:
         else:
             description_node = self._object_value(config, "description")
             if description_node is not None:
-                description = self.static_text(description_node)
+                description = self.tool_text(description_node)
                 description_range = (description_node.start_byte, description_node.end_byte)
             schema = self._object_value(config, "inputSchema")
         bodies: list[tuple[int, int]] = []
@@ -1624,7 +1660,7 @@ class _JavaScriptFile:
         description = TextValue()
         description_node = self._object_value(config, "description")
         if description_node is not None:
-            description = self.static_text(description_node)
+            description = self.tool_text(description_node)
         bodies, entries = self._handler(self._object_value(config, "execute"))
         tool = self._add_tool(
             self._object_value(config, "name"),
@@ -1645,7 +1681,7 @@ class _JavaScriptFile:
 
         title = self._object_value(config, TITLE_KEY)
         if title is not None:
-            tool.title = self.static_text(title)
+            tool.title = self.tool_text(title)
             tool.text_ranges.extend(tool.title.ranges)
         annotations = self._object_value(config, "annotations")
         if annotations is not None:
@@ -1668,7 +1704,7 @@ class _JavaScriptFile:
             if key is None or value is None:
                 continue
             if key == TITLE_KEY and tool.title is None:
-                tool.title = self.static_text(value)
+                tool.title = self.tool_text(value)
                 tool.text_ranges.extend(tool.title.ranges)
             canonical = ANNOTATION_KEYS.get(key)
             if canonical is None or value.type in UNSET_NODES:
@@ -1744,7 +1780,7 @@ class _JavaScriptFile:
             return
         description = TextValue()
         if "description" in fields:
-            description = self.static_text(fields["description"])
+            description = self.tool_text(fields["description"])
         tool = self._add_tool(
             fields["name"],
             description,
@@ -1756,7 +1792,7 @@ class _JavaScriptFile:
         if "description" in fields and description.dynamic:
             tool.description_range = (fields["description"].start_byte, fields["description"].end_byte)
         if TITLE_KEY in fields:
-            tool.title = self.static_text(fields[TITLE_KEY])
+            tool.title = self.tool_text(fields[TITLE_KEY])
         if "annotations" in fields:
             self._read_annotations(tool, fields["annotations"], 0)
 

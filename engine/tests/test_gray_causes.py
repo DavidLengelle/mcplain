@@ -219,3 +219,75 @@ def test_a_tools_list_handler_outside_the_sdk_class_is_still_read(tmp_path: Path
     server = analyze_directory(tmp_path).servers[0]
     assert [item.name for item in server.tools] == ["name"]
     assert tool(server, "name").description_is_dynamic
+
+
+ENV_TOOL = '''import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+const HIDDEN = "<hidden>";
+const OPT_IN = "SHOW_ALL";
+const name = "show-settings";
+const config = {
+  title: "Show settings",
+  description: `Lists the settings. Values are shown as "${HIDDEN}" unless ${OPT_IN} is set.`,
+  inputSchema: {},
+};
+const server = new McpServer({ name: "settings", version: "1.0.0" });
+server.registerTool(name, config, async () => ({ content: [{ type: "text", text: "none" }] }));
+'''
+
+
+def test_a_javascript_description_that_inserts_constants_of_the_file_is_read(tmp_path: Path) -> None:
+    """A template literal that inserts text constants of the same file reads like a + concatenation"""
+
+    write(tmp_path, "package.json", '{"name": "settings", "dependencies": {"@modelcontextprotocol/sdk": "^1.0.0"}}')
+    write(tmp_path, "index.js", ENV_TOOL)
+    result = analyze_directory(tmp_path)
+    show = tool(result.servers[0], "show-settings")
+    assert not show.description_is_dynamic
+    assert show.description == 'Lists the settings. Values are shown as "<hidden>" unless SHOW_ALL is set.'
+    assert result.verdict.color is VerdictColor.GREEN
+
+
+def test_a_javascript_description_that_inserts_a_call_stays_computed(tmp_path: Path) -> None:
+    """A template literal that inserts a value computed at run time stays a computed description"""
+
+    write(tmp_path, "package.json", '{"name": "settings", "dependencies": {"@modelcontextprotocol/sdk": "^1.0.0"}}')
+    write(tmp_path, "index.js", ENV_TOOL.replace("${OPT_IN}", "${process.cwd()}"))
+    show = tool(analyze_directory(tmp_path).servers[0], "show-settings")
+    assert show.description_is_dynamic
+
+
+STATS_TOOL = '''from mcp.server.fastmcp import FastMCP
+
+EXTENSION = "pg_stat_statements"
+mcp = FastMCP("stats")
+
+
+@mcp.tool(name="top_queries", description=f"Lists the slowest queries from the '{EXTENSION}' extension.")
+def top_queries(limit: int = 10) -> str:
+    """List queries"""
+
+    return str(limit)
+'''
+
+
+def test_a_python_description_that_inserts_a_constant_of_the_file_is_read(tmp_path: Path) -> None:
+    """An f-string that inserts a text constant of the same file, without conversion or format, is read"""
+
+    write(tmp_path, "pyproject.toml", '[project]\nname = "stats"\nversion = "1"\ndependencies = ["mcp>=1"]\n')
+    write(tmp_path, "server.py", STATS_TOOL)
+    result = analyze_directory(tmp_path)
+    top = tool(result.servers[0], "top_queries")
+    assert not top.description_is_dynamic
+    assert top.description == "Lists the slowest queries from the 'pg_stat_statements' extension."
+    assert result.verdict.color is VerdictColor.GREEN
+
+
+def test_a_python_description_with_a_conversion_or_a_parameter_stays_computed(tmp_path: Path) -> None:
+    """{EXTENSION!r} converts the value, and {limit} is not known: both stay computed"""
+
+    write(tmp_path, "pyproject.toml", '[project]\nname = "stats"\nversion = "1"\ndependencies = ["mcp>=1"]\n')
+    for inserted in ("{EXTENSION!r}", "{EXTENSION:>20}", "{limit}"):
+        write(tmp_path, "server.py", STATS_TOOL.replace("'{EXTENSION}'", inserted))
+        top = tool(analyze_directory(tmp_path).servers[0], "top_queries")
+        assert top.description_is_dynamic
