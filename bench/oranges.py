@@ -24,6 +24,9 @@ FAMILIES: dict[str, str] = {
     "O06": ANOMALY,
     "O07": ANOMALY,
     "O05": UNSORTED,
+    "O09": UNSORTED,
+    "O10": UNSORTED,
+    "O11": UNSORTED,
 }
 FAMILY_NAMES: dict[str, str] = {POWER: "pouvoir", ANOMALY: "anomalie", UNSORTED: "à classer"}
 PROPOSAL: frozenset[str] = frozenset({"O01", "O08"})
@@ -53,6 +56,12 @@ LAMP_NAMES: dict[str, str] = {
     "secrets": "Touche à tes secrets",
     "hidden_text": "Texte caché",
 }
+
+
+def family(rule: str) -> str:
+    """Return the family of an orange rule; a rule the study does not know yet is to be sorted"""
+
+    return FAMILIES.get(rule, UNSORTED)
 
 
 def orange_rules(record: dict[str, Any]) -> list[str]:
@@ -193,7 +202,7 @@ def count_table(numbers: dict[str, Any]) -> list[str]:
 def rules_text(rules: list[str]) -> str:
     """Write rule codes with their family"""
 
-    parts = [f"{rule} ({FAMILY_NAMES.get(FAMILIES.get(rule, ''), 'rouge')})" for rule in rules]
+    parts = [f"{rule} ({FAMILY_NAMES[family(rule)]})" if rule.startswith("O") else f"{rule} (rouge)" for rule in rules]
     return ", ".join(parts) or "aucune"
 
 
@@ -220,7 +229,7 @@ def private_report(records: list[dict[str, Any]], numbers: dict[str, Any], sourc
     ]
     lines.extend(f"| {record['id']} | {rules_text(orange_rules(record))} | {lamps_text(record)} |" for record in oranges)
     lines.extend(["", "## 2. Comptes", "", "| Règle | Famille | Serveurs orange touchés |", "| --- | --- | --- |"])
-    lines.extend(f"| {rule} | {FAMILY_NAMES[FAMILIES[rule]]} | {count} |" for rule, count in numbers["rules"])
+    lines.extend(f"| {rule} | {FAMILY_NAMES[family(rule)]} | {count} |" for rule, count in numbers["rules"])
     lines.extend(
         [
             "",
@@ -230,7 +239,7 @@ def private_report(records: list[dict[str, Any]], numbers: dict[str, Any], sourc
             "",
             "## 3. Simulation",
             "",
-            "Proposition : O01 et O08 ne colorent plus ; O02, O03, O04, O06 et O07 restent orange ; rouges et gris "
+            "Proposition : O01 et O08 ne colorent plus ; les autres règles orange (O02 à O07, O09, O10, O11) restent orange ; rouges et gris "
             "inchangés. Un serveur sans règle orange restante devient vert, sauf si le moteur n'a pas tout lu ou "
             "suivi : il devient alors gris.",
             "",

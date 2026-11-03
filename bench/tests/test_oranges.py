@@ -100,3 +100,13 @@ def test_the_command_reads_stored_lamps_and_keeps_names_private(tmp_path: Path, 
     text = report.read_text(encoding="utf-8")
     assert "| secret-name | O08 (pouvoir) | Lance des commandes |" in text
     assert "- secret-name : Lance des commandes" in text
+
+
+def test_new_orange_rules_are_to_be_sorted_and_keep_their_color() -> None:
+    """O09, O10, O11 and an unknown orange rule belong to no family yet, and the simulation keeps them orange"""
+
+    for rule in ("O09", "O10", "O11", "O99"):
+        assert oranges.family(rule) == oranges.UNSORTED
+        assert oranges.simulated(record("x", "orange", ["O08", rule]), oranges.PROPOSAL) == "orange"
+    report = oranges.private_report([record("x", "orange", ["O10"])], oranges.summary([record("x", "orange", ["O10"])]), "r")
+    assert "| O10 | à classer | 1 |" in report
