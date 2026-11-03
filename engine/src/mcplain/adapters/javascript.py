@@ -190,6 +190,13 @@ IMMEDIATE_CALLBACK_METHODS: frozenset[str] = frozenset(
     {"map", "forEach", "filter", "reduce", "some", "every", "find", "flatMap", "then", "catch", "finally"}
 )
 PROMISE_CONSTRUCTOR = "Promise"
+JSON_SUFFIX = ".json"
+JSON_REQUIRE = "require(.json)"
+PATH_JOINERS: frozenset[str] = frozenset(
+    {"path.join", "path.resolve", "path.posix.join", "path.posix.resolve", "path.win32.join", "path.win32.resolve"}
+)
+SCOPE_TYPES: frozenset[str] = frozenset({"statement_block", "program", "class_body"})
+CONST_KEYWORD = "const"
 TYPE_CONTEXTS: frozenset[str] = frozenset(
     {
         "type_annotation",
@@ -1971,7 +1978,10 @@ class _JavaScriptFile:
             qualified, imported = resolved
             if not imported and qualified == "require":
                 if arguments and arguments[0].type != "string":
-                    self._add(Capability.DYNAMIC_CODE, call, "require()")
+                    if self._json_require(arguments[0]):
+                        self._add(Capability.FS_READ, call, JSON_REQUIRE)
+                    else:
+                        self._add(Capability.DYNAMIC_CODE, call, "require()")
                 return
             if qualified in JAVASCRIPT_BUFFER_DECODERS:
                 if len(arguments) > 1 and self.static_text(arguments[1]).value in JAVASCRIPT_BASE64_ENCODINGS:
@@ -2008,6 +2018,107 @@ class _JavaScriptFile:
             rule = match_rule(JAVASCRIPT_RULES, method, RuleKind.METHOD)
             if rule is not None:
                 self._add(rule.capability, call, "." + method)
+
+    def _json_require(self, node: Node) -> bool:
+        """Tell whether every possible path of a require ends with .json written in the code, a JSON file read"""
+
+        ends = self._path_ends(node, 0)
+        return bool(ends) and all(end.endswith(JSON_SUFFIX) for end in ends or [])
+
+    def _path_ends(self, node: Node | None, depth: int) -> list[str] | None:
+        """Return the text that ends each possible value of a path, or None when one of them is not written in the code"""
+
+        current = unwrap(node)
+        if current is None or depth > MAX_CONSTANT_DEPTH:
+            return None
+        if current.type == "string":
+            return [self.static_text(current).value]
+        if current.type == "template_string":
+            parts = current.named_children
+            if parts and parts[-1].type == "template_substitution":
+                return None
+            return [self.static_text(current).value]
+        if current.type == "binary_expression":
+            operands = self._concatenation_operands(current)
+            if not operands:
+                return None
+            return self._path_ends(operands[-1], depth + 1)
+        if current.type == "call_expression":
+            resolved = self.resolve(current.child_by_field_name("function"))
+            arguments = call_arguments(current)
+            if resolved is None or not resolved[1] or resolved[0] not in PATH_JOINERS or not arguments:
+                return None
+            return self._path_ends(arguments[-1], depth + 1)
+        if current.type == "identifier":
+            elements = self._loop_elements(current, depth)
+            if elements is not None:
+                return elements
+            value = self._const_value(current)
+            if value is None or unwrap(value) is None or unwrap(value).type == "array":
+                return None
+            return self._path_ends(value, depth + 1)
+        return None
+
+    def _loop_elements(self, name: Node, depth: int) -> list[str] | None:
+        """Return the path ends of the array a for (const x of array) loop walks, when name is that x"""
+
+        current = name.parent
+        while current is not None:
+            if current.type == "for_in_statement":
+                left = current.child_by_field_name("left")
+                kind = current.child_by_field_name("kind")
+                operator = current.child_by_field_name("operator")
+                if left is not None and left.type == "identifier" and node_text(left) == node_text(name):
+                    if kind is None or node_text(kind) != CONST_KEYWORD or operator is None or node_text(operator) != "of":
+                        return None
+                    return self._array_ends(current.child_by_field_name("right"), depth + 1)
+            current = current.parent
+        return None
+
+    def _array_ends(self, node: Node | None, depth: int) -> list[str] | None:
+        """Return the path ends of every element of an array literal, or of the constant array a name holds"""
+
+        current = unwrap(node)
+        if current is not None and current.type == "identifier":
+            current = unwrap(self._const_value(current))
+        if current is None or current.type != "array" or depth > MAX_CONSTANT_DEPTH:
+            return None
+        ends: list[str] = []
+        for element in current.named_children:
+            if element.type == "comment":
+                continue
+            found = self._path_ends(element, depth + 1)
+            if found is None:
+                return None
+            ends.extend(found)
+        return ends
+
+    def _const_value(self, name: Node) -> Node | None:
+        """Return the value of the only const declaration a name refers to, in the innermost scope that holds it"""
+
+        best: list[tuple[int, Node]] = []
+        for declarator in self.nodes["variable_declarator"]:
+            target = declarator.child_by_field_name("name")
+            value = declarator.child_by_field_name("value")
+            declaration = declarator.parent
+            if target is None or value is None or declaration is None or node_text(target) != node_text(name):
+                continue
+            if declaration.type != "lexical_declaration" or not declaration.children:
+                continue
+            if node_text(declaration.children[0]) != CONST_KEYWORD:
+                continue
+            scope = declaration.parent
+            while scope is not None and scope.type not in SCOPE_TYPES:
+                scope = scope.parent
+            if scope is None or not scope.start_byte <= name.start_byte < scope.end_byte:
+                continue
+            best.append((scope.end_byte - scope.start_byte, value))
+        if not best:
+            return None
+        best.sort(key=lambda item: item[0])
+        if len(best) > 1 and best[0][0] == best[1][0]:
+            return None
+        return best[0][1]
 
     def _open_call(self, call: Node, arguments: list[Node], qualified: str) -> None:
         """Classify fs.open as a read or a write from its flags argument"""

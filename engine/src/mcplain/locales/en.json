@@ -355,7 +355,7 @@
   "cli.source.linked_commit": "Commit consulted on branch {reference}",
   "cli.source.linked_commit_note": "not necessarily the one used to build the package",
   "rule.O08.title": "Powerful capability",
-  "rule.O08.explanation": "This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does.",
+  "rule.O08.explanation": "This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does. A require() whose every possible path is written in the code and ends with .json (lower case) reads a JSON file: it is not code built at runtime.",
   "rule.O08.false_positive": "A tool that only writes a temporary file in /tmp for its own use.",
   "rule.O08.plain_title": "Can act on your computer",
   "rule.O08.plain_found": "The code can change files, run commands or touch secrets. Some tools need this.",
