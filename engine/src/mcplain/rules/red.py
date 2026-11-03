@@ -121,14 +121,20 @@ def installs_client_config(context: RuleContext, flow: Flow) -> bool:
 
 
 def client_of(context: RuleContext, flow: Flow) -> str:
-    """Return the name of the MCP client whose configuration a flow writes"""
+    """Return the name of the MCP client whose configuration a flow writes, from the closest path quoted in its file"""
 
-    if context.server is not None:
-        for item in context.server.sensitive_paths:
-            same_place = (item.file, item.line) == (flow.source_point.file, flow.source_point.line)
-            if item.category == MCP_CLIENT_CONFIG and same_place:
-                return mcp_client(item.match)
-    return mcp_client(flow.source_point.snippet)
+    point = flow.source_point
+    if context.server is None:
+        return MCP_CLIENT_CONFIG
+    paths = [
+        item
+        for item in context.server.sensitive_paths
+        if item.category == MCP_CLIENT_CONFIG and item.file == point.file and item.line <= point.line
+    ]
+    if not paths:
+        return MCP_CLIENT_CONFIG
+    closest = max(paths, key=lambda item: item.line)
+    return mcp_client(closest.match)
 
 
 class AsksForSilence(Rule):

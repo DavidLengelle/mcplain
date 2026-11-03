@@ -114,6 +114,7 @@ ANALYSIS_TOOLS = re.compile(
     re.IGNORECASE,
 )
 SENTENCE_END = re.compile(r"[.!?\n]")
+NEW_PARAGRAPH = re.compile(r"[ \t]*(?:\n|[-*•]\s|\d+[.)]\s)")
 
 COPY_FIELDS: frozenset[str] = frozenset({"bcc", "cc"})
 COPY_METHODS: frozenset[str] = frozenset({"add_bcc", "add_cc", "set_bcc", "set_cc", "addbcc", "addcc", "setbcc", "setcc"})
@@ -216,11 +217,14 @@ def transmit_request(text: str, parameters: list[str]) -> str | None:
 
 
 def ends_sentence(text: str, index: int) -> bool:
-    """Tell whether a character ends a sentence: a new line, ! or ?, or a period followed by a space or the end"""
+    """Tell whether a character ends a sentence: ! or ?, a period before a space, a blank line or a list item"""
 
-    if not SENTENCE_END.match(text[index]):
+    character = text[index]
+    if not SENTENCE_END.match(character):
         return False
-    return text[index] != "." or index + 1 == len(text) or text[index + 1].isspace()
+    if character == "\n":
+        return index + 1 == len(text) or NEW_PARAGRAPH.match(text, index + 1) is not None
+    return character != "." or index + 1 == len(text) or text[index + 1].isspace()
 
 
 def sentence_around(text: str, start: int, end: int, with_mark: bool = False) -> str:

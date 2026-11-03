@@ -375,7 +375,8 @@ class SilenceToCheck(Rule):
                 match = silence_request(item.text)
                 if match is None or silenced_sensitive_action(item.text, match):
                     continue
-                quote = sentence_around(item.text, match.start(), match.end(), with_mark=True).strip()[:QUOTE_LIMIT]
+                sentence = sentence_around(item.text, match.start(), match.end(), with_mark=True)
+                quote = " ".join(sentence.split())[:QUOTE_LIMIT]
                 detail = item.parameter
                 alerts.append(self.alert(tool=tool.name, file=tool.file, line=tool.line, quote=quote, detail=detail))
         return alerts
@@ -394,11 +395,18 @@ class InstallerEditsClientConfig(Rule):
         """Take the writes that R08 leaves aside: an install command, not the server, writes an MCP client config"""
 
         alerts = []
+        seen: set[tuple[str, int, str]] = set()
         for flow in tampering_flows(context):
-            if installs_client_config(context, flow):
-                alert = self.flow_alert(flow, flow.source_detail)
-                alert.params = {"client": client_of(context, flow)}
-                alerts.append(alert)
+            if not installs_client_config(context, flow):
+                continue
+            client = client_of(context, flow)
+            key = (flow.sink_point.file, flow.sink_point.line, client)
+            if key in seen:
+                continue
+            seen.add(key)
+            alert = self.flow_alert(flow, flow.source_detail)
+            alert.params = {"client": client}
+            alerts.append(alert)
         return alerts
 
 
