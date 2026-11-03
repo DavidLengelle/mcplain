@@ -23,11 +23,11 @@ from mcplain.models import (
     VerdictColor,
 )
 from mcplain.rules.base import RuleContext, RuleRegistry
-from mcplain.rules.orange import ORANGE_RULES
+from mcplain.rules.orange import ORANGE_RULES, cleared_dependencies
 from mcplain.rules.red import RED_RULES
 from mcplain.rules.text import hidden_characters, tool_texts
 
-RULES_VERSION = "1"
+RULES_VERSION = "2"
 SEVERITY: dict[VerdictColor, int] = {
     VerdictColor.GREEN: 0,
     VerdictColor.GRAY: 0,
@@ -274,6 +274,7 @@ def compute_verdict(result: AnalysisResult, registry: RuleRegistry = DEFAULT_REG
         alerts=alerts,
         rules_version=RULES_VERSION,
         rules_count=len(registry.rules()),
+        cleared=cleared_dependencies(result),
     )
     if alerts:
         verdict.color = alerts[0].color

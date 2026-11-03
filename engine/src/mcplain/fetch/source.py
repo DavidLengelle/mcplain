@@ -12,8 +12,11 @@ from mcplain.dependencies import (
     NPM_ECOSYSTEM,
     PYPI_ECOSYSTEM,
     npm_dependency_names,
+    npm_dependency_ranges,
     pypi_dependency_names,
+    pypi_dependency_ranges,
     pyproject_dependency_names,
+    pyproject_dependency_ranges,
 )
 from mcplain.errors import ArchiveError, DetectionError, FetchError
 from mcplain.fetch import github, npm, pypi
@@ -194,7 +197,10 @@ def _npm_source(
         repository=repository,
     )
     queries = [PackageQuery(release.name, NPM_ECOSYSTEM, release.version, False)]
-    queries.extend(PackageQuery(name, NPM_ECOSYSTEM, None, True) for name in npm_dependency_names(release.manifest))
+    ranges = npm_dependency_ranges(release.manifest)
+    queries.extend(
+        PackageQuery(name, NPM_ECOSYSTEM, None, True, ranges.get(name)) for name in npm_dependency_names(release.manifest)
+    )
     return ResolvedSource(
         spec=spec,
         select=select,
@@ -236,7 +242,10 @@ def _pypi_source(
         repository=repository,
     )
     queries = [PackageQuery(release.name, PYPI_ECOSYSTEM, release.version, False)]
-    queries.extend(PackageQuery(name, PYPI_ECOSYSTEM, None, True) for name in pypi_dependency_names(release.info))
+    ranges = pypi_dependency_ranges(release.info)
+    queries.extend(
+        PackageQuery(name, PYPI_ECOSYSTEM, None, True, ranges.get(name)) for name in pypi_dependency_names(release.info)
+    )
     return ResolvedSource(
         spec=spec,
         select=select,
@@ -362,9 +371,15 @@ def _github_source(
         origin=SourceOrigin.GITHUB_CODE,
         reason=reason,
     )
-    queries = [PackageQuery(name, NPM_ECOSYSTEM, None, True) for name in npm_dependency_names(manifests.package_json)]
+    npm_ranges = npm_dependency_ranges(manifests.package_json)
+    pypi_ranges = pyproject_dependency_ranges(manifests.pyproject)
+    queries = [
+        PackageQuery(name, NPM_ECOSYSTEM, None, True, npm_ranges.get(name))
+        for name in npm_dependency_names(manifests.package_json)
+    ]
     queries.extend(
-        PackageQuery(name, PYPI_ECOSYSTEM, None, True) for name in pyproject_dependency_names(manifests.pyproject)
+        PackageQuery(name, PYPI_ECOSYSTEM, None, True, pypi_ranges.get(name))
+        for name in pyproject_dependency_names(manifests.pyproject)
     )
     return ResolvedSource(
         spec=spec,

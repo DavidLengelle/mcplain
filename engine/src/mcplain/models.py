@@ -494,6 +494,7 @@ class Verdict(BaseModel):
     title: Message | None = None
     summary: Message | None = None
     coverage: Coverage | None = None
+    cleared: list[Message] = Field(default_factory=list)
 
 
 class ReputationStatus(StrEnum):
@@ -509,6 +510,8 @@ class MaliciousReport(BaseModel):
 
     id: str
     all_versions: bool = False
+    versions: list[str] = Field(default_factory=list)
+    published: list[str] | None = None
 
 
 class PackageReputation(BaseModel):
@@ -518,6 +521,7 @@ class PackageReputation(BaseModel):
     ecosystem: str
     version: str | None = None
     dependency: bool = False
+    declared_range: str | None = None
     malicious: list[MaliciousReport] = Field(default_factory=list)
 
 

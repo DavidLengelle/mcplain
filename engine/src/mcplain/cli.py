@@ -674,6 +674,9 @@ def _render_verdict(result: AnalysisResult, t: Translator, lines: list[str]) -> 
     domains = ", ".join(_safe(domain) for domain in verdict.contacted_domains)
     for reason in verdict.reasons:
         lines.append(f"{INDENT}- {t('reason.' + reason, domains=domains)}")
+    for message in verdict.cleared:
+        params = {key: _safe(value) for key, value in message.params.items()}
+        lines.append(f"{INDENT}- {t(message.code, **params)}")
     if verdict.coverage is not None:
         _render_coverage(verdict.coverage, t, lines)
     lines.append(f"{INDENT}{t('cli.verdict.disclaimer')}")

@@ -17,6 +17,10 @@ MALICIOUS_PATTERN = re.compile(r"^MAL-\d{4}-\d{1,10}$")
 OPEN_VERSIONS: frozenset[str] = frozenset({"0", "0.0.0"})
 CLOSING_EVENTS: tuple[str, ...] = ("fixed", "last_affected", "limit")
 PYPI_ECOSYSTEM = "PyPI"
+NPM_ECOSYSTEM = "npm"
+NPM_REGISTRY = "https://registry.npmjs.org"
+PYPI_REGISTRY = "https://pypi.org/pypi"
+NPM_ABBREVIATED = {"Accept": "application/vnd.npm.install-v1+json"}
 
 
 @dataclass(frozen=True)
@@ -27,6 +31,7 @@ class PackageQuery:
     ecosystem: str
     version: str | None
     dependency: bool
+    declared_range: str | None = None
 
     def payload(self) -> dict[str, Any]:
         """Return the OSV query of this package"""
@@ -59,25 +64,75 @@ def check_reputation(client: SafeClient, queries: list[PackageQuery], limits: Li
             if not identifiers:
                 continue
             reports = []
+            published: set[str] | None = None
             for identifier in identifiers:
-                all_versions = False
+                report = MaliciousReport(id=identifier)
                 if query.dependency and details < limits.max_reputation_details:
                     details += 1
                     record = client.get_json(f"{OSV_ROOT}/vulns/{quote(identifier, safe='')}")
-                    all_versions = covers_all_versions(record, query)
-                reports.append(MaliciousReport(id=identifier, all_versions=all_versions))
+                    report.all_versions = covers_all_versions(record, query)
+                    report.versions = affected_versions(record, query)
+                    if not report.all_versions and report.versions:
+                        if published is None:
+                            published = published_versions(client, query)
+                        if published is not None:
+                            report.published = [version for version in report.versions if version in published]
+                reports.append(report)
             packages.append(
                 PackageReputation(
                     name=query.name,
                     ecosystem=query.ecosystem,
                     version=query.version,
                     dependency=query.dependency,
+                    declared_range=query.declared_range,
                     malicious=reports,
                 )
             )
     except FetchError:
         return Reputation(status=ReputationStatus.UNAVAILABLE)
     return Reputation(status=ReputationStatus.CHECKED, queried=len(selected), packages=packages)
+
+
+def published_versions(client: SafeClient, query: PackageQuery) -> set[str] | None:
+    """Return the versions a registry still serves for a package, or None when the registry cannot say"""
+
+    try:
+        if query.ecosystem == NPM_ECOSYSTEM:
+            document = client.get_json(f"{NPM_REGISTRY}/{quote(query.name, safe='@')}", NPM_ABBREVIATED)
+            versions = document.get("versions") if isinstance(document, dict) else None
+            if not isinstance(versions, dict):
+                return None
+            return set(versions)
+        if query.ecosystem == PYPI_ECOSYSTEM:
+            document = client.get_json(f"{PYPI_REGISTRY}/{quote(query.name, safe='')}/json")
+            releases = document.get("releases") if isinstance(document, dict) else None
+            if not isinstance(releases, dict):
+                return None
+            return {version for version, files in releases.items() if isinstance(files, list) and files}
+    except FetchError:
+        return None
+    return None
+
+
+def affected_versions(record: Any, query: PackageQuery) -> list[str]:
+    """Return the exact versions an OSV record names for the package, without its ranges"""
+
+    if not isinstance(record, dict) or not isinstance(record.get("affected"), list):
+        return []
+    wanted = _normalize(query.name, query.ecosystem)
+    versions: set[str] = set()
+    for affected in record["affected"]:
+        if not isinstance(affected, dict):
+            continue
+        package = affected.get("package")
+        if not isinstance(package, dict) or package.get("ecosystem") != query.ecosystem:
+            continue
+        if _normalize(str(package.get("name", "")), query.ecosystem) != wanted:
+            continue
+        if affected.get("ranges"):
+            return []
+        versions.update(item for item in affected.get("versions") or [] if isinstance(item, str))
+    return sorted(versions)
 
 
 def _results(document: Any, count: int) -> list[dict[str, Any]]:

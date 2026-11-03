@@ -2,11 +2,29 @@
 
 from mcplain.capabilities import POWERFUL_CAPABILITIES, Capability, find_sensitive_paths
 from mcplain.flows import ROLE_PROGRAM, FlowSinkKind, FlowSourceKind
-from mcplain.models import Alert, AlertKind, Finding, Flow, LocationKind, OutsideKind, UrlKind, VerdictColor
+from mcplain.models import (
+    Alert,
+    AlertKind,
+    AnalysisResult,
+    Finding,
+    Flow,
+    LocationKind,
+    MaliciousReport,
+    Message,
+    OutsideKind,
+    PackageReputation,
+    UrlKind,
+    VerdictColor,
+)
 from mcplain.patterns import excerpt, transmit_request
 from mcplain.rules import sources
 from mcplain.rules.base import Rule, RuleContext
 from mcplain.rules.text import hidden_characters, tool_texts
+from mcplain.version_ranges import range_excludes
+
+RETIRED = "retired"
+OUT_OF_RANGE = "range"
+REGISTRY_NAMES: dict[str, str] = {"npm": "npm", "PyPI": "PyPI"}
 
 READ_ONLY_BREAKERS: frozenset[Capability] = frozenset(
     {Capability.FS_WRITE, Capability.PROCESS_EXEC, Capability.DYNAMIC_CODE}
@@ -204,7 +222,7 @@ class DependencyWasMalicious(Rule):
     visible_in_code = False
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
-        """Raise one alert per MAL- identifier of a dependency that does not cover every version"""
+        """Raise one alert per MAL- identifier of a dependency whose versions may still be installed"""
 
         reputation = context.result.reputation
         if reputation is None:
@@ -214,8 +232,47 @@ class DependencyWasMalicious(Rule):
             for package in reputation.packages
             if package.dependency
             for report in package.malicious
-            if not report.all_versions
+            if not report.all_versions and cleared_reason(package, report) is None
         ]
+
+
+def cleared_reason(package: PackageReputation, report: MaliciousReport) -> str | None:
+    """Tell why the malicious versions of a dependency cannot be installed: retired, out of the declared range, or None"""
+
+    if report.all_versions or not report.versions:
+        return None
+    candidates = report.versions
+    if report.published is not None:
+        candidates = report.published
+        if not candidates:
+            return RETIRED
+    if all(range_excludes(package.ecosystem, package.declared_range, version) for version in candidates):
+        return OUT_OF_RANGE
+    return None
+
+
+def cleared_dependencies(result: AnalysisResult) -> list[Message]:
+    """Return one engine text per malicious report that O06 leaves out, with the reason"""
+
+    if result.reputation is None:
+        return []
+    messages = []
+    for package in result.reputation.packages:
+        if not package.dependency:
+            continue
+        for report in package.malicious:
+            reason = cleared_reason(package, report)
+            if reason is None:
+                continue
+            params = {
+                "package": package.name,
+                "versions": ", ".join(report.versions),
+                "registry": REGISTRY_NAMES.get(package.ecosystem, package.ecosystem),
+                "range": package.declared_range or "",
+                "id": report.id,
+            }
+            messages.append(Message(code=f"cleared.O06.{reason}", params=params))
+    return messages
 
 
 class LoneInvisibleCharacter(Rule):
