@@ -38,3 +38,4 @@ Thumbs.db
 var/
 
 /bench/results/*.json
+/bench/private/
