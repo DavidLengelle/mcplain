@@ -14,11 +14,24 @@ commencer. La séance 7 est faite ; rien de ce qui suit la séance 7 n'est codé
       serveur du SDK MCP v2 et SDK tmcp ; gros fichier de données qui faisait échouer l'analyse.
 - [x] Gris partiel : champ `verdict.coverage` et bloc « Ce que MCPlain a pu lire » sur le site.
 - [x] Banc chaque lundi en CI (`.github/workflows/bench.yml`), alerte si une couleur change.
-- [ ] Décisions de David en attente : les rouges de la première mesure (faux rouges ou vrais paquets
-      malveillants), la proposition sur O06 (alertes dont toutes les versions sont retirées du registre), la
-      proposition sur `require()` d'un fichier `.json`.
+- [ ] Décision de David en attente : les rouges sur de vrais paquets (faux rouges ou vrais paquets
+      malveillants). L'enquête est dans `bench/private/rouges.md`, hors de git.
 
-Causes de gris restantes (à traiter dans une prochaine séance de fiabilité) :
+## SÉANCE 7 BIS (novembre 2026, moteur 0.4.0, règles version 2)
+
+Décisions du 29 octobre 2026, codées :
+
+- [x] O06 ne s'allume plus quand la plage déclarée exclut toutes les versions visées par l'alerte MAL-, ou quand
+      aucune de ces versions n'est encore publiée sur le registre. Le chef d'atelier demande la liste au registre
+      et la range dans `reputation.json` ; l'atelier reste sans réseau. Registre injoignable, plage ou version non
+      comprise : O06 s'allume comme avant. Une ligne des détails techniques dit pourquoi O06 est écartée.
+- [x] Un `require()` dont toutes les valeurs possibles du chemin finissent par un texte écrit dans le code qui se
+      termine exactement par `.json` (en minuscules) est une lecture de fichier, pas du code dynamique. Sinon
+      (`.JSON`, extension calculée, valeur inconnue), O08 comme avant.
+- [x] Dossier privé `bench/private/` (hors de git) pour l'enquête sur les rouges.
+- [x] En CI, un rouge sur un vrai paquet est masqué (« red #n » et une empreinte) et fait échouer le banc.
+
+Causes de gris restantes, pour plus tard (mesure de la séance 7) :
 
 1. `not_a_server` (3 serveurs) : enveloppes dont le vrai code est dans une dépendance, et paquets empaquetés
    sans dépendance déclarée. Piste : analyser la dépendance qui porte le code, ou lire les imports du code
