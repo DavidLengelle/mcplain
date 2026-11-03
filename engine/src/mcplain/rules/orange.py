@@ -16,7 +16,7 @@ from mcplain.models import (
     UrlKind,
     VerdictColor,
 )
-from mcplain.patterns import excerpt, transmit_request
+from mcplain.patterns import excerpt, sentence_around, silence_request, silenced_sensitive_action, transmit_request
 from mcplain.rules import sources
 from mcplain.rules.base import Rule, RuleContext
 from mcplain.rules.text import hidden_characters, tool_texts
@@ -24,6 +24,7 @@ from mcplain.version_ranges import range_excludes
 
 RETIRED = "retired"
 DOCKER_TITLE = "rule.O08.docker.plain_title"
+QUOTE_LIMIT = 300
 OUT_OF_RANGE = "range"
 REGISTRY_NAMES: dict[str, str] = {"npm": "npm", "PyPI": "PyPI"}
 
@@ -340,6 +341,32 @@ class PowerfulCapability(Rule):
         return alert
 
 
+class SilenceToCheck(Rule):
+    """Class for O09: a description asks the AI to keep something from the user, without a sensitive action"""
+
+    identifier = "O09"
+    slug = "silence-to-check"
+    color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
+    sources = (sources.INVARIANT_POISONING, sources.OWASP_MCP03)
+
+    def evaluate(self, context: RuleContext) -> list[Alert]:
+        """Quote every request for silence that R02 leaves aside, so that the user can read it"""
+
+        alerts = []
+        for tool in context.tools():
+            for item in tool_texts(tool):
+                if item.field == "name":
+                    continue
+                match = silence_request(item.text)
+                if match is None or silenced_sensitive_action(item.text, match):
+                    continue
+                quote = sentence_around(item.text, match.start(), match.end(), with_mark=True).strip()[:QUOTE_LIMIT]
+                detail = item.parameter
+                alerts.append(self.alert(tool=tool.name, file=tool.file, line=tool.line, quote=quote, detail=detail))
+        return alerts
+
+
 ORANGE_RULES: tuple[type[Rule], ...] = (
     OpenNetwork,
     AiChoosesTheCommand,
@@ -349,4 +376,5 @@ ORANGE_RULES: tuple[type[Rule], ...] = (
     DependencyWasMalicious,
     LoneInvisibleCharacter,
     PowerfulCapability,
+    SilenceToCheck,
 )

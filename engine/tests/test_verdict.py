@@ -68,12 +68,12 @@ class RedRule(Rule):
         return [self.alert(detail="test")]
 
 
-def test_default_registry_has_the_twenty_rules() -> None:
+def test_default_registry_has_every_rule() -> None:
     """The verdict says which version of the rules it used and how many rules there are"""
 
     assert DEFAULT_REGISTRY.has_red_rules()
     verdict = compute_verdict(result([]))
-    assert (verdict.rules_version, verdict.rules_count) == ("2", 20)
+    assert (verdict.rules_version, verdict.rules_count) == ("2", 21)
 
 
 def test_green_without_powerful_capability() -> None:

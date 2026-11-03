@@ -8,7 +8,7 @@ SENTENCE_REST = r"(?P<rest>[^.!?\n]{0,100})"
 NEGATION_EN = r"(?:do\s+not|don['’]t|dont|never|must\s+not|mustn['’]t|without)"
 INFORM_EN = (
     r"(?:tell(?:ing)?|mention(?:ing)?|inform(?:ing)?|notify(?:ing)?|reveal(?:ing)?|disclos(?:e|ing)|"
-    r"alert(?:ing)?|warn(?:ing)?)"
+    r"alert(?:ing)?|warn(?:ing)?|report(?:ing)?)"
 )
 INFORM_FR = (
     r"(?:dis|dites|dire|mentionne|mentionnez|mentionner|préviens|prévenez|prévenir|informe|informez|informer|"
@@ -24,11 +24,24 @@ SILENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(rf"\bsans\s+(?P<before>{WORDS_BETWEEN}){INFORM_FR}\b{SENTENCE_REST}", re.IGNORECASE),
 )
 SILENCE_TARGETS = re.compile(
-    r"\b(?:the\s+user|users?|this|that\s+you|these\s+instructions|it|them|anyone|"
+    r"\b(?:the\s+user|users?|this|that\s+you|these|those|it|them|anyone|"
     r"l['’]utilisateur|utilisateurs?|ceci|cela|ça|que\s+tu|ces\s+instructions|lui|leur|personne)\b",
     re.IGNORECASE,
 )
 SILENCE_PRONOUNS = re.compile(r"\b(?:le|la|les|lui|leur|en)\b|\bl['’]", re.IGNORECASE)
+SENSITIVE_ACTIONS = re.compile(
+    r"\b(?:reads?|reading|send(?:s|ing)?|sent|forward(?:s|ed|ing)?|transfer(?:s|red|ring)?|cop(?:y|ies|ied|ying)|"
+    r"shar(?:e|es|ed|ing)|upload(?:s|ed|ing)?|files?|keys?|tokens?|passwords?|passphrases?|e-?mail\s+address(?:es)?|"
+    r"bcc|lis|lit|lire|lu|lue|lus|lues|lisez|envoi(?:e|es|ent)?|envoy(?:er|é|ée|és|ées|ez)|"
+    r"transf[èé]r(?:e|es|ent|er|é|ée|és|ées|ez)|transferts?|copi(?:e|es|ent|er|é|ée|és|ées|ez)|"
+    r"partag(?:e|es|ent|er|é|ée|és|ées|ez)|t[ée]l[ée]vers(?:e|es|ent|er|é|ée|és|ées|ez)|fichiers?|cl[ée]s?|clefs?|"
+    r"jetons?|mots?\s+de\s+passe|adresses?\s+(?:e-?mail|mail|électronique)|cci)\b",
+    re.IGNORECASE,
+)
+BACK_REFERENCES = re.compile(
+    r"\b(?:it|this|that|them|these|those|ceci|cela|ça|le|la|les|en)\b|\bl['’]",
+    re.IGNORECASE,
+)
 
 CONTENT_WORDS = re.compile(r"\b(?:contents?|contenus?)\b", re.IGNORECASE)
 TRANSMIT_VERBS = re.compile(
@@ -152,6 +165,22 @@ def silence_request(text: str) -> re.Match[str] | None:
     return None
 
 
+def silenced_sensitive_action(text: str, match: re.Match[str]) -> bool:
+    """Tell whether a request for silence is about a sensitive action: reading, sending, a file, a key, a token..."""
+
+    sentence = sentence_around(text, match.start(), match.end())
+    if SENSITIVE_ACTIONS.search(sentence):
+        return True
+    if not BACK_REFERENCES.search(sentence):
+        return False
+    start = text.find(sentence)
+    before = text[:start].rstrip()
+    if not before:
+        return False
+    previous = sentence_around(before, len(before) - 1, len(before) - 1)
+    return SENSITIVE_ACTIONS.search(previous) is not None
+
+
 def transmit_request(text: str, parameters: list[str]) -> str | None:
     """Return the sentence that asks to pass the content of something into an argument or a parameter"""
 
@@ -167,14 +196,24 @@ def transmit_request(text: str, parameters: list[str]) -> str | None:
     return None
 
 
-def sentence_around(text: str, start: int, end: int) -> str:
-    """Return the sentence of a text that holds a match"""
+def ends_sentence(text: str, index: int) -> bool:
+    """Tell whether a character ends a sentence: a new line, ! or ?, or a period followed by a space or the end"""
+
+    if not SENTENCE_END.match(text[index]):
+        return False
+    return text[index] != "." or index + 1 == len(text) or text[index + 1].isspace()
+
+
+def sentence_around(text: str, start: int, end: int, with_mark: bool = False) -> str:
+    """Return the sentence of a text that holds a match, with its final mark when asked"""
 
     first = start
-    while first > 0 and not SENTENCE_END.match(text[first - 1]):
+    while first > 0 and not ends_sentence(text, first - 1):
         first -= 1
     last = end
-    while last < len(text) and not SENTENCE_END.match(text[last]):
+    while last < len(text) and not ends_sentence(text, last):
+        last += 1
+    if with_mark and last < len(text) and text[last] in ".!?":
         last += 1
     return text[first:last]
 

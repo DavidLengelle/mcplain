@@ -1,6 +1,6 @@
 # MCPlain rules
 
-Rules version 2: 20 rules, 12 red and 8 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
+Rules version 2: 21 rules, 12 red and 9 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
 
 Order of the verdict: red if a red rule fires; otherwise orange if an orange rule fires; otherwise gray if the status is not ok or if the code could not be fully read and followed; otherwise green. The rules apply to all server code (tools, code outside the tools, startup, install scripts, imported examples), never to tests or examples that the server does not import.
 
@@ -26,6 +26,7 @@ Order of the verdict: red if a red rule fires; otherwise orange if an orange rul
 | [O06 dependency-was-malicious](#o06-dependency-was-malicious) | ORANGE | A dependency had malicious versions |
 | [O07 lone-invisible-char](#o07-lone-invisible-char) | ORANGE | Lone invisible character |
 | [O08 powerful-capability](#o08-powerful-capability) | ORANGE | Powerful capability |
+| [O09 silence-to-check](#o09-silence-to-check) | ORANGE | Request for silence to check |
 
 ## Conditions of green
 
@@ -80,11 +81,11 @@ A tool name or description contains invisible characters that hide text: you can
 
 **Asks the AI to keep quiet**: RED, suspicious use.
 
-A description asks the AI not to tell you what it or the tool is doing. A tool has no honest reason to hide its actions from you.
+A description asks the AI not to tell you what the tool does with a sensitive action: reading, sending, forwarding, copying, sharing or uploading something, a file, a key, a token, a password, an e-mail address or a hidden copy. A tool has no honest reason to hide that from you. A request for silence about no sensitive action gives O09 (orange), which quotes the sentence.
 
 - In plain words: **Asks the AI to hide things from you**. A description asks the AI not to tell you what the tool does. Advice: Do not install it. A tool has no honest reason to hide what it does from you.
 - Visible when reading the code: yes
-- Known false positive: "If the request fails, retry silently: do not tell the user about it."
+- Known false positive: "Do not tell the user the value of the token": the sentence protects a secret, but it stays red.
 - Sources:
   - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
   - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
@@ -340,3 +341,17 @@ This code uses a powerful capability: running commands, writing or deleting file
   - [OWASP Top 10 for LLM Applications, LLM06:2025 Excessive Agency](https://genai.owasp.org/llmrisk/llm062025-excessive-agency/)
   - [OWASP MCP Top 10, MCP02:2025 Privilege Escalation via Scope Creep](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP02-2025%E2%80%93Privilege-Escalation-via-Scope-Creep.md)
 - Test fixtures: `engine/tests/fixtures/rules/O08/` (positive, near_miss, false_positive)
+
+## O09 silence-to-check
+
+**Request for silence to check**: ORANGE, a power to be aware of (nothing suspicious found).
+
+A description asks the AI not to tell, report or mention something to the user, but this silence is not about a sensitive action of the tool (reading, sending, forwarding, copying, sharing, uploading, a file, a key, a token, a password, an e-mail address, a hidden copy). It is often an honest working instruction. The original sentence is always quoted: read it to judge.
+
+- In plain words: **Asks the AI to keep something from you**. A description asks the AI not to tell you something. The sentence is quoted: read it to judge. Advice: Read the quoted sentence. If it hides from you what the tool does, do not install it.
+- Visible when reading the code: yes
+- Known false positive: "If the request fails, retry silently: do not tell the user about it." (retrying silently after a failure).
+- Sources:
+  - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
+  - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
+- Test fixtures: `engine/tests/fixtures/rules/O09/` (positive, near_miss, false_positive)

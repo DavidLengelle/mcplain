@@ -12,7 +12,7 @@ from mcplain.models import (
     TextMatchKind,
     VerdictColor,
 )
-from mcplain.patterns import analyzer_talk, excerpt, silence_request, transmit_request
+from mcplain.patterns import analyzer_talk, excerpt, silence_request, silenced_sensitive_action, transmit_request
 from mcplain.rules import sources
 from mcplain.rules.base import Rule, RuleContext
 from mcplain.rules.text import ToolText, hidden_characters, tool_texts
@@ -84,7 +84,7 @@ class AsksForSilence(Rule):
     sources = (sources.INVARIANT_POISONING, sources.OWASP_MCP03)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
-        """Look for a negation near a verb of telling, aimed at the user or at the current action"""
+        """Look for a request for silence about a sensitive action: reading, sending, a file, a key, a token..."""
 
         alerts = []
         for tool in context.tools():
@@ -92,7 +92,7 @@ class AsksForSilence(Rule):
                 if item.field == "name":
                     continue
                 match = silence_request(item.text)
-                if match is not None:
+                if match is not None and silenced_sensitive_action(item.text, match):
                     alerts.append(text_alert(self, item, excerpt(item.text, match.start(), match.end())))
         return alerts
 

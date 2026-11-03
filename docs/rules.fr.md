@@ -1,6 +1,6 @@
 # Règles de MCPlain
 
-Règles version 2 : 20 règles, 12 rouges et 8 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
+Règles version 2 : 21 règles, 12 rouges et 9 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
 
 Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une règle orange se déclenche ; sinon gris si le statut n'est pas ok ou si le code n'a pas pu être lu et suivi en entier ; sinon vert. Les règles s'appliquent à tout le code serveur (outils, code hors des outils, démarrage, scripts d'installation, exemples importés), jamais aux tests ni aux exemples que le serveur n'importe pas.
 
@@ -26,6 +26,7 @@ Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une
 | [O06 dependency-was-malicious](#o06-dependency-was-malicious) | ORANGE | Une dépendance a eu des versions malveillantes |
 | [O07 lone-invisible-char](#o07-lone-invisible-char) | ORANGE | Caractère invisible isolé |
 | [O08 powerful-capability](#o08-powerful-capability) | ORANGE | Capacité puissante |
+| [O09 silence-to-check](#o09-silence-to-check) | ORANGE | Demande de silence à vérifier |
 
 ## Conditions du vert
 
@@ -80,11 +81,11 @@ Le nom ou la description d'un outil contient des caractères invisibles qui cach
 
 **Demande à l'IA de se taire** : ROUGE, usage suspect.
 
-Une description demande à l'IA de ne pas te dire ce qu'elle ou l'outil est en train de faire. Un outil n'a pas de raison honnête de te cacher ce qu'il fait.
+Une description demande à l'IA de ne pas te dire ce que l'outil fait d'une action sensible : lire, envoyer, transférer, copier, partager ou téléverser quelque chose, un fichier, une clé, un jeton, un mot de passe, une adresse e-mail ou une copie cachée. Un outil n'a pas de raison honnête de te cacher ça. Une demande de silence qui ne porte sur aucune action sensible donne O09 (orange), qui cite la phrase.
 
 - En clair : **Demande à l'IA de te cacher des choses**. Une description demande à l'IA de ne pas te dire ce que fait l'outil. Conseil : Ne l'installe pas. Un outil n'a pas de raison honnête de te cacher ce qu'il fait.
 - Visible en lisant le code : oui
-- Faux positif connu : « If the request fails, retry silently: do not tell the user about it. » (réessayer en silence après un échec).
+- Faux positif connu : « Ne dis pas à l'utilisateur la valeur du jeton » : la phrase protège un secret, mais elle reste rouge.
 - Sources :
   - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
   - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
@@ -340,3 +341,17 @@ Ce code utilise une capacité puissante : lancer des commandes, écrire ou suppr
   - [OWASP Top 10 for LLM Applications, LLM06:2025 Excessive Agency](https://genai.owasp.org/llmrisk/llm062025-excessive-agency/)
   - [OWASP MCP Top 10, MCP02:2025 Privilege Escalation via Scope Creep](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP02-2025%E2%80%93Privilege-Escalation-via-Scope-Creep.md)
 - Fixtures de test : `engine/tests/fixtures/rules/O08/` (positive, near_miss, false_positive)
+
+## O09 silence-to-check
+
+**Demande de silence à vérifier** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
+
+Une description demande à l'IA de ne pas dire, de ne pas signaler ou de ne pas mentionner quelque chose à l'utilisateur, mais ce silence ne porte pas sur une action sensible de l'outil (lire, envoyer, transférer, copier, partager, téléverser, un fichier, une clé, un jeton, un mot de passe, une adresse e-mail, une copie cachée). C'est souvent une consigne de travail honnête. La phrase d'origine est toujours citée : lis-la pour juger.
+
+- En clair : **Demande à l'IA de taire quelque chose**. Une description demande à l'IA de ne pas te dire quelque chose. La phrase est citée : lis-la pour juger. Conseil : Lis la phrase citée. Si elle te cache ce que fait l'outil, ne l'installe pas.
+- Visible en lisant le code : oui
+- Faux positif connu : « If the request fails, retry silently: do not tell the user about it. » (réessayer en silence après un échec).
+- Sources :
+  - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
+  - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
+- Fixtures de test : `engine/tests/fixtures/rules/O09/` (positive, near_miss, false_positive)
