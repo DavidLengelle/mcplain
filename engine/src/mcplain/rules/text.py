@@ -91,7 +91,7 @@ def _justified(text: str, index: int) -> bool:
     return False
 
 
-def _valid_flag(text: str, start: int, end: int) -> bool:
+def is_flag(text: str, start: int, end: int) -> bool:
     """Tell whether a run of tag characters is a flag sequence like the Scottish flag"""
 
     run = text[start:end]
@@ -112,7 +112,7 @@ def hidden_characters(text: str) -> tuple[list[HiddenCharacters], list[HiddenCha
         if TAG_FIRST <= codepoint <= TAG_LAST:
             while end < len(text) and TAG_FIRST <= ord(text[end]) <= TAG_LAST:
                 end += 1
-            if not _valid_flag(text, index, end):
+            if not is_flag(text, index, end):
                 red.append(HiddenCharacters("tag", index, hidden_tag_text(text[index:end])))
         elif VARIATION_FIRST <= codepoint <= VARIATION_LAST:
             while end < len(text) and VARIATION_FIRST <= ord(text[end]) <= VARIATION_LAST:

@@ -13,6 +13,7 @@ from mcplain.models import (
     Finding,
     GrayCase,
     InvisibleCategory,
+    InvisibleUnicode,
     Lamp,
     LocationKind,
     Message,
@@ -25,7 +26,7 @@ from mcplain.models import (
 from mcplain.rules.base import RuleContext, RuleRegistry
 from mcplain.rules.orange import ORANGE_RULES, cleared_dependencies
 from mcplain.rules.red import RED_RULES
-from mcplain.rules.text import hidden_characters, tool_texts
+from mcplain.rules.text import BIDI_CONTROLS, hidden_characters, tool_texts
 
 RULES_VERSION = "2"
 SEVERITY: dict[VerdictColor, int] = {
@@ -323,13 +324,21 @@ def text_is_hidden(tool: Tool) -> bool:
     return False
 
 
+def can_hide_text(item: InvisibleUnicode) -> bool:
+    """Tell whether invisible characters can hide text: the bidi controls R01 counts, tags or variation selectors"""
+
+    if item.category is InvisibleCategory.BIDI_CONTROL:
+        return any(int(label.removeprefix("U+"), 16) in BIDI_CONTROLS for label in item.codepoints)
+    return item.category in CODE_HIDING_CATEGORIES
+
+
 def code_hides_text(server: ServerAnalysis, tool: str | None) -> bool:
     """Tell whether counted code outside the tool texts holds bidi controls, tags or variation selectors"""
 
     return any(
         item.location_kind is LocationKind.SERVER_CODE
         and not item.in_description
-        and item.category in CODE_HIDING_CATEGORIES
+        and can_hide_text(item)
         and (tool is None or item.tool == tool)
         for item in server.invisible_unicode
     )

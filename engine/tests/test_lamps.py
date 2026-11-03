@@ -255,3 +255,62 @@ def test_lamps_must_be_the_six_in_table_order() -> None:
             ServerAnalysis.model_validate({**base, "lamps": lamps})
     with pytest.raises(ValidationError):
         ServerAnalysis.model_validate({**base, "lamps": [{**good[0], "state": "blinking"}, *good[1:]]})
+
+
+ENCODING_TABLE = '''import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+const HEBREW_TABLE = { type: "sbcs", chars: "\\u05d0\\u05d1\\u200e\\u200f" };
+const server = new McpServer({ name: "letters", version: "1.0.0" });
+server.registerTool("count", { description: "Count the letters of the table" }, async () => {
+  return { content: [{ type: "text", text: String(HEBREW_TABLE.chars.length) }] };
+});
+'''
+
+
+def hidden_text_state(tmp_path: Path, source: str) -> LampState:
+    """Analyze one JavaScript server and return the state of its hidden text lamp"""
+
+    (tmp_path / "package.json").write_text('{"name": "letters", "dependencies": {"@modelcontextprotocol/sdk": "^1"}}')
+    (tmp_path / "index.js").write_text(source, encoding="utf-8")
+    return states(analyze_directory(tmp_path).servers[0].lamps)[LampId.HIDDEN_TEXT]
+
+
+def test_direction_marks_in_the_code_do_not_light_the_hidden_text_lamp(tmp_path: Path) -> None:
+    """U+200E and U+200F are direction marks, not the bidi controls R01 counts: the lamp stays off, the list keeps them"""
+
+    assert hidden_text_state(tmp_path, ENCODING_TABLE) is LampState.OFF
+    server = analyze_directory(tmp_path).servers[0]
+    assert [item.codepoints for item in server.invisible_unicode] == [["U+200E", "U+200F"]]
+
+
+def test_a_bidi_control_in_the_code_still_lights_the_hidden_text_lamp(tmp_path: Path) -> None:
+    """U+202E is a bidi control that R01 counts: the lamp is on, as before"""
+
+    assert hidden_text_state(tmp_path, ENCODING_TABLE.replace("\\u200e\\u200f", "\\u202e")) is LampState.ON
+
+
+FLAG_SERVER = """from mcp.server.fastmcp import FastMCP
+
+SCOTLAND = "\\U0001F3F4\\U000E0067\\U000E0062\\U000E0073\\U000E0063\\U000E0074\\U000E007F"
+mcp = FastMCP("flags")
+
+
+@mcp.tool()
+def flag() -> str:
+    \"\"\"Return the flag of Scotland\"\"\"
+
+    return SCOTLAND
+"""
+
+
+def test_an_emoji_flag_in_the_code_is_not_hidden_text(tmp_path: Path) -> None:
+    """A flag sequence uses tag characters, which R01 already accepts in descriptions: the lamp stays off"""
+
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "flags"\nversion = "1"\ndependencies = ["mcp>=1"]\n')
+    (tmp_path / "server.py").write_text(FLAG_SERVER, encoding="utf-8")
+    server = analyze_directory(tmp_path).servers[0]
+    assert server.invisible_unicode == []
+    assert states(server.lamps)[LampId.HIDDEN_TEXT] is LampState.OFF
+    (tmp_path / "server.py").write_text(FLAG_SERVER.replace("\\U0001F3F4", "A"), encoding="utf-8")
+    server = analyze_directory(tmp_path).servers[0]
+    assert states(server.lamps)[LampId.HIDDEN_TEXT] is LampState.ON

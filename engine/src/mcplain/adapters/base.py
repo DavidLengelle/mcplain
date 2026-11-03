@@ -43,6 +43,7 @@ from mcplain.models import (
 )
 from mcplain.paths import iter_files, location_kind
 from mcplain.patterns import PIPE_TO_SHELL, analyzer_talk, excerpt
+from mcplain.rules.text import is_flag
 
 TOO_LARGE_REASON = "too_large"
 RAW_BIDI_PATTERN = re.compile("[\u202a-\u202e\u2066-\u2069]+")
@@ -560,6 +561,9 @@ class Adapter(ABC):
             )
         for run in scan_invisible(raw_string.value.value):
             if run.category is InvisibleCategory.CONTROL and not in_description:
+                continue
+            end = run.index + len(run.characters)
+            if run.category is InvisibleCategory.TAG and is_flag(raw_string.value.value, run.index, end):
                 continue
             run_line, run_column = source.position(source_offset(raw_string.value, run.index))
             hidden = None
