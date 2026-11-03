@@ -3,7 +3,7 @@
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from mcplain.adapters.callgraph import CallGraph, Region, Step
 from mcplain.adapters.common import (
@@ -46,6 +46,7 @@ from mcplain.paths import iter_files, location_kind
 from mcplain.patterns import PIPE_TO_SHELL, analyzer_talk, excerpt
 
 TOO_LARGE_REASON = "too_large"
+INSTALL_COMMAND_NAME = re.compile(r"(?:^|[-_.])(?:setup|install|uninstall)(?:[-_.]|$)", re.IGNORECASE)
 RAW_BIDI_PATTERN = re.compile("[\u202a-\u202e\u2066-\u2069]+")
 FUNCTION_DECLARATIONS: frozenset[DeclarationKind] = frozenset(
     {DeclarationKind.DECORATOR, DeclarationKind.ADD_TOOL, DeclarationKind.FROM_FUNCTION}
@@ -110,6 +111,11 @@ class Adapter(ABC):
 
         return []
 
+    def install_commands(self, server_dir: Path, context: PackageContext) -> set[str]:
+        """Return the files of the install commands the user runs: files named setup, install or uninstall"""
+
+        return {path for path in context.files if INSTALL_COMMAND_NAME.search(PurePosixPath(path).stem)}
+
     def install_entries(self, server_dir: Path, context: PackageContext) -> set[str]:
         """Return the source files that install-time scripts run"""
 
@@ -146,6 +152,7 @@ class Adapter(ABC):
         analysis.files_analyzed = len(reports)
         analysis.language = self.language_for(paths)
         installs = self.install_entries(server_dir, context) & set(reports)
+        analysis.install_commands = sorted((self.install_commands(server_dir, context) & set(reports)) - installs)
         locations = self._locations(server_dir, context, reports, installs)
         entries = [
             (path, name) for path, name in self.entry_functions(server_dir, context) if path in reports

@@ -700,9 +700,32 @@ SENSITIVE_PATH_PATTERNS: tuple[SensitivePath, ...] = (
     ),
     _path("desktop_autostart", AUTOSTART, r"\.config[\\/]autostart\b"),
 )
+MCP_CLIENT_CONFIG = "mcp_client_config"
+MCP_CLIENTS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"claude_desktop_config\.json", re.IGNORECASE), "Claude Desktop"),
+    (re.compile(r"\.cursor[\\/]mcp\.json", re.IGNORECASE), "Cursor"),
+    (re.compile(r"\.claude\.json|\.claude[\\/]settings|(?<![\w.-])\.mcp\.json", re.IGNORECASE), "Claude Code"),
+    (re.compile(r"windsurf[\\/]mcp_config\.json", re.IGNORECASE), "Windsurf"),
+    (re.compile(r"\.vscode[\\/]mcp\.json|Code[\\/]User[\\/]", re.IGNORECASE), "VS Code"),
+    (re.compile(r"cline_mcp_settings\.json", re.IGNORECASE), "Cline"),
+    (re.compile(r"\.roo[\\/]mcp\.json|(?<![\w.-])mcp_settings\.json", re.IGNORECASE), "Roo Code"),
+    (re.compile(r"\.gemini[\\/]settings\.json", re.IGNORECASE), "Gemini CLI"),
+    (re.compile(r"\.codex[\\/]config\.toml", re.IGNORECASE), "Codex"),
+    (re.compile(r"\.continue[\\/]config", re.IGNORECASE), "Continue"),
+    (re.compile(r"\.config[\\/]zed[\\/]", re.IGNORECASE), "Zed"),
+)
 SENSITIVE_PATH_KINDS: dict[str, frozenset[PathKind]] = {
     entry.category: entry.kinds for entry in SENSITIVE_PATH_PATTERNS
 }
+
+
+def mcp_client(match: str) -> str:
+    """Return the name of the MCP client whose configuration file a path names, or the path itself"""
+
+    for pattern, name in MCP_CLIENTS:
+        if pattern.search(match):
+            return name
+    return match
 
 
 def path_kinds(category: str) -> frozenset[PathKind]:

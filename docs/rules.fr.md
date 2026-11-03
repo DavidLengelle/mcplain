@@ -1,6 +1,6 @@
 # Règles de MCPlain
 
-Règles version 2 : 21 règles, 12 rouges et 9 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
+Règles version 2 : 22 règles, 12 rouges et 10 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
 
 Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une règle orange se déclenche ; sinon gris si le statut n'est pas ok ou si le code n'a pas pu être lu et suivi en entier ; sinon vert. Les règles s'appliquent à tout le code serveur (outils, code hors des outils, démarrage, scripts d'installation, exemples importés), jamais aux tests ni aux exemples que le serveur n'importe pas.
 
@@ -27,6 +27,7 @@ Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une
 | [O07 lone-invisible-char](#o07-lone-invisible-char) | ORANGE | Caractère invisible isolé |
 | [O08 powerful-capability](#o08-powerful-capability) | ORANGE | Capacité puissante |
 | [O09 silence-to-check](#o09-silence-to-check) | ORANGE | Demande de silence à vérifier |
+| [O10 installer-edits-client-config](#o10-installer-edits-client-config) | ORANGE | Commande d'installation qui modifie un client MCP |
 
 ## Conditions du vert
 
@@ -165,11 +166,11 @@ Ce code télécharge quelque chose sur Internet et l'exécute (eval, un shell, o
 
 **Modifie le démarrage ou la config d'autres outils** : ROUGE, usage suspect.
 
-Ce code écrit dans un fichier qui lance des programmes automatiquement (.bashrc, crontab, authorized_keys, LaunchAgents...) ou dans la configuration d'un autre outil (clients MCP, .npmrc, .gitconfig...). Il peut ainsi faire revenir du code plus tard, ou changer le comportement de tes autres outils.
+Ce code écrit dans un fichier qui lance des programmes automatiquement (.bashrc, crontab, authorized_keys, LaunchAgents...) ou dans la configuration d'un autre outil (clients MCP, .npmrc, .gitconfig...). Il peut ainsi faire revenir du code plus tard, ou changer le comportement de tes autres outils. Exception : une commande d'installation que tu lances toi-même (pas le serveur, pas npm install) et qui écrit la configuration d'un client MCP donne O10 (orange).
 
 - En clair : **Modifie ton démarrage ou tes autres outils**. Le code écrit dans un fichier qui lance des programmes tout seul (comme .bashrc ou crontab), ou dans les réglages d'un autre outil. Conseil : Ne l'installe pas. S'il a déjà tourné, vérifie ces fichiers et retire ce que tu n'as pas ajouté toi-même.
 - Visible en lisant le code : oui
-- Faux positif connu : Un MCP « installateur » qui s'ajoute lui-même dans claude_desktop_config.json, à la demande de l'utilisateur.
+- Faux positif connu : Un outil du serveur (pas une commande d'installation) qui ajoute ce serveur dans claude_desktop_config.json, à la demande de l'utilisateur.
 - Sources :
   - [MITRE ATT&CK T1546.004: Unix Shell Configuration Modification](https://attack.mitre.org/techniques/T1546/004/)
   - [MITRE ATT&CK T1098.004: SSH Authorized Keys](https://attack.mitre.org/techniques/T1098/004/)
@@ -355,3 +356,17 @@ Une description demande à l'IA de ne pas dire, de ne pas signaler ou de ne pas 
   - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
   - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
 - Fixtures de test : `engine/tests/fixtures/rules/O09/` (positive, near_miss, false_positive)
+
+## O10 installer-edits-client-config
+
+**Commande d'installation qui modifie un client MCP** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
+
+Une commande d'installation que tu lances toi-même (un point d'entrée bin autre que le serveur, ou un fichier setup, install ou uninstall) écrit dans le fichier de configuration d'un client MCP (claude_desktop_config.json, mcp.json de Cursor ou de VS Code...), en général pour y ajouter ou en retirer ce serveur. R08 reste rouge si c'est le serveur lui-même qui écrit, si c'est un script lancé par npm install, ou si la cible est un fichier de démarrage (.bashrc, authorized_keys, crontab). Limite connue : une commande d'installation piégée qui ajouterait un autre serveur sort orange, pas rouge.
+
+- En clair : **Sa commande d'installation modifie la configuration de {client}**. Une commande d'installation que tu lances toi-même écrit dans la configuration de {client}, en général pour y ajouter ce serveur. Conseil : Avant de la lancer, garde une copie de cette configuration. Après, vérifie que seul ce serveur a été ajouté.
+- Visible en lisant le code : oui
+- Faux positif connu : Une commande d'installation qui, par défaut, affiche seulement la configuration et ne l'écrit qu'avec une option (--write).
+- Sources :
+  - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
+  - [MITRE ATT&CK T1546.004: Unix Shell Configuration Modification](https://attack.mitre.org/techniques/T1546/004/)
+- Fixtures de test : `engine/tests/fixtures/rules/O10/` (positive, near_miss, false_positive)

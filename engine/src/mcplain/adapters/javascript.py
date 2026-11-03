@@ -2433,6 +2433,28 @@ class JavaScriptAdapter(Adapter):
                 entries.add(file)
         return entries
 
+    def install_commands(self, server_dir: Path, context: PackageContext) -> set[str]:
+        """Return the setup, install or uninstall files, and the bin entries that are not the server"""
+
+        commands = super().install_commands(server_dir, context)
+        manifest = load_json_object(server_dir / "package.json") or {}
+        bins = manifest.get("bin")
+        if not isinstance(bins, dict):
+            return commands
+        files = {
+            name: resolve_package_file(target, context.files) for name, target in bins.items() if isinstance(target, str)
+        }
+        package = str(manifest.get("name") or "").rsplit("/", 1)[-1]
+        main = None
+        if isinstance(manifest.get("main"), str):
+            main = resolve_package_file(manifest["main"], context.files)
+        server = files.get(package)
+        if server is None and main in files.values():
+            server = main
+        if server is None:
+            return commands
+        return commands | {file for file in files.values() if file is not None and file != server}
+
     def install_entries(self, server_dir: Path, context: PackageContext) -> set[str]:
         """Return the files that preinstall, install and postinstall scripts run"""
 

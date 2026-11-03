@@ -1,6 +1,6 @@
 # MCPlain rules
 
-Rules version 2: 21 rules, 12 red and 9 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
+Rules version 2: 22 rules, 12 red and 10 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
 
 Order of the verdict: red if a red rule fires; otherwise orange if an orange rule fires; otherwise gray if the status is not ok or if the code could not be fully read and followed; otherwise green. The rules apply to all server code (tools, code outside the tools, startup, install scripts, imported examples), never to tests or examples that the server does not import.
 
@@ -27,6 +27,7 @@ Order of the verdict: red if a red rule fires; otherwise orange if an orange rul
 | [O07 lone-invisible-char](#o07-lone-invisible-char) | ORANGE | Lone invisible character |
 | [O08 powerful-capability](#o08-powerful-capability) | ORANGE | Powerful capability |
 | [O09 silence-to-check](#o09-silence-to-check) | ORANGE | Request for silence to check |
+| [O10 installer-edits-client-config](#o10-installer-edits-client-config) | ORANGE | Install command that edits an MCP client |
 
 ## Conditions of green
 
@@ -165,11 +166,11 @@ This code downloads something from the Internet and runs it (eval, a shell, or a
 
 **Changes startup files or another tool's settings**: RED, suspicious use.
 
-This code writes to a file that starts programs automatically (.bashrc, crontab, authorized_keys, LaunchAgents...) or to the configuration of another tool (MCP clients, .npmrc, .gitconfig...). It can make code come back later, or change how your other tools behave.
+This code writes to a file that starts programs automatically (.bashrc, crontab, authorized_keys, LaunchAgents...) or to the configuration of another tool (MCP clients, .npmrc, .gitconfig...). It can make code come back later, or change how your other tools behave. Exception: an install command you run yourself (not the server, not npm install) that writes the configuration of an MCP client gives O10 (orange).
 
 - In plain words: **Changes your startup or your other tools**. The code writes to a file that starts programs on its own (like .bashrc or crontab), or to the settings of another tool. Advice: Do not install it. If it already ran, check those files and remove what you did not add yourself.
 - Visible when reading the code: yes
-- Known false positive: An installer MCP that adds itself to claude_desktop_config.json, when the user asks for it.
+- Known false positive: A tool of the server (not an install command) that adds this server to claude_desktop_config.json, at the user's request.
 - Sources:
   - [MITRE ATT&CK T1546.004: Unix Shell Configuration Modification](https://attack.mitre.org/techniques/T1546/004/)
   - [MITRE ATT&CK T1098.004: SSH Authorized Keys](https://attack.mitre.org/techniques/T1098/004/)
@@ -355,3 +356,17 @@ A description asks the AI not to tell, report or mention something to the user, 
   - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
   - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
 - Test fixtures: `engine/tests/fixtures/rules/O09/` (positive, near_miss, false_positive)
+
+## O10 installer-edits-client-config
+
+**Install command that edits an MCP client**: ORANGE, a power to be aware of (nothing suspicious found).
+
+An install command you run yourself (a bin entry other than the server, or a setup, install or uninstall file) writes the configuration file of an MCP client (claude_desktop_config.json, mcp.json of Cursor or VS Code...), usually to add or remove this server. R08 stays red when the server itself writes, when a script run by npm install writes, or when the target is a startup file (.bashrc, authorized_keys, crontab). Known limit: a trapped install command that would add another server shows orange, not red.
+
+- In plain words: **Its install command edits the {client} configuration**. An install command you run yourself writes into the {client} configuration, usually to add this server. Advice: Before you run it, keep a copy of that configuration. Afterwards, check that only this server was added.
+- Visible when reading the code: yes
+- Known false positive: An install command that only prints the configuration by default and writes it only with an option (--write).
+- Sources:
+  - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
+  - [MITRE ATT&CK T1546.004: Unix Shell Configuration Modification](https://attack.mitre.org/techniques/T1546/004/)
+- Test fixtures: `engine/tests/fixtures/rules/O10/` (positive, near_miss, false_positive)

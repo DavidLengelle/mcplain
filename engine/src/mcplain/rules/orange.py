@@ -19,6 +19,7 @@ from mcplain.models import (
 from mcplain.patterns import excerpt, sentence_around, silence_request, silenced_sensitive_action, transmit_request
 from mcplain.rules import sources
 from mcplain.rules.base import Rule, RuleContext
+from mcplain.rules.red import client_of, installs_client_config, tampering_flows
 from mcplain.rules.text import hidden_characters, tool_texts
 from mcplain.version_ranges import range_excludes
 
@@ -367,6 +368,27 @@ class SilenceToCheck(Rule):
         return alerts
 
 
+class InstallerEditsClientConfig(Rule):
+    """Class for O10: an install command the user runs writes the configuration of an MCP client"""
+
+    identifier = "O10"
+    slug = "installer-edits-client-config"
+    color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
+    sources = (sources.INVARIANT_POISONING, sources.ATTACK_T1546_004)
+
+    def evaluate(self, context: RuleContext) -> list[Alert]:
+        """Take the writes that R08 leaves aside: an install command, not the server, writes an MCP client config"""
+
+        alerts = []
+        for flow in tampering_flows(context):
+            if installs_client_config(context, flow):
+                alert = self.flow_alert(flow, flow.source_detail)
+                alert.params = {"client": client_of(context, flow)}
+                alerts.append(alert)
+        return alerts
+
+
 ORANGE_RULES: tuple[type[Rule], ...] = (
     OpenNetwork,
     AiChoosesTheCommand,
@@ -377,4 +399,5 @@ ORANGE_RULES: tuple[type[Rule], ...] = (
     LoneInvisibleCharacter,
     PowerfulCapability,
     SilenceToCheck,
+    InstallerEditsClientConfig,
 )

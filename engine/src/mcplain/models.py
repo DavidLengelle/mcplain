@@ -362,6 +362,7 @@ class ServerAnalysis(BaseModel):
     domains: list[DomainRef] = Field(default_factory=list)
     sensitive_paths: list[SensitivePathRef] = Field(default_factory=list)
     install_scripts: list[InstallScript] = Field(default_factory=list)
+    install_commands: list[str] = Field(default_factory=list)
     invisible_unicode: list[InvisibleUnicode] = Field(default_factory=list)
     flows: list[Flow] = Field(default_factory=list)
     text_matches: list[TextMatch] = Field(default_factory=list)

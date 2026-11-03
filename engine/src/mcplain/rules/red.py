@@ -1,7 +1,7 @@
 """Red rules: code that hides, steals, plants or runs something, or a serious flaw an attacker can use"""
 
-from mcplain.capabilities import Capability, PathKind, find_sensitive_paths
-from mcplain.flows import FlowSinkKind, FlowSourceKind
+from mcplain.capabilities import MCP_CLIENT_CONFIG, Capability, PathKind, find_sensitive_paths, mcp_client
+from mcplain.flows import ROLE_PATH, FlowSinkKind, FlowSourceKind
 from mcplain.models import (
     Alert,
     AlertKind,
@@ -73,6 +73,38 @@ class InvisibleText(Rule):
                         )
                     )
         return alerts
+
+
+def tampering_flows(context: RuleContext) -> list[Flow]:
+    """Return the flows of an autostart or tool configuration path into the path of a file write"""
+
+    return [
+        flow
+        for flow in flows_to(context, {FlowSourceKind.SENSITIVE_PATH}, {FlowSinkKind.FILE_WRITE})
+        if flow.sink_role == ROLE_PATH and TAMPERING_KINDS & set(flow.path_kinds)
+    ]
+
+
+def installs_client_config(context: RuleContext, flow: Flow) -> bool:
+    """Tell whether an install command the user runs, not the server nor npm install, writes an MCP client config"""
+
+    if flow.source_detail != MCP_CLIENT_CONFIG or context.server is None:
+        return False
+    if flow.tool is not None or flow.shared_by_tools or flow.outside is OutsideKind.INSTALL:
+        return False
+    files = {flow.source_point.file, flow.sink_point.file, *(step.file for step in flow.steps)}
+    return bool(files & set(context.server.install_commands))
+
+
+def client_of(context: RuleContext, flow: Flow) -> str:
+    """Return the name of the MCP client whose configuration a flow writes"""
+
+    if context.server is not None:
+        for item in context.server.sensitive_paths:
+            same_place = (item.file, item.line) == (flow.source_point.file, flow.source_point.line)
+            if item.category == MCP_CLIENT_CONFIG and same_place:
+                return mcp_client(item.match)
+    return mcp_client(flow.source_point.snippet)
 
 
 class AsksForSilence(Rule):
@@ -220,12 +252,12 @@ class AutostartOrConfigTampering(Rule):
     sources = (sources.ATTACK_T1546_004, sources.ATTACK_T1098_004, sources.INVARIANT_POISONING)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
-        """Follow sensitive paths of the autostart or tool configuration kinds into a file write"""
+        """Follow sensitive paths of the autostart or tool configuration kinds into a file write, except O10's"""
 
         return [
             self.flow_alert(flow, flow.source_detail)
-            for flow in flows_to(context, {FlowSourceKind.SENSITIVE_PATH}, {FlowSinkKind.FILE_WRITE})
-            if flow.sink_role == "path" and TAMPERING_KINDS & set(flow.path_kinds)
+            for flow in tampering_flows(context)
+            if not installs_client_config(context, flow)
         ]
 
 
