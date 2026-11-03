@@ -225,6 +225,25 @@ describe("partial gray", () => {
   });
 });
 
+describe("cleared alerts", () => {
+  it("says in the technical details why O06 stays off, with the package name as raw text", () => {
+    const raw = rawView(ORANGE) as { result: { verdict: Record<string, unknown> } };
+    raw.result.verdict.cleared = [
+      {
+        code: "cleared.O06.retired",
+        params: { package: "colorful-strings", versions: "5.6.1", registry: "npm", range: "^5.3.0", id: "MAL-0000-77" },
+      },
+    ];
+    const view = parseAnalysisView(raw);
+    const { container } = renderWithIntl(<ReportView analysis={view!} />, "fr");
+    fireEvent.click(screen.getByRole("button", { name: /DÉTAILS TECHNIQUES/ }));
+    const line = container.querySelector('[data-cleared="cleared.O06.retired"]');
+    expect(line?.textContent).toContain("Une version piratée de colorful-strings (5.6.1) a existé.");
+    expect(line?.textContent).toContain("retirée de npm");
+    expect(line?.querySelectorAll("[data-raw-text]").length).toBeGreaterThan(0);
+  });
+});
+
 describe("tool cards", () => {
   it("rings warn tools in orange, danger tools in red, and the selected one in blue", () => {
     const tools = server(ORANGE).tools;

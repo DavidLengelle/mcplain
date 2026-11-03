@@ -150,6 +150,11 @@ function ReputationItem({ result }: { result: AnalysisResult }) {
           {item.malicious.map((report) => report.id).join(", ")}
         </span>
       ))}
+      {result.verdict.cleared.map((message, index) => (
+        <span key={`cleared-${index}`} className="mt-1 block font-normal" data-cleared={message.code}>
+          <EngineText code={message.code} params={message.params} />
+        </span>
+      ))}
     </Item>
   );
 }

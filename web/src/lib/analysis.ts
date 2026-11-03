@@ -79,6 +79,7 @@ export type Verdict = {
   title: Message | null;
   summary: Message | null;
   coverage: Coverage | null;
+  cleared: Message[];
 };
 
 export type Finding = {
@@ -371,6 +372,10 @@ function message(value: unknown): Message | null {
   return { code: messageKey(fields.code), params: textMap(fields.params) };
 }
 
+function requiredMessage(value: unknown): Message {
+  return message(value) ?? fail();
+}
+
 function optionalMessageKey(value: unknown): string | null {
   if (value === null || value === undefined) {
     return null;
@@ -418,6 +423,7 @@ function verdict(value: unknown): Verdict {
     title: message(fields.title),
     summary: message(fields.summary),
     coverage: coverage(fields.coverage),
+    cleared: list(fields.cleared, requiredMessage),
   };
 }
 
