@@ -16,10 +16,23 @@ from mcplain.models import (
     UrlKind,
     VerdictColor,
 )
-from mcplain.patterns import excerpt, sentence_around, silence_request, silenced_sensitive_action, transmit_request
+from mcplain.patterns import (
+    excerpt,
+    plain_download,
+    sentence_around,
+    silence_request,
+    silenced_sensitive_action,
+    transmit_request,
+)
 from mcplain.rules import sources
 from mcplain.rules.base import Rule, RuleContext
-from mcplain.rules.red import client_of, installs_client_config, tampering_flows
+from mcplain.rules.red import (
+    client_of,
+    install_requests,
+    installs_client_config,
+    plain_install_request,
+    tampering_flows,
+)
 from mcplain.rules.text import hidden_characters, tool_texts
 from mcplain.version_ranges import range_excludes
 
@@ -389,6 +402,35 @@ class InstallerEditsClientConfig(Rule):
         return alerts
 
 
+class InstallContactsInternet(Rule):
+    """Class for O11: a request made at install time that only carries plain values, to a fixed host"""
+
+    identifier = "O11"
+    slug = "install-contacts-internet"
+    color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
+    sources = (sources.SHAI_HULUD_PREINSTALL, sources.OWASP_MCP04)
+
+    def evaluate(self, context: RuleContext) -> list[Alert]:
+        """Take the install requests that R10 leaves aside, naming the host each one contacts"""
+
+        alerts: list[Alert] = []
+        if context.server is None:
+            return alerts
+        for script in context.server.install_scripts:
+            host = plain_download(script.command)
+            if script.downloads and host is not None:
+                alert = self.alert(file=script.file, line=script.line, quote=script.command, detail=script.kind)
+                alert.params = {"domain": host}
+                alerts.append(alert)
+        for finding in install_requests(context):
+            if plain_install_request(finding) and finding.url_host is not None:
+                alert = self.finding_alert(finding, None, finding.detail)
+                alert.params = {"domain": finding.url_host}
+                alerts.append(alert)
+        return alerts
+
+
 ORANGE_RULES: tuple[type[Rule], ...] = (
     OpenNetwork,
     AiChoosesTheCommand,
@@ -400,4 +442,5 @@ ORANGE_RULES: tuple[type[Rule], ...] = (
     PowerfulCapability,
     SilenceToCheck,
     InstallerEditsClientConfig,
+    InstallContactsInternet,
 )

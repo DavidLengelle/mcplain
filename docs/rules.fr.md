@@ -1,6 +1,6 @@
 # Règles de MCPlain
 
-Règles version 2 : 22 règles, 12 rouges et 10 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
+Règles version 2 : 23 règles, 12 rouges et 11 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
 
 Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une règle orange se déclenche ; sinon gris si le statut n'est pas ok ou si le code n'a pas pu être lu et suivi en entier ; sinon vert. Les règles s'appliquent à tout le code serveur (outils, code hors des outils, démarrage, scripts d'installation, exemples importés), jamais aux tests ni aux exemples que le serveur n'importe pas.
 
@@ -28,6 +28,7 @@ Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une
 | [O08 powerful-capability](#o08-powerful-capability) | ORANGE | Capacité puissante |
 | [O09 silence-to-check](#o09-silence-to-check) | ORANGE | Demande de silence à vérifier |
 | [O10 installer-edits-client-config](#o10-installer-edits-client-config) | ORANGE | Commande d'installation qui modifie un client MCP |
+| [O11 install-contacts-internet](#o11-install-contacts-internet) | ORANGE | Contacte Internet dès l'installation |
 
 ## Conditions du vert
 
@@ -195,11 +196,11 @@ Un paramètre d'outil est collé dans une commande lancée par un shell. L'auteu
 
 **Va sur Internet à l'installation** : ROUGE, usage suspect.
 
-Un script qui s'exécute à l'installation du paquet (preinstall, install, postinstall, setup.py) télécharge quelque chose ou utilise le réseau. Il s'exécute avant même que tu aies lancé le serveur.
+Un script qui s'exécute à l'installation du paquet (preinstall, install, postinstall, setup.py) envoie quelque chose sur le réseau : des variables d'environnement, des fichiers, le nom d'utilisateur ou de la machine, ou des valeurs que MCPlain ne peut pas vérifier (en cas de doute, rouge). Il s'exécute avant même que tu aies lancé le serveur. Une requête qui ne contient que des valeurs écrites dans le code, la version du paquet, le système et la version de Node ou de Python donne O11 (orange).
 
-- En clair : **Va sur Internet pendant l'installation**. Un script lancé à l'installation télécharge quelque chose ou utilise le réseau, avant même que tu lances le serveur. Conseil : Ne l'installe pas, sauf si tu sais ce que ce script télécharge et pourquoi.
+- En clair : **Va sur Internet pendant l'installation**. Un script lancé à l'installation envoie quelque chose sur Internet, avant même que tu lances le serveur. Conseil : Ne l'installe pas, sauf si tu sais ce que ce script télécharge et pourquoi.
 - Visible en lisant le code : oui
-- Faux positif connu : Un paquet qui télécharge un navigateur à l'installation, comme Puppeteer.
+- Faux positif connu : Un paquet qui télécharge son programme depuis un miroir choisi par une variable d'environnement : MCPlain ne peut pas prouver ce que la requête emporte.
 - Sources :
   - [Unit 42, Shai-Hulud worm compromises the npm ecosystem (September 2025)](https://unit42.paloaltonetworks.com/npm-supply-chain-attack/)
   - [Datadog Security Labs, Shai-Hulud 2.0 moves to preinstall (November 2025)](https://securitylabs.datadoghq.com/articles/shai-hulud-2.0-npm-worm/)
@@ -370,3 +371,17 @@ Une commande d'installation que tu lances toi-même (un point d'entrée bin autr
   - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
   - [MITRE ATT&CK T1546.004: Unix Shell Configuration Modification](https://attack.mitre.org/techniques/T1546/004/)
 - Fixtures de test : `engine/tests/fixtures/rules/O10/` (positive, near_miss, false_positive)
+
+## O11 install-contacts-internet
+
+**Contacte Internet dès l'installation** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
+
+Un script lancé à l'installation du paquet (preinstall, install, postinstall, setup.py) envoie une requête qui ne contient que des valeurs écrites dans le code, la version du paquet, le système (plateforme, architecture) et la version de Node ou de Python. Il s'exécute avant même que tu aies lancé le serveur. Si la requête emporte des variables d'environnement, des fichiers, le nom d'utilisateur ou de la machine, ou si MCPlain ne peut pas prouver ce qu'elle emporte, c'est R10 (rouge).
+
+- En clair : **Contacte Internet dès l'installation**. Ce paquet contacte {domain} dès l'installation, avant même que tu l'utilises. Conseil : Si tu ne veux pas de cette connexion, installe-le sans scripts (npm install --ignore-scripts). Certains paquets en ont besoin pour marcher.
+- Visible en lisant le code : oui
+- Faux positif connu : Un paquet qui télécharge un programme à l'installation, comme sharp ou esbuild, sort orange.
+- Sources :
+  - [Datadog Security Labs, Shai-Hulud 2.0 moves to preinstall (November 2025)](https://securitylabs.datadoghq.com/articles/shai-hulud-2.0-npm-worm/)
+  - [OWASP MCP Top 10, MCP04:2025 Software Supply Chain Attacks & Dependency Tampering](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP04-2025%E2%80%93Software-Supply-Chain-Attacks%26Dependency-Tampering.md)
+- Fixtures de test : `engine/tests/fixtures/rules/O11/` (positive, near_miss, false_positive)

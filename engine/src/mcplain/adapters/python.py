@@ -59,6 +59,10 @@ from mcplain.capabilities import (
     PYTHON_OFFLINE_PARTS,
     PYTHON_OPEN_FUNCTIONS,
     PYTHON_OPEN_GLOBALS,
+    PYTHON_PLAIN_CALLS,
+    PYTHON_PLAIN_VALUES,
+    PYTHON_PLAIN_WRAPPERS,
+    PYTHON_PROVABLE_REQUESTS,
     PYTHON_RULES,
     PYTHON_SOCKET_CONNECTS,
     PYTHON_TEXT_HELPERS,
@@ -68,6 +72,7 @@ from mcplain.capabilities import (
     URL_AFTER_METHOD,
     Capability,
     RuleKind,
+    belongs_to,
     find_sensitive_paths,
     is_offline_part,
     is_secret_name,
@@ -88,6 +93,9 @@ from mcplain.patterns import (
 
 PYTHON_LANGUAGE = Language(tree_sitter_python.language())
 PYTHON_EXTENSIONS: frozenset[str] = frozenset({".py", ".pyw"})
+PLAIN_NODES: frozenset[str] = frozenset({"integer", "float", "true", "false", "none", "comment"})
+PLAIN_METHODS: frozenset[str] = frozenset({"encode", "lower", "upper", "strip", "format"})
+PACKAGE_VERSION_CALLS: frozenset[str] = frozenset({"importlib.metadata.version"})
 NODE_TYPES: tuple[str, ...] = (
     "import_statement",
     "import_from_statement",
@@ -1693,6 +1701,10 @@ class _PythonFile:
             if rule is not None and rule.capability is Capability.NETWORK:
                 target = self._network_url_kind(qualified, arguments)
                 self._add(rule.capability, call, qualified, target, self._sends(qualified, arguments))
+                finding = self.report.findings[-1]
+                finding.plain = self.plain_request(qualified, call, arguments)
+                if finding.plain and finding.url_host is None:
+                    finding.url_host = self._plain_host(qualified, call, arguments)
                 return
             if rule is not None:
                 self._add(rule.capability, call, qualified)
@@ -1705,6 +1717,110 @@ class _PythonFile:
             rule = match_rule(PYTHON_RULES, method, RuleKind.METHOD)
             if rule is not None:
                 self._add(rule.capability, call, "." + method)
+
+    def plain_request(self, qualified: str, call: Node, arguments: Node | None) -> bool:
+        """Tell whether a request only carries values written in the code, the package version, the system and Python"""
+
+        if not any(belongs_to(qualified, name) for name in PYTHON_PROVABLE_REQUESTS):
+            return False
+        positional, keywords = split_arguments(arguments)
+        return all(self._plain(item, call, 0) for item in [*positional, *keywords.values()])
+
+    def _plain_host(self, qualified: str, call: Node, arguments: Node | None) -> str | None:
+        """Return the fixed host of the URL of a plain request, following a name and filling f-strings"""
+
+        positional, keywords = split_arguments(arguments)
+        index = 0
+        if qualified.rsplit(".", 1)[-1] in URL_AFTER_METHOD:
+            index = 1
+        node = keywords.get("url")
+        if node is None and len(positional) > index:
+            node = positional[index]
+        if node is not None and node.type == "identifier":
+            node = self._value_of(node, call) or node
+        if node is None:
+            return None
+        return literal_host(self.tool_text(node))
+
+    def _plain(self, node: Node | None, call: Node, depth: int) -> bool:
+        """Tell whether a value is written in the code, the package version, the platform, the architecture or Python's"""
+
+        if node is None:
+            return True
+        if depth > MAX_CONSTANT_DEPTH:
+            return False
+        kind = node.type
+        if kind in PLAIN_NODES:
+            return True
+        if kind == "string":
+            return all(
+                self._plain(child.child_by_field_name("expression"), call, depth + 1)
+                for child in node.children
+                if child.type == "interpolation"
+            )
+        if kind in ("concatenated_string", "binary_operator", "parenthesized_expression", "list", "tuple", "set"):
+            return all(self._plain(child, call, depth + 1) for child in node.named_children if child.type != "comment")
+        if kind == "dictionary":
+            return all(
+                child.type == "pair" and self._plain(child.child_by_field_name("value"), call, depth + 1)
+                for child in node.named_children
+                if child.type != "comment"
+            )
+        if kind == "identifier":
+            value = self._value_of(node, call)
+            return value is not None and self._plain(value, call, depth + 1)
+        if kind == "attribute":
+            parts = dotted_parts(node)
+            if not parts:
+                return False
+            qualified, imported = self._resolve(parts)
+            return imported and qualified in PYTHON_PLAIN_VALUES
+        if kind == "call":
+            return self._plain_call(node, call, depth)
+        return False
+
+    def _plain_call(self, node: Node, call: Node, depth: int) -> bool:
+        """Tell whether a call gives a plain value: platform.system(), or str() and the like of plain values"""
+
+        callee = node.child_by_field_name("function")
+        positional, keywords = split_arguments(node.child_by_field_name("arguments"))
+        parts = dotted_parts(callee)
+        if parts:
+            qualified, imported = self._resolve(parts)
+            if qualified in PYTHON_PLAIN_CALLS and imported and not positional and not keywords:
+                return True
+            if qualified in PYTHON_PLAIN_WRAPPERS or (imported and qualified in PACKAGE_VERSION_CALLS):
+                return all(self._plain(item, call, depth + 1) for item in [*positional, *keywords.values()])
+        if callee is not None and callee.type == "attribute":
+            attribute = callee.child_by_field_name("attribute")
+            method = ""
+            if attribute is not None:
+                method = node_text(attribute)
+            if method in PLAIN_METHODS:
+                values = [callee.child_by_field_name("object"), *positional, *keywords.values()]
+                return all(self._plain(item, call, depth + 1) for item in values)
+        return False
+
+    def _value_of(self, name_node: Node, call: Node) -> Node | None:
+        """Return the value a name holds at a call: assigned once in the function, or a constant of the file"""
+
+        name = node_text(name_node)
+        scope = call.parent
+        while scope is not None and scope.type != "function_definition":
+            scope = scope.parent
+        assigned = []
+        for assignment in self.nodes["assignment"]:
+            left = assignment.child_by_field_name("left")
+            if left is None or left.type != "identifier" or node_text(left) != name:
+                continue
+            if scope is not None and not scope.start_byte <= assignment.start_byte < scope.end_byte:
+                continue
+            assigned.append(assignment)
+        if scope is not None and len(assigned) == 1 and assigned[0].start_byte < call.start_byte:
+            return assigned[0].child_by_field_name("right")
+        if scope is not None and assigned:
+            return None
+        return self.constants.get(name)
 
     def _literal_module(self, arguments: Node | None) -> bool:
         """Tell whether an import call names its module with a string written in the code, an ordinary import"""

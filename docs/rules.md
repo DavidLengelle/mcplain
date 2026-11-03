@@ -1,6 +1,6 @@
 # MCPlain rules
 
-Rules version 2: 22 rules, 12 red and 10 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
+Rules version 2: 23 rules, 12 red and 11 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
 
 Order of the verdict: red if a red rule fires; otherwise orange if an orange rule fires; otherwise gray if the status is not ok or if the code could not be fully read and followed; otherwise green. The rules apply to all server code (tools, code outside the tools, startup, install scripts, imported examples), never to tests or examples that the server does not import.
 
@@ -28,6 +28,7 @@ Order of the verdict: red if a red rule fires; otherwise orange if an orange rul
 | [O08 powerful-capability](#o08-powerful-capability) | ORANGE | Powerful capability |
 | [O09 silence-to-check](#o09-silence-to-check) | ORANGE | Request for silence to check |
 | [O10 installer-edits-client-config](#o10-installer-edits-client-config) | ORANGE | Install command that edits an MCP client |
+| [O11 install-contacts-internet](#o11-install-contacts-internet) | ORANGE | Contacts the Internet at install time |
 
 ## Conditions of green
 
@@ -195,11 +196,11 @@ A tool parameter is pasted into a command run by a shell. The author is probably
 
 **Goes online at install time**: RED, suspicious use.
 
-A script that runs when the package is installed (preinstall, install, postinstall, setup.py) downloads something or uses the network. It runs before you have even started the server.
+A script run when the package is installed (preinstall, install, postinstall, setup.py) sends something over the network: environment variables, files, the user or machine name, or values MCPlain cannot check (in doubt, red). It runs before you even start the server. A request that only holds values written in the code, the package version, the system and the version of Node or Python gives O11 (orange).
 
-- In plain words: **Goes online during installation**. A script run at install time downloads something or uses the network, before you even start the server. Advice: Do not install it, unless you know what this script downloads and why.
+- In plain words: **Goes online during installation**. A script run at install time sends something over the Internet, before you even start the server. Advice: Do not install it, unless you know what this script downloads and why.
 - Visible when reading the code: yes
-- Known false positive: A package that downloads a browser at install time, like Puppeteer.
+- Known false positive: A package that downloads its program from a mirror chosen by an environment variable: MCPlain cannot prove what the request carries.
 - Sources:
   - [Unit 42, Shai-Hulud worm compromises the npm ecosystem (September 2025)](https://unit42.paloaltonetworks.com/npm-supply-chain-attack/)
   - [Datadog Security Labs, Shai-Hulud 2.0 moves to preinstall (November 2025)](https://securitylabs.datadoghq.com/articles/shai-hulud-2.0-npm-worm/)
@@ -370,3 +371,17 @@ An install command you run yourself (a bin entry other than the server, or a set
   - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
   - [MITRE ATT&CK T1546.004: Unix Shell Configuration Modification](https://attack.mitre.org/techniques/T1546/004/)
 - Test fixtures: `engine/tests/fixtures/rules/O10/` (positive, near_miss, false_positive)
+
+## O11 install-contacts-internet
+
+**Contacts the Internet at install time**: ORANGE, a power to be aware of (nothing suspicious found).
+
+A script run when the package is installed (preinstall, install, postinstall, setup.py) sends a request that only holds values written in the code, the package version, the system (platform, architecture) and the version of Node or Python. It runs before you even start the server. If the request carries environment variables, files, the user or machine name, or if MCPlain cannot prove what it carries, it is R10 (red).
+
+- In plain words: **Contacts the Internet at install time**. This package contacts {domain} as soon as it is installed, before you even use it. Advice: If you do not want this connection, install it without scripts (npm install --ignore-scripts). Some packages need it to work.
+- Visible when reading the code: yes
+- Known false positive: A package that downloads a program at install time, like sharp or esbuild, shows orange.
+- Sources:
+  - [Datadog Security Labs, Shai-Hulud 2.0 moves to preinstall (November 2025)](https://securitylabs.datadoghq.com/articles/shai-hulud-2.0-npm-worm/)
+  - [OWASP MCP Top 10, MCP04:2025 Software Supply Chain Attacks & Dependency Tampering](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP04-2025%E2%80%93Software-Supply-Chain-Attacks%26Dependency-Tampering.md)
+- Test fixtures: `engine/tests/fixtures/rules/O11/` (positive, near_miss, false_positive)

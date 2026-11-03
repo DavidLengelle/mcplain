@@ -5,6 +5,7 @@ from mcplain.flows import ROLE_PATH, FlowSinkKind, FlowSourceKind
 from mcplain.models import (
     Alert,
     AlertKind,
+    Finding,
     Flow,
     InvisibleCategory,
     LocationKind,
@@ -12,7 +13,14 @@ from mcplain.models import (
     TextMatchKind,
     VerdictColor,
 )
-from mcplain.patterns import analyzer_talk, excerpt, silence_request, silenced_sensitive_action, transmit_request
+from mcplain.patterns import (
+    analyzer_talk,
+    excerpt,
+    plain_download,
+    silence_request,
+    silenced_sensitive_action,
+    transmit_request,
+)
 from mcplain.rules import sources
 from mcplain.rules.base import Rule, RuleContext
 from mcplain.rules.text import ToolText, hidden_characters, tool_texts
@@ -73,6 +81,22 @@ class InvisibleText(Rule):
                         )
                     )
         return alerts
+
+
+def install_requests(context: RuleContext) -> list[Finding]:
+    """Return the network calls of the code that runs at install time"""
+
+    return [
+        finding
+        for finding in context.outside_findings()
+        if finding.capability is Capability.NETWORK and finding.outside is OutsideKind.INSTALL
+    ]
+
+
+def plain_install_request(finding: Finding) -> bool:
+    """Tell whether an install request goes to a fixed host and only carries values the engine proved plain"""
+
+    return finding.plain and finding.url_host is not None
 
 
 def tampering_flows(context: RuleContext) -> list[Flow]:
@@ -289,16 +313,16 @@ class InstallGoesOnline(Rule):
     sources = (sources.SHAI_HULUD, sources.SHAI_HULUD_PREINSTALL, sources.OWASP_MCP04, sources.OSV_SETUP_PY)
 
     def evaluate(self, context: RuleContext) -> list[Alert]:
-        """Check install scripts and the code they run"""
+        """Check install scripts and the code they run, except the requests O11 can prove are plain"""
 
         alerts: list[Alert] = []
         if context.server is None:
             return alerts
         for script in context.server.install_scripts:
-            if script.downloads:
+            if script.downloads and plain_download(script.command) is None:
                 alerts.append(self.alert(file=script.file, line=script.line, quote=script.command, detail=script.kind))
-        for finding in context.outside_findings():
-            if finding.capability is Capability.NETWORK and finding.outside is OutsideKind.INSTALL:
+        for finding in install_requests(context):
+            if not plain_install_request(finding):
                 alerts.append(self.finding_alert(finding, None, finding.detail))
         return alerts
 

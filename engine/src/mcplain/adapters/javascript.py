@@ -56,9 +56,14 @@ from mcplain.capabilities import (
     JAVASCRIPT_NETWORK_CLIENTS,
     JAVASCRIPT_OFFLINE_PARTS,
     JAVASCRIPT_OPEN_FUNCTIONS,
+    JAVASCRIPT_PLAIN_CALLS,
+    JAVASCRIPT_PLAIN_METHODS,
+    JAVASCRIPT_PLAIN_VALUES,
+    JAVASCRIPT_PLAIN_WRAPPERS,
     JAVASCRIPT_RULES,
     JAVASCRIPT_SOCKET_CONNECTS,
     JAVASCRIPT_STRING_TIMERS,
+    JAVASCRIPT_UNPROVABLE_REQUESTS,
     JAVASCRIPT_URL_GLOBALS,
     JAVASCRIPT_URL_KEYS,
     JAVASCRIPT_WRITE_FLAG_CHARS,
@@ -66,9 +71,11 @@ from mcplain.capabilities import (
     NETWORK_BODY_KEYS,
     NETWORK_CLIENT_METHODS,
     NETWORK_SEND_METHODS,
+    PACKAGE_FIELDS,
     SAFE_HTTP_METHODS,
     Capability,
     RuleKind,
+    belongs_to,
     find_sensitive_paths,
     is_offline_part,
     is_secret_name,
@@ -161,6 +168,8 @@ CALL_TOOL_SCHEMAS: tuple[str, ...] = ("CallToolRequestSchema",)
 LIST_TOOLS_METHOD = "tools/list"
 CALL_TOOL_METHOD = "tools/call"
 SDK_REGISTRY_FIELD = "_registeredTools"
+PACKAGE_JSON = "package.json"
+PLAIN_LEAVES: frozenset[str] = frozenset({"string", "number", "true", "false", "null", "undefined", "comment"})
 SDK_REGISTERING_METHOD = "registerTool"
 PROMISIFY_NAMES: frozenset[str] = frozenset({"promisify", "util.promisify"})
 TEXT_HELPERS: frozenset[str] = frozenset({"dedent", "String.raw", "outdent", "stripIndent"})
@@ -452,6 +461,14 @@ def _pattern_names(pattern: Node) -> list[tuple[Node, str | None]]:
             if left is not None:
                 names.append((left, node_text(left)))
     return names
+
+
+def _inside(node: Node, scope: Node | None) -> bool:
+    """Tell whether a node is inside a scope node, or anywhere when there is no scope"""
+
+    if scope is None:
+        return True
+    return scope.start_byte <= node.start_byte < scope.end_byte
 
 
 def _offline_use(node: Node, library: str) -> bool:
@@ -2099,6 +2116,10 @@ class _JavaScriptFile:
             if rule is not None and rule.capability is Capability.NETWORK:
                 target = self._network_url_kind(qualified, arguments)
                 self._add(rule.capability, call, qualified, target, self._sends(qualified, arguments))
+                finding = self.report.findings[-1]
+                finding.plain = self.plain_request(qualified, call, arguments)
+                if finding.plain and finding.url_host is None and arguments:
+                    finding.url_host = self._plain_host(arguments[0], call)
                 return
             if rule is not None:
                 self._add(rule.capability, call, qualified)
@@ -2110,6 +2131,145 @@ class _JavaScriptFile:
             rule = match_rule(JAVASCRIPT_RULES, method, RuleKind.METHOD)
             if rule is not None:
                 self._add(rule.capability, call, "." + method)
+
+    def plain_request(self, qualified: str, call: Node, arguments: list[Node]) -> bool:
+        """Tell whether a request only carries values written in the code, the package version, the system and Node"""
+
+        if any(qualified == name or belongs_to(qualified, name) for name in JAVASCRIPT_UNPROVABLE_REQUESTS):
+            return False
+        return all(self._plain(argument, call, 0) for argument in arguments)
+
+    def _plain_host(self, node: Node, call: Node) -> str | None:
+        """Return the fixed host of the URL of a plain request, following a name and filling templates"""
+
+        current = unwrap(node)
+        options = self._as_object(current)
+        if options is not None:
+            current = None
+            for key in JAVASCRIPT_URL_KEYS:
+                current = current or self._object_value(options, key)
+        if current is not None and current.type == "identifier":
+            current = self._value_of(current, call) or current
+        return literal_host(self.tool_text(current))
+
+    def _plain(self, node: Node | None, call: Node, depth: int) -> bool:
+        """Tell whether a value is written in the code, the package version, the platform, the architecture or Node's"""
+
+        current = unwrap(node)
+        if current is None:
+            return True
+        if depth > MAX_CONSTANT_DEPTH:
+            return False
+        kind = current.type
+        if kind in FUNCTION_TYPES or kind in PLAIN_LEAVES:
+            return True
+        if kind == "template_string":
+            substitutions = [child for child in current.named_children if child.type == "template_substitution"]
+            return all(self._plain(child.named_children[0], call, depth + 1) for child in substitutions if child.named_children)
+        if kind in ("binary_expression", "ternary_expression", "array"):
+            return all(self._plain(child, call, depth + 1) for child in current.named_children)
+        if kind == "object":
+            return all(self._plain_entry(child, call, depth) for child in current.named_children)
+        if kind == "identifier":
+            value = self._value_of(current, call)
+            return value is not None and self._plain(value, call, depth + 1)
+        if kind == "member_expression":
+            return self._plain_member(current, call)
+        if kind in ("call_expression", "new_expression"):
+            return self._plain_call(current, call, depth)
+        return False
+
+    def _plain_entry(self, entry: Node, call: Node, depth: int) -> bool:
+        """Tell whether one entry of an object literal is plain"""
+
+        if entry.type == "pair":
+            return self._plain(entry.child_by_field_name("value"), call, depth + 1)
+        if entry.type == "shorthand_property_identifier":
+            value = self._value_of(entry, call)
+            return value is not None and self._plain(value, call, depth + 1)
+        if entry.type == "spread_element" and entry.named_children:
+            return self._plain(entry.named_children[0], call, depth + 1)
+        return entry.type in ("comment", "method_definition")
+
+    def _plain_member(self, member: Node, call: Node) -> bool:
+        """Tell whether a member is process.platform and the like, or the version or name of the package.json"""
+
+        resolved = self.resolve(member)
+        if resolved is not None and not resolved[1] and resolved[0] in JAVASCRIPT_PLAIN_VALUES:
+            return True
+        if property_name(member.child_by_field_name("property")) not in PACKAGE_FIELDS:
+            return False
+        target = unwrap(member.child_by_field_name("object"))
+        if target is not None and target.type == "identifier":
+            target = self._value_of(target, call) or self._json_import(node_text(target))
+        return target is not None and self._reads_package_json(target)
+
+    def _plain_call(self, node: Node, call: Node, depth: int) -> bool:
+        """Tell whether a call gives a plain value: os.platform(), or JSON.stringify() and the like of plain values"""
+
+        callee = node.child_by_field_name("function") or node.child_by_field_name("constructor")
+        arguments = call_arguments(node)
+        resolved = self.resolve(callee)
+        if resolved is not None and resolved[0] in JAVASCRIPT_PLAIN_CALLS and not arguments:
+            return True
+        if resolved is not None and not resolved[1] and resolved[0] in JAVASCRIPT_PLAIN_WRAPPERS:
+            return all(self._plain(argument, call, depth + 1) for argument in arguments)
+        current = unwrap(callee)
+        if current is not None and current.type == "member_expression" and not arguments:
+            method = property_name(current.child_by_field_name("property"))
+            return method in JAVASCRIPT_PLAIN_METHODS and self._plain(current.child_by_field_name("object"), call, depth + 1)
+        return False
+
+    def _reads_package_json(self, node: Node) -> bool:
+        """Tell whether a value is require() of a package.json, or names a JSON import of it"""
+
+        current = unwrap(node)
+        if current is not None and current.type == "string":
+            return self._decode_string(current).value.endswith(PACKAGE_JSON)
+        specifier = None
+        if current is not None and current.type == "call_expression":
+            function = current.child_by_field_name("function")
+            arguments = call_arguments(current)
+            if function is not None and node_text(function) == "require" and arguments and arguments[0].type == "string":
+                specifier = self._decode_string(arguments[0]).value
+        return specifier is not None and specifier.startswith(".") and specifier.endswith(PACKAGE_JSON)
+
+    def _json_import(self, name: str) -> Node | None:
+        """Return the source string of the default import that binds a name, such as pkg from ./package.json"""
+
+        for statement in self.nodes["import_statement"]:
+            source = statement.child_by_field_name("source")
+            if source is None or source.type != "string":
+                continue
+            for clause in statement.named_children:
+                if clause.type == "import_clause" and any(
+                    child.type == "identifier" and node_text(child) == name for child in clause.named_children
+                ):
+                    return source
+        return None
+
+    def _value_of(self, name_node: Node, call: Node) -> Node | None:
+        """Return the value a name holds at a call: a constant of the function or of the file, assigned once"""
+
+        name = node_text(name_node)
+        scope = call.parent
+        while scope is not None and scope.type not in FUNCTION_TYPES and scope.type not in NAMED_FUNCTION_TYPES:
+            scope = scope.parent
+        found: Node | None = None
+        for declarator in self.nodes["variable_declarator"]:
+            target = declarator.child_by_field_name("name")
+            if target is None or target.type != "identifier" or node_text(target) != name:
+                continue
+            if declarator.start_byte > call.start_byte or not _inside(declarator, scope):
+                continue
+            found = declarator.child_by_field_name("value")
+        for assignment in self.nodes["assignment_expression"]:
+            left = assignment.child_by_field_name("left")
+            if left is not None and node_text(left) == name and _inside(assignment, scope):
+                return None
+        if found is not None:
+            return found
+        return self.constants.get(name)
 
     def local_connection(self, qualified: str, arguments: list[Node]) -> Capability | None:
         """Tell whether net.connect() reaches this computer only: a socket path or a port alone, or a local host"""

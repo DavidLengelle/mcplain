@@ -41,6 +41,24 @@ PYTHON_LOCAL_SOCKET = "socket.socket(AF_UNIX)"
 PYTHON_SOCKET_CONNECTS: frozenset[str] = frozenset({"connect", "connect_ex"})
 LOCAL_HOSTS: frozenset[str] = frozenset({"localhost", "127.0.0.1", "::1"})
 DOCKER_SOCKET_SUFFIX = "docker.sock"
+JAVASCRIPT_PLAIN_VALUES: frozenset[str] = frozenset(
+    {"process.platform", "process.arch", "process.version", "process.versions", "process.versions.node"}
+)
+JAVASCRIPT_PLAIN_CALLS: frozenset[str] = frozenset({"os.platform", "os.arch", "os.type"})
+JAVASCRIPT_PLAIN_WRAPPERS: frozenset[str] = frozenset(
+    {"JSON.stringify", "encodeURIComponent", "encodeURI", "String", "URL", "URLSearchParams"}
+)
+JAVASCRIPT_PLAIN_METHODS: frozenset[str] = frozenset({"toString", "toLowerCase", "toUpperCase", "trim"})
+JAVASCRIPT_UNPROVABLE_REQUESTS: frozenset[str] = frozenset(
+    {"http.request", "https.request", "http2", "net", "tls", "dgram", "dns", "ws", "socket.io-client"}
+)
+PYTHON_PLAIN_VALUES: frozenset[str] = frozenset({"sys.platform", "sys.version", "sys.version_info"})
+PYTHON_PLAIN_CALLS: frozenset[str] = frozenset({"platform.system", "platform.machine", "platform.python_version"})
+PYTHON_PLAIN_WRAPPERS: frozenset[str] = frozenset(
+    {"str", "json.dumps", "urllib.parse.urlencode", "urllib.parse.quote", "urllib.request.Request"}
+)
+PYTHON_PROVABLE_REQUESTS: frozenset[str] = frozenset({"requests", "httpx", "urllib.request"})
+PACKAGE_FIELDS: frozenset[str] = frozenset({"version", "name"})
 
 
 class RuleKind(StrEnum):

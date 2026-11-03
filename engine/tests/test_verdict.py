@@ -73,7 +73,7 @@ def test_default_registry_has_every_rule() -> None:
 
     assert DEFAULT_REGISTRY.has_red_rules()
     verdict = compute_verdict(result([]))
-    assert (verdict.rules_version, verdict.rules_count) == ("2", 22)
+    assert (verdict.rules_version, verdict.rules_count) == ("2", 23)
 
 
 def test_green_without_powerful_capability() -> None:

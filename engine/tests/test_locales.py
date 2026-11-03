@@ -90,7 +90,16 @@ def test_translator_falls_back_and_formats() -> None:
     assert Translator("en")("no.such.key") == "no.such.key"
 
 
-CONTACT_KEYS: frozenset[str] = frozenset({"rule.O01.title", "rule.O01.explanation", "reason.green.network"})
+CONTACT_KEYS: frozenset[str] = frozenset(
+    {
+        "rule.O01.title",
+        "rule.O01.explanation",
+        "reason.green.network",
+        "rule.O11.title",
+        "rule.O11.plain_title",
+        "rule.O11.plain_found",
+    }
+)
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])

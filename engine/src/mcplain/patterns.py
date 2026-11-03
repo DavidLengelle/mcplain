@@ -133,6 +133,13 @@ DOWNLOAD_COMMAND = re.compile(
     re.IGNORECASE,
 )
 
+PLAIN_DOWNLOAD = re.compile(
+    r"^\s*(?:curl|wget)\b[^$`%|;&<>(){}\\]*?\bhttps?://(?P<host>[A-Za-z0-9.-]+)[^\s$`%|;&<>(){}\\'\"]*[^$`%|;&<>(){}\\]*$",
+    re.IGNORECASE,
+)
+SENDING_OPTIONS: tuple[str, ...] = ("--data", "--form", "--upload", "--post", "--body", "--config", "--json", "--header")
+SENDING_LETTERS: frozenset[str] = frozenset("dFTKH")
+SHORT_OPTIONS = re.compile(r"^-[A-Za-z]+$")
 DOWNLOAD_TOOLS = re.compile(
     r"\b(?:curl|wget|iwr|Invoke-WebRequest|Invoke-RestMethod|bitsadmin)\b|\bcertutil\b.{0,40}-urlcache",
     re.IGNORECASE,
@@ -179,6 +186,18 @@ def silenced_sensitive_action(text: str, match: re.Match[str]) -> bool:
         return False
     previous = sentence_around(before, len(before) - 1, len(before) - 1)
     return SENSITIVE_ACTIONS.search(previous) is not None
+
+
+def plain_download(command: str) -> str | None:
+    """Return the host of an install command that only downloads a URL written in it with curl or wget, or None"""
+
+    match = PLAIN_DOWNLOAD.match(command)
+    if match is None or "@" in command:
+        return None
+    for token in command.split():
+        if token.startswith(SENDING_OPTIONS) or (SHORT_OPTIONS.match(token) and set(token[1:]) & SENDING_LETTERS):
+            return None
+    return match.group("host").lower()
 
 
 def transmit_request(text: str, parameters: list[str]) -> str | None:

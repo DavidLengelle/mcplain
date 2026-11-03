@@ -1,0 +1,8 @@
+{
+  "name": "o11-near-miss",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": { "postinstall": "node notice.js" },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.0.0" }
+}

@@ -86,3 +86,124 @@ def test_an_install_command_that_edits_a_shell_startup_file_stays_red(fixtures: 
     result = analyze_directory(folder)
     assert "R08" in rules(result)
     assert "O10" not in rules(result)
+
+
+def test_a_plain_request_at_install_time_is_o11(fixtures: Path) -> None:
+    """engine/tests/fixtures/rules/O11/positive pings a fixed address with nothing in it: O11 names the domain"""
+
+    result = analyze_directory(fixtures / "rules" / "O11" / "positive")
+    [alert] = [alert for alert in result.verdict.alerts if alert.rule == "O11"]
+    assert alert.params == {"domain": "telemetry.attacker.invalid"}
+    assert "R10" not in rules(result)
+    assert lamp(result, LampId.INTERNET) is LampState.ON
+
+
+def test_an_install_request_that_carries_user_and_machine_names_stays_red(fixtures: Path) -> None:
+    """engine/tests/fixtures/rules/R10/positive sends the user and machine names: R10"""
+
+    result = analyze_directory(fixtures / "rules" / "R10" / "positive")
+    assert "R10" in rules(result)
+    assert "O11" not in rules(result)
+
+
+def test_an_install_request_built_from_an_environment_variable_stays_red(fixtures: Path) -> None:
+    """engine/tests/fixtures/rules/R10/false_positive takes its mirror from a variable: not proven, so red"""
+
+    assert "R10" in rules(analyze_directory(fixtures / "rules" / "R10" / "false_positive"))
+
+
+def install_package(tmp_path: Path, script: str, extra: dict[str, object] | None = None) -> Path:
+    """Write a small server package whose postinstall runs download.js with the given text"""
+
+    manifest: dict[str, object] = {
+        "name": "notes-cli",
+        "version": "2.1.0",
+        "type": "module",
+        "main": "index.js",
+        "scripts": {"postinstall": "node download.js"},
+        "dependencies": {"@modelcontextprotocol/sdk": "^1.0.0"},
+    }
+    manifest.update(extra or {})
+    (tmp_path / "package.json").write_text(json.dumps(manifest))
+    (tmp_path / "index.js").write_text(
+        'import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";\n'
+        "export function build() {\n  return new McpServer({ name: \"notes\", version: \"2.1.0\" });\n}\n"
+    )
+    (tmp_path / "download.js").write_text(script)
+    return tmp_path
+
+
+def test_a_program_downloaded_for_this_version_and_system_is_o11(tmp_path: Path) -> None:
+    """The URL holds the package version, the platform, the architecture and the Node version: O11"""
+
+    script = (
+        'import https from "https";\nimport os from "os";\nimport pkg from "./package.json" with { type: "json" };\n'
+        "const base = \"https://downloads.example.invalid\";\n"
+        "const file = `notes-${pkg.version}-${process.platform}-${os.arch()}-node${process.versions.node}.tgz`;\n"
+        "https.get(`${base}/${file}`);\n"
+    )
+    result = analyze_directory(install_package(tmp_path, script))
+    assert [alert.params for alert in result.verdict.alerts if alert.rule == "O11"] == [
+        {"domain": "downloads.example.invalid"}
+    ]
+    assert "R10" not in rules(result)
+
+
+def test_the_version_read_with_require_is_plain(tmp_path: Path) -> None:
+    """require("./package.json").version is the package version"""
+
+    script = (
+        'const https = require("https");\nconst version = require("./package.json").version;\n'
+        'https.get("https://downloads.example.invalid/notes-" + version + ".tgz");\n'
+    )
+    result = analyze_directory(install_package(tmp_path, script, {"type": "commonjs"}))
+    assert "O11" in rules(result)
+    assert "R10" not in rules(result)
+
+
+def test_a_curl_of_a_written_address_in_an_install_hook_is_o11(tmp_path: Path) -> None:
+    """postinstall: curl -fsSL -o bin/notes https://downloads.example.invalid/notes.tgz downloads a fixed file"""
+
+    command = "curl -fsSL -o bin/notes.tgz https://downloads.example.invalid/notes.tgz"
+    folder = install_package(tmp_path, "", {"scripts": {"postinstall": command}})
+    result = analyze_directory(folder)
+    assert [alert.params for alert in result.verdict.alerts if alert.rule == "O11"] == [
+        {"domain": "downloads.example.invalid"}
+    ]
+    assert "R10" not in rules(result)
+
+
+SETUP_PY = '''import platform
+import urllib.request
+
+from setuptools import setup
+from setuptools.command.install import install
+
+VERSION = "2.1.0"
+
+
+class FetchBinary(install):
+    def run(self):
+        url = f"https://downloads.example.invalid/notes-{VERSION}-{platform.system()}-{platform.machine()}.tgz"
+        urllib.request.urlopen(url)
+        install.run(self)
+
+
+setup(name="notes-cli", version=VERSION, cmdclass={"install": FetchBinary})
+'''
+
+
+def test_a_python_setup_download_for_this_system_is_o11(tmp_path: Path) -> None:
+    """setup.py fetches a file named with the version, the system and the machine: O11"""
+
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "notes-cli"\nversion = "2.1.0"\ndependencies = ["mcp>=1"]\n')
+    (tmp_path / "setup.py").write_text(SETUP_PY)
+    (tmp_path / "server.py").write_text(
+        'from mcp.server.fastmcp import FastMCP\n\nmcp = FastMCP("notes")\n\n\n@mcp.tool()\ndef count() -> str:\n'
+        '    """Count the notes"""\n\n    return "0"\n'
+    )
+    result = analyze_directory(tmp_path)
+    assert [alert.params for alert in result.verdict.alerts if alert.rule == "O11"] == [
+        {"domain": "downloads.example.invalid"}
+    ]
+    assert "R10" not in rules(result)

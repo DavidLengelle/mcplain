@@ -30,6 +30,7 @@ class RawFinding:
     url_kind: UrlKind | None = None
     url_host: str | None = None
     sends: bool | None = None
+    plain: bool = False
 
 
 @dataclass(frozen=True)
