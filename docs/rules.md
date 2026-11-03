@@ -45,7 +45,8 @@ These imports do not count for the lock (known false positives):
 - a name used only in type annotations, or imported with `import type` or a `type` marker;
 - an import inside an `if TYPE_CHECKING:` block, and a name used only in `isinstance()` or on the right of `instanceof`;
 - an imported name that is never used;
-- the parts of the standard library that cannot reach the network, such as `urllib.parse` or `http.HTTPStatus`.
+- the parts of the standard library that cannot reach the network, such as `urllib.parse` or `http.HTTPStatus`;
+- the parts of a network library that cannot send a request (lists of addresses, settings, constants, certificate checks): `http.METHODS`, `http.STATUS_CODES`, `http2.constants`, `http2.getDefaultSettings`, `http2.getPackedSettings`, `http2.getUnpackedSettings`, `http2.sensitiveHeaders`, `net.BlockList`, `net.SocketAddress`, `net.isIP`, `net.isIPv4`, `net.isIPv6`, `tls.checkServerIdentity`, `tls.getCiphers`, `tls.rootCertificates`, `urllib3.Retry`, `urllib3.Timeout`, `urllib3.disable_warnings`, `urllib3.util.Retry`, `urllib3.util.Timeout`, `urllib3.util.retry`, `urllib3.util.timeout`.
 
 ## The lamps
 

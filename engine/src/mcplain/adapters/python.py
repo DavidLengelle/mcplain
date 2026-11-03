@@ -52,6 +52,7 @@ from mcplain.capabilities import (
     PYTHON_ENV_GETTERS,
     PYTHON_ENV_MAPPINGS,
     PYTHON_NETWORK_CLIENTS,
+    PYTHON_OFFLINE_PARTS,
     PYTHON_OPEN_FUNCTIONS,
     PYTHON_OPEN_GLOBALS,
     PYTHON_RULES,
@@ -63,6 +64,7 @@ from mcplain.capabilities import (
     Capability,
     RuleKind,
     find_sensitive_paths,
+    is_offline_part,
     is_secret_name,
     match_rule,
     python_network_library,
@@ -313,6 +315,18 @@ def _exempt_use(node: Node) -> bool:
         child = current
         current = current.parent
     return False
+
+
+def _offline_use(node: Node, base: str) -> bool:
+    """Tell whether a name is used only to reach a part of a network library that cannot send, like urllib3.util.Retry"""
+
+    top = node
+    while top.parent is not None and top.parent.type == "attribute" and top.parent.child_by_field_name("object") == top:
+        top = top.parent
+    parts = dotted_parts(top)
+    if top is node or not parts:
+        return False
+    return is_offline_part(".".join([base, *parts[1:]]), PYTHON_OFFLINE_PARTS)
 
 
 class _PythonFile:
@@ -1762,11 +1776,15 @@ class _PythonFile:
     def _find_network_imports(self) -> None:
         """Record the network libraries imported and used for more than exceptions, annotations and isinstance"""
 
-        wanted: list[tuple[Node, str, str]] = []
+        wanted: list[tuple[Node, str, str, str]] = []
         for statement, name, qualified in self._import_bindings():
             library = python_network_library(qualified)
-            if library is not None and not _type_checking_only(statement):
-                wanted.append((statement, name, library))
+            if library is None or _type_checking_only(statement) or is_offline_part(qualified, PYTHON_OFFLINE_PARTS):
+                continue
+            base = qualified
+            if qualified.split(".")[0] == name:
+                base = name
+            wanted.append((statement, name, library, base))
         if not wanted:
             return
         uses: dict[str, list[Node]] = {}
@@ -1774,10 +1792,10 @@ class _PythonFile:
             if _is_reference(node):
                 uses.setdefault(node_text(node), []).append(node)
         seen: set[str] = set()
-        for statement, name, library in wanted:
+        for statement, name, library, base in wanted:
             if library in seen:
                 continue
-            if any(not _exempt_use(node) for node in uses.get(name, [])):
+            if any(not _exempt_use(node) and not _offline_use(node, base) for node in uses.get(name, [])):
                 seen.add(library)
                 self.report.network_imports.append(RawNetworkImport(library=library, offset=statement.start_byte))
 

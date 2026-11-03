@@ -53,6 +53,7 @@ from mcplain.capabilities import (
     JAVASCRIPT_ENV_GETTERS,
     JAVASCRIPT_ENV_OBJECTS,
     JAVASCRIPT_NETWORK_CLIENTS,
+    JAVASCRIPT_OFFLINE_PARTS,
     JAVASCRIPT_OPEN_FUNCTIONS,
     JAVASCRIPT_RULES,
     JAVASCRIPT_STRING_TIMERS,
@@ -66,6 +67,7 @@ from mcplain.capabilities import (
     Capability,
     RuleKind,
     find_sensitive_paths,
+    is_offline_part,
     is_secret_name,
     javascript_network_library,
     match_rule,
@@ -407,45 +409,56 @@ def _is_type_only(statement: Node) -> bool:
     return any(child.type == TYPE_KEYWORD for child in statement.children)
 
 
-def _clause_names(child: Node) -> list[Node]:
-    """Return the name nodes an import clause part binds, without the specifiers marked as types"""
+def _clause_names(child: Node) -> list[tuple[Node, str | None]]:
+    """Return the name nodes an import clause part binds and the member each one takes, without the type specifiers"""
 
     if child.type == "identifier":
-        return [child]
+        return [(child, None)]
     if child.type == "namespace_import":
-        return [item for item in child.named_children if item.type == "identifier"]
+        return [(item, None) for item in child.named_children if item.type == "identifier"]
     if child.type != "named_imports":
         return []
-    names = []
+    names: list[tuple[Node, str | None]] = []
     for specifier in child.named_children:
         if specifier.type != "import_specifier" or any(part.type == TYPE_KEYWORD for part in specifier.children):
             continue
-        alias = specifier.child_by_field_name("alias") or specifier.child_by_field_name("name")
+        name = specifier.child_by_field_name("name")
+        alias = specifier.child_by_field_name("alias") or name
         if alias is not None:
-            names.append(alias)
+            names.append((alias, property_name(name)))
     return names
 
 
-def _pattern_names(pattern: Node) -> list[Node]:
-    """Return the name nodes bound by a require or a dynamic import"""
+def _pattern_names(pattern: Node) -> list[tuple[Node, str | None]]:
+    """Return the name nodes bound by a require or a dynamic import, and the member each one takes"""
 
     if pattern.type == "identifier":
-        return [pattern]
+        return [(pattern, None)]
     if pattern.type != "object_pattern":
         return []
-    names = []
+    names: list[tuple[Node, str | None]] = []
     for child in pattern.named_children:
         if child.type == "shorthand_property_identifier_pattern":
-            names.append(child)
+            names.append((child, node_text(child)))
         elif child.type == "pair_pattern":
             value = child.child_by_field_name("value")
             if value is not None and value.type == "identifier":
-                names.append(value)
+                names.append((value, property_name(child.child_by_field_name("key"))))
         elif child.type == "object_assignment_pattern":
             left = child.child_by_field_name("left")
             if left is not None:
-                names.append(left)
+                names.append((left, node_text(left)))
     return names
+
+
+def _offline_use(node: Node, library: str) -> bool:
+    """Tell whether a module name is used only to reach a part that cannot send, like net.BlockList"""
+
+    parent = node.parent
+    if parent is None or parent.type != "member_expression" or parent.child_by_field_name("object") != node:
+        return False
+    member = property_name(parent.child_by_field_name("property"))
+    return member is not None and is_offline_part(f"{library}.{member}", JAVASCRIPT_OFFLINE_PARTS)
 
 
 def _inside_import(node: Node) -> bool:
@@ -528,7 +541,7 @@ class _JavaScriptFile:
         return self.report
 
     def _import_bindings(self) -> list[tuple[Node, Node, str]]:
-        """Return each import or require of a network library, with the node that binds a name and the library"""
+        """Return each import or require of a network library that can send, with the node that binds a name and the library"""
 
         bindings: list[tuple[Node, Node, str]] = []
         for statement in self.nodes["import_statement"]:
@@ -542,18 +555,25 @@ class _JavaScriptFile:
                 if clause.type != "import_clause":
                     continue
                 for child in clause.named_children:
-                    for name in _clause_names(child):
-                        bindings.append((statement, name, library))
+                    for name, member in _clause_names(child):
+                        if member is None or not is_offline_part(f"{library}.{member}", JAVASCRIPT_OFFLINE_PARTS):
+                            bindings.append((statement, name, library))
         for declarator in self.nodes["variable_declarator"]:
             name = declarator.child_by_field_name("name")
             module = self._required_module(declarator.child_by_field_name("value"))
             if name is None or module is None:
                 continue
             library = javascript_network_library(module.split(".")[0])
+            prefix = None
             if library is None:
                 library = javascript_network_library(module)
-            if library is not None:
-                for bound in _pattern_names(name):
+            elif "." in module:
+                prefix = module.split(".", 1)[1]
+            if library is None:
+                continue
+            for bound, member in _pattern_names(name):
+                path = ".".join(part for part in (library, prefix, member) if part)
+                if not is_offline_part(path, JAVASCRIPT_OFFLINE_PARTS):
                     bindings.append((declarator, bound, library))
         return bindings
 
@@ -574,7 +594,7 @@ class _JavaScriptFile:
         for statement, name, library in bindings:
             if library in seen:
                 continue
-            if any(not _exempt_use(node) for node in uses.get(node_text(name), [])):
+            if any(not _exempt_use(node) and not _offline_use(node, library) for node in uses.get(node_text(name), [])):
                 seen.add(library)
                 self.report.network_imports.append(RawNetworkImport(library=library, offset=statement.start_byte))
 

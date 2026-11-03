@@ -1,6 +1,11 @@
 """Catalog of the verdict rules in Markdown, generated from the rule registry"""
 
-from mcplain.capabilities import JAVASCRIPT_NETWORK_LIBRARIES, PYTHON_NETWORK_LIBRARIES
+from mcplain.capabilities import (
+    JAVASCRIPT_NETWORK_LIBRARIES,
+    JAVASCRIPT_OFFLINE_PARTS,
+    PYTHON_NETWORK_LIBRARIES,
+    PYTHON_OFFLINE_PARTS,
+)
 from mcplain.i18n import Translator
 from mcplain.lamps import LAMPS, LampSpec
 from mcplain.models import VerdictColor
@@ -10,7 +15,7 @@ from mcplain.verdict import DEFAULT_REGISTRY, RULES_VERSION
 FIXTURES_ROOT = "engine/tests/fixtures"
 FIXTURE_CASES = "positive, near_miss, false_positive"
 GREEN_CONDITIONS: tuple[str, ...] = ("no_alert", "status", "read", "followed", "network")
-GREEN_EXCEPTIONS: tuple[str, ...] = ("except", "types", "type_check", "unused", "not_network")
+GREEN_EXCEPTIONS: tuple[str, ...] = ("except", "types", "type_check", "unused", "not_network", "offline_parts")
 
 
 def _anchor(rule: Rule) -> str:
@@ -57,7 +62,8 @@ def render_green_conditions(t: Translator) -> list[str]:
     lines.extend(["", t("catalog.green.libraries", python=python, javascript=javascript), ""])
     lines.append(t("catalog.green.exceptions"))
     lines.append("")
-    lines.extend(f"- {t(f'catalog.green.exception.{key}')}" for key in GREEN_EXCEPTIONS)
+    parts = ", ".join(f"`{name}`" for name in sorted(PYTHON_OFFLINE_PARTS | JAVASCRIPT_OFFLINE_PARTS))
+    lines.extend(f"- {t(f'catalog.green.exception.{key}', parts=parts)}" for key in GREEN_EXCEPTIONS)
     return lines
 
 

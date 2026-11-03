@@ -436,6 +436,43 @@ JAVASCRIPT_NETWORK_LIBRARIES: frozenset[str] = _network_libraries(JAVASCRIPT_RUL
 NOT_A_REQUEST: frozenset[str] = frozenset(
     {"socket.socket", "socket.socketpair", "axios.isAxiosError", "axios.isCancel"}
 )
+PYTHON_OFFLINE_PARTS: frozenset[str] = frozenset(
+    {
+        "urllib3.util.retry",
+        "urllib3.util.Retry",
+        "urllib3.Retry",
+        "urllib3.util.timeout",
+        "urllib3.util.Timeout",
+        "urllib3.Timeout",
+        "urllib3.disable_warnings",
+    }
+)
+JAVASCRIPT_OFFLINE_PARTS: frozenset[str] = frozenset(
+    {
+        "net.BlockList",
+        "net.SocketAddress",
+        "net.isIP",
+        "net.isIPv4",
+        "net.isIPv6",
+        "tls.checkServerIdentity",
+        "tls.rootCertificates",
+        "tls.getCiphers",
+        "http.STATUS_CODES",
+        "http.METHODS",
+        "http2.constants",
+        "http2.getDefaultSettings",
+        "http2.getPackedSettings",
+        "http2.getUnpackedSettings",
+        "http2.sensitiveHeaders",
+    }
+)
+
+
+def is_offline_part(qualified: str, parts: frozenset[str]) -> bool:
+    """Tell whether a qualified name is a part of a network library that cannot send a request, or lies inside one"""
+
+    pieces = qualified.split(".")
+    return any(".".join(pieces[:size]) in parts for size in range(1, len(pieces) + 1))
 
 
 def python_network_library(qualified: str) -> str | None:

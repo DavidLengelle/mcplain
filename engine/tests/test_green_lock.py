@@ -103,6 +103,10 @@ def test_a_client_followed_in_its_own_module_stays_orange(fixtures: Path, fixtur
         ("import asyncio\n\ndef f():\n    return asyncio.sleep(1)\n", []),
         ("import httpx as h\n\ndef f(url):\n    raise h.HTTPError(url)\n", ["httpx"]),
         ("from aiohttp import ClientSession\n\ndef f():\n    return ClientSession\n", ["aiohttp"]),
+        ("from urllib3.util.retry import Retry\n\ndef f():\n    return Retry(total=3)\n", []),
+        ("import urllib3\n\ndef f():\n    urllib3.disable_warnings()\n    return urllib3.util.Retry(total=3)\n", []),
+        ("import urllib3\n\ndef f():\n    urllib3.disable_warnings()\n    return urllib3.PoolManager()\n", ["urllib3"]),
+        ("from urllib3 import Retry, request\n\ndef f(url):\n    return request('GET', url, retries=Retry(2))\n", ["urllib3"]),
     ],
     ids=[
         "call",
@@ -121,6 +125,10 @@ def test_a_client_followed_in_its_own_module_stays_orange(fixtures: Path, fixtur
         "asyncio",
         "alias_raise",
         "from_import",
+        "offline_from_import",
+        "offline_attributes",
+        "offline_and_client",
+        "offline_and_request",
     ],
 )
 def test_python_network_imports(tmp_path: Path, source: str, expected: list[str]) -> None:
@@ -144,6 +152,13 @@ def test_python_network_imports(tmp_path: Path, source: str, expected: list[str]
         ('import axios from "axios";\nexport const tools = { axios };\n', ["axios"]),
         ('import axios from "axios";\nexport type C = typeof axios;\n', []),
         ('import path from "node:path";\nexport const f = () => path.join("a", "b");\n', []),
+        ('import { BlockList } from "node:net";\nexport const f = () => new BlockList();\n', []),
+        ('import net from "net";\nexport const f = (a: string) => net.isIP(a);\n', []),
+        ('import { constants as h2 } from "http2";\nexport const f = () => h2.NGHTTP2_NO_ERROR;\n', []),
+        ('const { checkServerIdentity } = require("tls");\nfunction f() { return checkServerIdentity; }\nmodule.exports = { f };\n', []),
+        ('const BlockList = require("net").BlockList;\nfunction f() { return new BlockList(); }\nmodule.exports = { f };\n', []),
+        ('import net from "net";\nexport const f = () => net.connect(80);\n', ["net"]),
+        ('import { BlockList, connect } from "net";\nexport const f = () => [connect(80), new BlockList()];\n', ["net"]),
     ],
     ids=[
         "call",
@@ -158,6 +173,13 @@ def test_python_network_imports(tmp_path: Path, source: str, expected: list[str]
         "shorthand",
         "typeof_type",
         "not_network",
+        "offline_named",
+        "offline_member",
+        "offline_alias",
+        "offline_require_pattern",
+        "offline_require_member",
+        "connect",
+        "offline_and_connect",
     ],
 )
 def test_javascript_network_imports(tmp_path: Path, source: str, expected: list[str]) -> None:
@@ -291,3 +313,32 @@ def test_imports_in_tests_or_examples_do_not_count() -> None:
     result = apply_verdict(built([], [network_import(location=LocationKind.TEST_OR_EXAMPLE)]))
     assert result.verdict.color is VerdictColor.GREEN
     assert network_not_followed(result.servers[0]) == []
+
+
+RETRY_SERVER = """from mcp.server.fastmcp import FastMCP
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+mcp = FastMCP("status")
+
+
+@mcp.tool()
+def status() -> str:
+    \"\"\"Read the status page\"\"\"
+
+    session = requests.Session()
+    session.mount("https://", HTTPAdapter(max_retries=Retry(total=3)))
+    return session.get("https://status.example.com/api").text
+"""
+
+
+def test_a_retry_setting_of_urllib3_does_not_lock_the_green(tmp_path: Path) -> None:
+    """Requests go through requests; urllib3 only gives the Retry setting, which cannot send: green with its domain"""
+
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "status"\nversion = "1"\ndependencies = ["mcp>=1"]\n')
+    (tmp_path / "server.py").write_text(RETRY_SERVER, encoding="utf-8")
+    result = analyze_directory(tmp_path)
+    assert result.servers[0].network_not_followed == []
+    assert result.verdict.color is VerdictColor.GREEN
+    assert result.verdict.contacted_domains == ["status.example.com"]

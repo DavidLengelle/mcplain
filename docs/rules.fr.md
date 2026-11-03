@@ -45,7 +45,8 @@ Ces imports ne comptent pas pour le verrou (faux positifs connus) :
 - un nom utilisé seulement dans des annotations de type, ou importé avec `import type` ou une marque `type` ;
 - un import dans un bloc `if TYPE_CHECKING:`, et un nom utilisé seulement dans `isinstance()` ou à droite de `instanceof` ;
 - un nom importé qui n'est jamais utilisé ;
-- les parties de la bibliothèque standard qui ne peuvent pas aller sur le réseau, comme `urllib.parse` ou `http.HTTPStatus`.
+- les parties de la bibliothèque standard qui ne peuvent pas aller sur le réseau, comme `urllib.parse` ou `http.HTTPStatus` ;
+- les parties d'une bibliothèque réseau qui ne peuvent pas envoyer de requête (listes d'adresses, réglages, constantes, vérification d'un certificat) : `http.METHODS`, `http.STATUS_CODES`, `http2.constants`, `http2.getDefaultSettings`, `http2.getPackedSettings`, `http2.getUnpackedSettings`, `http2.sensitiveHeaders`, `net.BlockList`, `net.SocketAddress`, `net.isIP`, `net.isIPv4`, `net.isIPv6`, `tls.checkServerIdentity`, `tls.getCiphers`, `tls.rootCertificates`, `urllib3.Retry`, `urllib3.Timeout`, `urllib3.disable_warnings`, `urllib3.util.Retry`, `urllib3.util.Timeout`, `urllib3.util.retry`, `urllib3.util.timeout`.
 
 ## Les voyants
 
