@@ -26,6 +26,8 @@ const FAILED = "npm-not-found.view";
 const MULTIPLE = "modelcontextprotocol-servers.view";
 const NETWORK = "network-unresolved.result";
 const PARTIAL = "partial-tracking.result";
+const INSTALL_COMMAND = "install-command.result";
+const INSTALL_REQUEST = "install-request.result";
 const TRAP_MARK = "TRAP";
 const BIDI = "\u202E";
 const THIRD_PARTY_KEYS = new Set([
@@ -222,6 +224,31 @@ describe("partial gray", () => {
   it.each([ORANGE, RED, GREEN_DOMAINS, FAILED])("shows no coverage block for %s", (file) => {
     const { container } = renderWithIntl(<ReportView analysis={loadView(file)} />);
     expect(container.querySelector("[data-coverage]")).toBeNull();
+  });
+});
+
+describe("alert texts with parameters", () => {
+  it("names the MCP client whose configuration an install command edits, as raw text", () => {
+    const { container } = renderWithIntl(<ReportView analysis={loadView(INSTALL_COMMAND)} />, "fr");
+    const point = container.querySelector('[data-point="O10"]');
+    expect(point?.textContent).toContain("Sa commande d'installation modifie la configuration de Claude Desktop");
+    expect(point?.querySelectorAll("[data-raw-text]").length).toBeGreaterThan(0);
+  });
+
+  it("names the domain a package contacts at install time", () => {
+    const { container } = renderWithIntl(<ReportView analysis={loadView(INSTALL_REQUEST)} />, "en");
+    const point = container.querySelector('[data-point="O11"]');
+    expect(point?.textContent).toContain("This package contacts telemetry.attacker.invalid as soon as it is installed");
+  });
+
+  it("shows the precise title of an alert instead of the title of its rule", () => {
+    const raw = rawView(ORANGE) as { result: { verdict: { alerts: Record<string, unknown>[] } } };
+    raw.result.verdict.alerts[0].title = "rule.O08.docker.plain_title";
+    const view = parseAnalysisView(raw);
+    const { container } = renderWithIntl(<ReportView analysis={view!} />, "fr");
+    expect(container.querySelector('[data-point="O08"]')?.textContent).toContain(
+      "Peut commander Docker sur ton ordinateur",
+    );
   });
 });
 

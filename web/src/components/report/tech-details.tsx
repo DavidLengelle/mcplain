@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode } from "react";
 
-import type { AnalysisResult, AnalysisView, Server, Tool } from "@/lib/analysis";
+import { alertTitle, type AnalysisResult, type AnalysisView, type Server, type Tool } from "@/lib/analysis";
 import { DETAILS_ID } from "@/lib/constants";
 import { alertPlace, alertsOutsideTools, codeDomains, invisibleCounts, sensitiveMatches } from "@/lib/report";
 
@@ -102,7 +102,7 @@ function OutsideItem({ result, tools }: { result: AnalysisResult; tools: Tool[] 
           const place = alertPlace(alert);
           return (
             <li key={index} data-outside-alert={alert.rule}>
-              <EngineText code={`rule.${alert.rule}.plain_title`} />
+              <EngineText code={alertTitle(alert)} params={alert.params} />
               {place !== null && (
                 <span className="font-normal text-ink2">
                   {t("colon")}

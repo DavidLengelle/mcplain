@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
-import type { Alert, AnalysisResult, Tool } from "@/lib/analysis";
+import { alertTitle, type Alert, type AnalysisResult, type Tool } from "@/lib/analysis";
 import { DETAILS_ID, SHEET_ID } from "@/lib/constants";
 import { alertPlace, alertsOfColor, toolIndexOf } from "@/lib/report";
 import { cn } from "@/lib/utils";
@@ -48,10 +48,10 @@ function PointRow({ alert, tools, onPickTool, onOpenDetails }: { alert: Alert } 
         <span aria-hidden="true" className={cn("size-3 flex-none rounded-full", DOT[color])} />
         <span className="min-w-0 flex-[1_1_260px]">
           <strong className="block text-lg font-semibold">
-            <EngineText code={`rule.${alert.rule}.plain_title`} />
+            <EngineText code={alertTitle(alert)} params={alert.params} />
           </strong>
           <span className="mt-0.5 block text-[15px] text-ink2">
-            <EngineText code={`rule.${alert.rule}.plain_found`} />
+            <EngineText code={`rule.${alert.rule}.plain_found`} params={alert.params} />
           </span>
         </span>
         {place !== null && (

@@ -1,0 +1,268 @@
+{
+  "status": "ok",
+  "source": null,
+  "local_path": "tests/fixtures/rules/O11/positive",
+  "reputation": {
+    "status": "not_checked",
+    "queried": 0,
+    "packages": []
+  },
+  "ignored_arguments": [],
+  "servers": [
+    {
+      "path": ".",
+      "name": "o11-positive",
+      "language": "javascript",
+      "sdk": "@modelcontextprotocol/sdk",
+      "tools": [
+        {
+          "name": "add",
+          "name_is_dynamic": false,
+          "description": "Add two numbers",
+          "description_is_dynamic": false,
+          "parameters": [
+            {
+              "name": "a",
+              "type": "number",
+              "description": null
+            },
+            {
+              "name": "b",
+              "type": "number",
+              "description": null
+            }
+          ],
+          "parameters_are_dynamic": false,
+          "file": "index.js",
+          "line": 6,
+          "declaration": "server_tool",
+          "location_kind": "server_code",
+          "title": null,
+          "title_is_dynamic": false,
+          "annotations": {},
+          "annotations_are_dynamic": false,
+          "findings": [],
+          "gaps": [],
+          "gap_places": [],
+          "lamps": [
+            {
+              "id": "files_read",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "files_write",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "internet",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "commands",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "secrets",
+              "state": "off",
+              "rules": [],
+              "note": null
+            },
+            {
+              "id": "hidden_text",
+              "state": "off",
+              "rules": [],
+              "note": null
+            }
+          ],
+          "level": "none"
+        }
+      ],
+      "findings": [
+        {
+          "capability": "install_script",
+          "file": "package.json",
+          "line": 6,
+          "column": 1,
+          "snippet": "node setup.js",
+          "function": null,
+          "location_kind": "server_code",
+          "detail": "npm_postinstall",
+          "call_chain": [],
+          "shared_by_tools": false,
+          "outside": "install",
+          "url_kind": null,
+          "url_host": null,
+          "sends": null,
+          "plain": false
+        },
+        {
+          "capability": "network",
+          "file": "setup.js",
+          "line": 2,
+          "column": 1,
+          "snippet": "https.get(\"https://telemetry.attacker.invalid/ping\");",
+          "function": null,
+          "location_kind": "server_code",
+          "detail": "https.get",
+          "call_chain": [],
+          "shared_by_tools": false,
+          "outside": "install",
+          "url_kind": "literal",
+          "url_host": "telemetry.attacker.invalid",
+          "sends": false,
+          "plain": true
+        }
+      ],
+      "domains": [
+        {
+          "domain": "telemetry.attacker.invalid",
+          "url": "https://telemetry.attacker.invalid/ping",
+          "file": "setup.js",
+          "line": 2,
+          "location_kind": "server_code",
+          "tool": null
+        }
+      ],
+      "sensitive_paths": [],
+      "install_scripts": [
+        {
+          "kind": "npm_postinstall",
+          "file": "package.json",
+          "line": 6,
+          "command": "node setup.js",
+          "downloads": false
+        }
+      ],
+      "install_commands": [],
+      "invisible_unicode": [],
+      "flows": [],
+      "text_matches": [],
+      "copy_recipients": [],
+      "compiled_files": [],
+      "minified_files": [],
+      "parse_errors": [],
+      "skipped_files": [],
+      "network_imports": [
+        {
+          "library": "https",
+          "file": "setup.js",
+          "line": 1,
+          "location_kind": "server_code"
+        }
+      ],
+      "files_analyzed": 2,
+      "lamps": [
+        {
+          "id": "files_read",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "files_write",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "internet",
+          "state": "on",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "commands",
+          "state": "on",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "secrets",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "hidden_text",
+          "state": "off",
+          "rules": [],
+          "note": null
+        }
+      ],
+      "internet_domains": [
+        "telemetry.attacker.invalid"
+      ],
+      "network_not_followed": []
+    }
+  ],
+  "available_servers": [],
+  "available_servers_truncated": false,
+  "language": null,
+  "compiled_files": [],
+  "notes": [],
+  "error": null,
+  "verdict": {
+    "color": "orange",
+    "alerts": [
+      {
+        "rule": "O08",
+        "color": "orange",
+        "kind": "power_to_know",
+        "tool": null,
+        "shared_by_tools": false,
+        "outside": "install",
+        "file": "package.json",
+        "line": 6,
+        "function": null,
+        "source": null,
+        "steps": [],
+        "quote": "node setup.js",
+        "detail": "install_script",
+        "title": null,
+        "params": {}
+      },
+      {
+        "rule": "O11",
+        "color": "orange",
+        "kind": "power_to_know",
+        "tool": null,
+        "shared_by_tools": false,
+        "outside": "install",
+        "file": "setup.js",
+        "line": 2,
+        "function": null,
+        "source": null,
+        "steps": [],
+        "quote": "https.get(\"https://telemetry.attacker.invalid/ping\");",
+        "detail": "https.get",
+        "title": null,
+        "params": {
+          "domain": "telemetry.attacker.invalid"
+        }
+      }
+    ],
+    "reasons": [],
+    "rules_version": "3",
+    "rules_count": 23,
+    "contacted_domains": [],
+    "gray_case": null,
+    "title": {
+      "code": "rule.O08.plain_title",
+      "params": {}
+    },
+    "summary": {
+      "code": "rule.O08.plain_found",
+      "params": {}
+    },
+    "coverage": null,
+    "cleared": []
+  }
+}

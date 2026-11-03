@@ -48,6 +48,8 @@ export type Alert = {
   steps: CallStep[];
   quote: string | null;
   detail: string | null;
+  title: string | null;
+  params: Record<string, string>;
 };
 
 export type CoverageItem = {
@@ -361,7 +363,16 @@ function alert(value: unknown): Alert {
     steps: list(fields.steps, callStep),
     quote: optionalText(fields.quote),
     detail: optionalText(fields.detail),
+    title: optionalMessageKey(fields.title),
+    params: textMap(fields.params),
   };
+}
+
+export function alertTitle(alert: Alert): string {
+  if (alert.title !== null) {
+    return alert.title;
+  }
+  return `rule.${alert.rule}.plain_title`;
 }
 
 function message(value: unknown): Message | null {

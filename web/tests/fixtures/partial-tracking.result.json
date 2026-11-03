@@ -157,6 +157,7 @@
       "domains": [],
       "sensitive_paths": [],
       "install_scripts": [],
+      "install_commands": [],
       "invisible_unicode": [],
       "flows": [],
       "text_matches": [],
@@ -221,8 +222,8 @@
     "reasons": [
       "caveat.incomplete_tracking"
     ],
-    "rules_version": "2",
-    "rules_count": 20,
+    "rules_version": "3",
+    "rules_count": 23,
     "contacted_domains": [],
     "gray_case": "incomplete_tracking",
     "title": {

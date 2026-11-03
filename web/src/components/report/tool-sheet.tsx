@@ -30,7 +30,7 @@ function AlertNote({ alert, more }: { alert: Alert; more: number }) {
     <div role="note" data-sheet-alert={alert.rule} className={cn("mt-[18px] rounded-[14px] px-[18px] py-4", frame)}>
       <strong className={cn("block font-condensed text-lg font-bold tracking-[0.06em]", title)}>{why}</strong>
       <p className="mt-1.5 mb-2.5 text-base leading-normal">
-        <EngineText code={`rule.${alert.rule}.plain_found`} />
+        <EngineText code={`rule.${alert.rule}.plain_found`} params={alert.params} />
       </p>
       {alert.quote !== null && alert.quote !== "" && (
         <div className="mb-2.5">

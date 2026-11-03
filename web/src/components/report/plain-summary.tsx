@@ -41,6 +41,14 @@ function CanDo({ server }: { server: Server }) {
   return <>{t("canDo", { actions })}</>;
 }
 
+function firstParams(result: AnalysisResult): Record<string, string> {
+  const first = result.verdict.alerts[0];
+  if (first === undefined) {
+    return {};
+  }
+  return first.params;
+}
+
 function distinctRules(result: AnalysisResult): string[] {
   return Array.from(new Set(result.verdict.alerts.map((alert) => alert.rule)));
 }
@@ -52,7 +60,7 @@ function Found({ result, server }: { result: AnalysisResult; server: Server }) {
   if (rules.length > 0) {
     return (
       <>
-        <EngineText code={`rule.${rules[0]}.plain_found`} />
+        <EngineText code={`rule.${rules[0]}.plain_found`} params={firstParams(result)} />
         {rules.length > 1 && <> {t("morePoints", { count: rules.length - 1 })}</>}
       </>
     );
@@ -71,7 +79,7 @@ function Advice({ result }: { result: AnalysisResult }) {
   const verdict = result.verdict;
   const rules = distinctRules(result);
   if (rules.length > 0) {
-    return <EngineText code={`rule.${rules[0]}.plain_advice`} />;
+    return <EngineText code={`rule.${rules[0]}.plain_advice`} params={firstParams(result)} />;
   }
   if (verdict.color === "gray" && verdict.summary !== null) {
     return <EngineText code={verdict.summary.code} params={verdict.summary.params} />;
