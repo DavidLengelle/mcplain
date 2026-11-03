@@ -284,16 +284,43 @@ def test_a_failure_apart_is_not_a_color_change() -> None:
 
 def test_the_summary_never_names_a_red_server() -> None:
     baseline = {"servers": {"secret-name": {"color": "green", "version": "1.0.0"}}}
-    records = [record("secret-name", "red", rules=["R05"]), record("b", "orange")]
+    records = [record("secret-name", "red", rules=["R05"]), record("b", "orange"), record("other-secret", "red")]
     run = bench.build_run(records, baseline, "0.3.0", "2026-10-29T10:00:00+00:00")
     markdown = bench.render_markdown(run)
     assert "secret-name" not in markdown
-    assert bench.HIDDEN_NAME in markdown
+    assert "other-secret" not in markdown
+    assert f"| red #1 ({bench.fingerprint('secret-name')}) | green | red |" in markdown
+    assert "2 red verdict(s), names masked" in markdown
     assert "The bench fails" in markdown
     assert "secret-name" not in bench.progress_line(records[0])
+    assert bench.fingerprint("secret-name") in bench.progress_line(records[0])
     unlisted = bench.render_markdown(bench.build_run(records, {"servers": {}}, "0.3.0", "2026-10-29"))
     assert "secret-name" not in unlisted
-    assert "Not in the baseline: b, 1 (name hidden" in unlisted
+    assert f"Not in the baseline: b, red #2 ({bench.fingerprint('other-secret')})" in unlisted
+
+
+def test_a_red_on_a_real_package_fails_the_check_even_when_it_is_new() -> None:
+    comparison = bench.compare([record("secret-name", "red")], {"servers": {}})
+    assert comparison["reds"] == 1
+    assert comparison["failed"] is True
+
+
+def test_the_masked_results_never_hold_the_name_of_a_red_server() -> None:
+    baseline = {"servers": {"secret-name": {"color": "green", "version": "1.0.0"}}}
+    records = [
+        record("secret-name", "red", input="npx -y secret-name", version="9.9.9"),
+        record("down", None, outcome=bench.NETWORK_FAILURE, error_code="fetch.timeout"),
+        record("b", "orange"),
+    ]
+    masked = bench.mask_run(bench.build_run(records, baseline, "0.4.0", "2026-11-03"))
+    text = json.dumps(masked)
+    assert "secret-name" not in text
+    assert "9.9.9" not in text
+    label = f"red #1 ({bench.fingerprint('secret-name')})"
+    assert masked["records"][0]["id"] == label
+    assert masked["comparison"]["color_changes"] == [{"id": label, "before": "green", "after": "red"}]
+    assert masked["records"][2]["id"] == "b"
+    assert masked["comparison"]["version_changes"] == [{"id": label, "before": None, "after": None}]
 
 
 def test_the_summary_lists_gray_causes_and_failures() -> None:
@@ -308,16 +335,15 @@ def test_the_summary_lists_gray_causes_and_failures() -> None:
     assert "List changes" not in markdown
 
 
-def test_the_baseline_leaves_out_red_verdicts_and_timeouts() -> None:
+def test_the_baseline_leaves_out_red_verdicts_only() -> None:
     records = [
         record("secret-name", "red"),
         record("slow", "gray", gray_case="timeout", error_code="job.atelier_timeout"),
-        record("broken", "gray", gray_case="error", error_code="job.atelier_error"),
         record("a", "gray", gray_case="no_tools_found"),
     ]
-    baseline = bench.make_baseline(bench.build_run(records, None, "0.3.0", "2026-10-29"), "results.json")
-    assert list(baseline["servers"]) == ["a"]
-    assert baseline["left_out"] == 3
+    baseline = bench.make_baseline(bench.build_run(records, None, "0.4.0", "2026-11-03"), "results.json")
+    assert list(baseline["servers"]) == ["slow", "a"]
+    assert baseline["reds_left_out"] == 1
     assert "secret-name" not in json.dumps(baseline)
 
 
@@ -389,3 +415,24 @@ def test_the_summary_command_prints_a_results_file(tmp_path: Path, capsys: pytes
     assert "| 0 | 0 | 1 | 0 | 0 |" in printed
     assert "secret-name" not in printed
     assert bench.main(["summary", str(tmp_path / "none.json")]) == 2
+
+
+@respx.mock
+def test_the_ci_run_masks_a_red_server_and_fails(tmp_path: Path) -> None:
+    servers = tmp_path / "servers.toml"
+    servers.write_text(
+        '[[server]]\nid = "secret-name"\ninput = "uvx secret-name"\nlanguage = "python"\ngroup = "popular"\nwhy = "x"\n',
+        encoding="utf-8",
+    )
+    respx.post(f"{API}/api/analyses").mock(return_value=httpx.Response(202, json={"id": ANALYSIS_ID}))
+    respx.get(f"{API}/api/analyses/{ANALYSIS_ID}").mock(
+        return_value=httpx.Response(200, json=view("done", result("red", rules=["R05"])))
+    )
+    output = tmp_path / "results.json"
+    summary = tmp_path / "summary.md"
+    arguments = ["run", "--api", API, "--servers", str(servers), "--baseline", str(tmp_path / "none.json")]
+    arguments += ["--output", str(output), "--summary", str(summary), "--mask-red", "--check"]
+    assert bench.main(arguments) == 1
+    assert "secret-name" not in output.read_text(encoding="utf-8")
+    assert "secret-name" not in summary.read_text(encoding="utf-8")
+    assert bench.fingerprint("secret-name") in output.read_text(encoding="utf-8")

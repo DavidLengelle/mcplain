@@ -38,7 +38,7 @@ jobs:
           docker compose up -d --build --wait api dispatcher
       - name: Run the bench on the latest versions
         working-directory: bench
-        run: uv run --locked python bench.py run --check --output results/bench.json --summary "$GITHUB_STEP_SUMMARY"
+        run: uv run --locked python bench.py run --check --mask-red --output results/bench.json --summary "$GITHUB_STEP_SUMMARY"
       - name: Keep the full results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

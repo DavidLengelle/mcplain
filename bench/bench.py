@@ -1,6 +1,7 @@
 """Bench of MCPlain: analyze real MCP servers through the API of a running stack, then sum up the verdicts"""
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -57,7 +58,7 @@ VERDICT = "verdict"
 NETWORK_FAILURE = "network_failure"
 INPUT_FAILURE = "input_failure"
 BENCH_TIMEOUT = "bench_timeout"
-HIDDEN_NAME = "(name hidden: red verdict, see the full results)"
+FINGERPRINT_LENGTH = 8
 VERSION_PATTERN = re.compile(r'^__version__ = "([^"]+)"$', re.MULTILINE)
 
 
@@ -332,7 +333,8 @@ def compare(records: list[dict[str, Any]], baseline: dict[str, Any] | None) -> d
         "unverified": unverified,
         "new": sorted(ids - set(reference)),
         "removed": sorted(set(reference) - ids),
-        "failed": bool(color_changes or witness_failures),
+        "reds": len(red_ids(records)),
+        "failed": bool(color_changes or witness_failures or red_ids(records)),
     }
 
 
@@ -342,22 +344,33 @@ def red_ids(records: list[dict[str, Any]]) -> set[str]:
     return {record["id"] for record in records if record["outcome"] == VERDICT and record["color"] == "red"}
 
 
-def shown_name(server_id: str, hidden: set[str]) -> str:
-    """Return a server id, or a placeholder when its verdict is red"""
+def fingerprint(server_id: str) -> str:
+    """Return a short fingerprint of a server id: running the bench locally tells which server it is"""
 
-    if server_id in hidden:
-        return HIDDEN_NAME
-    return server_id
+    return hashlib.sha256(server_id.encode("utf-8")).hexdigest()[:FINGERPRINT_LENGTH]
 
 
-def shown_names(server_ids: list[str], hidden: set[str]) -> str:
-    """Return a list of server ids for a summary, with the red ones counted but not named"""
+def red_labels(records: list[dict[str, Any]]) -> dict[str, str]:
+    """Return the label that replaces the name of each red server: its number and its fingerprint"""
 
-    names = [item for item in server_ids if item not in hidden]
-    count = len(server_ids) - len(names)
-    if count:
-        names.append(f"{count} {HIDDEN_NAME}")
-    return ", ".join(names) or "none"
+    reds = red_ids(records)
+    labels: dict[str, str] = {}
+    for record in records:
+        if record["id"] in reds and record["id"] not in labels:
+            labels[record["id"]] = f"red #{len(labels) + 1} ({fingerprint(record['id'])})"
+    return labels
+
+
+def shown_name(server_id: str, labels: dict[str, str]) -> str:
+    """Return a server id, or its label when its verdict is red"""
+
+    return labels.get(server_id, server_id)
+
+
+def shown_names(server_ids: list[str], labels: dict[str, str]) -> str:
+    """Return a list of server ids for a summary, with the red ones under their label"""
+
+    return ", ".join(shown_name(item, labels) for item in server_ids) or "none"
 
 
 def render_markdown(run: dict[str, Any]) -> str:
@@ -365,7 +378,7 @@ def render_markdown(run: dict[str, Any]) -> str:
 
     summary = run["summary"]
     comparison = run["comparison"]
-    hidden = red_ids(run["records"])
+    hidden = red_labels(run["records"])
     counts = summary["counts"]
     lines = [
         f"## MCPlain bench, engine {run['engine_version']}, {run['date']}",
@@ -392,7 +405,7 @@ def render_markdown(run: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def comparison_lines(comparison: dict[str, Any], hidden: set[str]) -> list[str]:
+def comparison_lines(comparison: dict[str, Any], hidden: dict[str, str]) -> list[str]:
     """Write the comparison with the baseline and the witnesses"""
 
     if not comparison["baseline"]:
@@ -432,8 +445,23 @@ def comparison_lines(comparison: dict[str, Any], hidden: set[str]) -> list[str]:
                 "",
             ]
         )
+    if comparison.get("reds"):
+        lines.extend(
+            [
+                "### Red verdicts on real packages",
+                "",
+                f"{comparison['reds']} red verdict(s), names masked. Run the bench locally to see which server it is.",
+                "",
+            ]
+        )
     if comparison["failed"]:
-        lines.extend(["**The bench fails: a color changed or a witness is wrong. Check before updating the baseline.**", ""])
+        lines.extend(
+            [
+                "**The bench fails: a color changed, a witness is wrong, or a real package is red. "
+                "Check before updating the baseline.**",
+                "",
+            ]
+        )
     return lines
 
 
@@ -450,24 +478,44 @@ def build_run(records: list[dict[str, Any]], baseline: dict[str, Any] | None, ve
 
 
 def make_baseline(run: dict[str, Any], source: str) -> dict[str, Any]:
-    """Build the baseline from a run; a red verdict waits for a human review and a timeout is no color: both stay out"""
+    """Build the baseline from a run; a red verdict on a real package waits for a human decision and stays out"""
 
-    kept = [
-        record
-        for record in run["records"]
-        if record["outcome"] == VERDICT and record["color"] != "red" and record["gray_case"] not in DETAILED_CASES
-    ]
+    reds = red_ids(run["records"])
     servers = {
         record["id"]: {"color": record["color"], "gray_case": record["gray_case"], "version": record["version"]}
-        for record in kept
+        for record in run["records"]
+        if record["outcome"] == VERDICT and record["id"] not in reds
     }
     return {
         "engine_version": run["engine_version"],
         "date": run["date"],
         "source": source,
-        "left_out": len(run["records"]) - len(kept),
+        "reds_left_out": len(reds),
         "servers": servers,
     }
+
+
+def mask_run(run: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of a run where the name, the input and the version of every red server are replaced by its label"""
+
+    labels = red_labels(run["records"])
+    masked = json.loads(json.dumps(run))
+    for record in masked["records"]:
+        label = labels.get(record["id"])
+        if label is not None:
+            record.update({"id": label, "input": label, "version": None})
+    for item in masked["summary"]["failures"]:
+        item["id"] = shown_name(item["id"], labels)
+    comparison = masked["comparison"]
+    for key in ("color_changes", "version_changes", "witness_failures"):
+        for item in comparison[key]:
+            item["id"] = shown_name(item["id"], labels)
+    for item in comparison["version_changes"]:
+        if item["id"] in labels.values():
+            item.update({"before": None, "after": None})
+    for key in ("unverified", "new", "removed"):
+        comparison[key] = [shown_name(item, labels) for item in comparison[key]]
+    return masked
 
 
 def read_json(path: Path) -> dict[str, Any] | None:
@@ -490,7 +538,7 @@ def progress_line(record: dict[str, Any]) -> str:
 
     name = record["id"]
     if record["color"] == "red" and record["outcome"] == VERDICT:
-        name = HIDDEN_NAME
+        name = f"red ({fingerprint(record['id'])})"
     state = record["color"] or record["outcome"]
     if record["cause"]:
         state = f"{state}: {record['cause']}"
@@ -519,7 +567,10 @@ def command_run(arguments: argparse.Namespace) -> int:
     baseline = read_json(Path(arguments.baseline))
     run = build_run(records, baseline, version, now.isoformat(timespec="seconds"))
     output = Path(arguments.output or RESULTS_DIR / f"{date}-engine-{version}.json")
-    write_json(output, run)
+    if arguments.mask_red:
+        write_json(output, mask_run(run))
+    else:
+        write_json(output, run)
     markdown = render_markdown(run)
     print(markdown)
     if arguments.summary:
@@ -540,7 +591,7 @@ def command_baseline(arguments: argparse.Namespace) -> int:
         return 2
     baseline = make_baseline(run, Path(arguments.results).name)
     write_json(Path(arguments.baseline), baseline)
-    print(f"Baseline written: {arguments.baseline} ({len(baseline['servers'])} servers, {baseline['left_out']} left out)")
+    print(f"Baseline written: {arguments.baseline} ({len(baseline['servers'])} servers, {baseline['reds_left_out']} red left out)")
     return 0
 
 
@@ -570,7 +621,7 @@ def command_compare(arguments: argparse.Namespace) -> int:
 def render_comparison(before: dict[str, Any], after: dict[str, Any]) -> str:
     """Write two runs side by side in Markdown, without the name of a red server"""
 
-    hidden = red_ids(before["records"]) | red_ids(after["records"])
+    hidden = {**red_labels(before["records"]), **red_labels(after["records"])}
     left = before["summary"]
     right = after["summary"]
     lines = [
@@ -619,6 +670,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--output", default="")
     run.add_argument("--summary", default="")
     run.add_argument("--check", action="store_true")
+    run.add_argument("--mask-red", action="store_true")
     run.set_defaults(handler=command_run)
     baseline = commands.add_parser("baseline", help="write the baseline from a results file")
     baseline.add_argument("results")
