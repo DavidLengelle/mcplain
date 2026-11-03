@@ -7,8 +7,8 @@ enters the repository.
 | File | Verdict | How it was made |
 | --- | --- | --- |
 | `server-filesystem.view.json` | orange, served from the cache | local stack: `POST /api/analyses` with `npx -y @modelcontextprotocol/server-filesystem`, then `GET /api/analyses/{id}` |
-| `mcp-server-time.view.json` | green | local stack, `uvx mcp-server-time` |
-| `github-mcp-server.view.json` | gray, language not supported (Go) | local stack, `https://github.com/github/github-mcp-server` |
+| `mcp-server-time.view.json` | green, served from the cache | local stack, `uvx mcp-server-time` |
+| `github-mcp-server.view.json` | gray, language not supported (Go), served from the cache | local stack, `https://github.com/github/github-mcp-server` |
 | `npm-not-found.view.json` | gray, failed download | local stack, `npx -y @mcplain-demo/this-package-does-not-exist` |
 | `modelcontextprotocol-servers.view.json` | several servers, no verdict | local stack, `https://github.com/modelcontextprotocol/servers` |
 | `awesome-mcp-servers.view.json` | list of links | local stack, `https://github.com/punkpeye/awesome-mcp-servers` |

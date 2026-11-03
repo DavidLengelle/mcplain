@@ -1,11 +1,11 @@
 {
-  "id": "c0bd2798-033f-41e0-a069-5c91372709e5",
+  "id": "589464b0-bc18-45e9-996b-1d6cb63965e0",
   "input": "npx -y @modelcontextprotocol/server-filesystem",
   "select": null,
   "state": "done",
-  "created_at": "2026-10-29T17:50:47.429619+00:00",
-  "finished_at": "2026-10-29T17:50:48.368101+00:00",
-  "analyzed_at": "2026-10-29T17:50:47.306821+00:00",
+  "created_at": "2026-11-03T14:36:56.263077+00:00",
+  "finished_at": "2026-11-03T14:36:57.792233+00:00",
+  "analyzed_at": "2026-11-03T14:28:17.099941+00:00",
   "from_cache": true,
   "result": {
     "error": null,
@@ -55,7 +55,7 @@
             "id": "commands",
             "note": null,
             "rules": [],
-            "state": "on"
+            "state": "off"
           },
           {
             "id": "secrets",
@@ -4856,14 +4856,14 @@
             "line": 24,
             "sends": null,
             "column": 25,
-            "detail": "require()",
+            "detail": "require(.json)",
             "outside": "startup",
             "snippet": "const pkg = require(candidate);",
             "function": "resolvePackageVersion",
             "url_host": null,
             "url_kind": null,
             "call_chain": [],
-            "capability": "dynamic_code",
+            "capability": "fs_read",
             "location_kind": "server_code",
             "shared_by_tools": false
           }
@@ -5009,23 +5009,9 @@
           "outside": null,
           "function": "renameIntoDirectory",
           "shared_by_tools": false
-        },
-        {
-          "file": "dist/version.js",
-          "kind": "power_to_know",
-          "line": 24,
-          "rule": "O08",
-          "tool": null,
-          "color": "orange",
-          "quote": "const pkg = require(candidate);",
-          "steps": [],
-          "detail": "dynamic_code",
-          "source": null,
-          "outside": "startup",
-          "function": "resolvePackageVersion",
-          "shared_by_tools": false
         }
       ],
+      "cleared": [],
       "reasons": [
         "caveat.incomplete_tracking"
       ],
@@ -5036,7 +5022,7 @@
       "coverage": null,
       "gray_case": null,
       "rules_count": 20,
-      "rules_version": "1",
+      "rules_version": "2",
       "contacted_domains": []
     },
     "language": null,

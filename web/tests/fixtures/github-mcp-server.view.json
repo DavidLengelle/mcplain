@@ -1,17 +1,17 @@
 {
-  "id": "e984f955-d754-4aa4-904c-cdfbda73f8c9",
+  "id": "281f7014-23fb-41ce-88c9-f356b5ec84e5",
   "input": "https://github.com/github/github-mcp-server",
   "select": null,
   "state": "done",
-  "created_at": "2026-10-29T17:50:53.735303+00:00",
-  "finished_at": "2026-10-29T17:50:57.658816+00:00",
-  "analyzed_at": "2026-10-29T17:50:57.658816+00:00",
-  "from_cache": false,
+  "created_at": "2026-11-03T14:37:00.512755+00:00",
+  "finished_at": "2026-11-03T14:37:01.824606+00:00",
+  "analyzed_at": "2026-11-03T14:28:21.994996+00:00",
+  "from_cache": true,
   "result": {
     "error": null,
     "notes": [],
     "source": {
-      "url": "https://github.com/github/github-mcp-server/tree/f2a07cd13243ea9773a0ef42692e5b0e156f0951",
+      "url": "https://github.com/github/github-mcp-server/tree/4bcdcdf8d7beee98c9448e73e257308280924cc4",
       "kind": "github",
       "name": "github/github-mcp-server",
       "origin": "github_code",
@@ -19,8 +19,8 @@
       "subdir": null,
       "version": null,
       "artifact": "github_tarball",
-      "revision": "f2a07cd13243ea9773a0ef42692e5b0e156f0951",
-      "integrity": "sha256:4ac85971492274db8276708cd4e0d8db654138ca3575a128dda15c63e1a070fe",
+      "revision": "4bcdcdf8d7beee98c9448e73e257308280924cc4",
+      "integrity": "sha256:cdea45affda108529793b81b9c0e68ee14a5a5d8dbd00b72c40a9fb46cfbf133",
       "reference": "main",
       "repository": null,
       "requested_version": null
@@ -36,6 +36,7 @@
         }
       },
       "alerts": [],
+      "cleared": [],
       "reasons": [
         "status.unsupported_language"
       ],
@@ -48,7 +49,7 @@
       "coverage": null,
       "gray_case": "unsupported_language",
       "rules_count": 20,
-      "rules_version": "1",
+      "rules_version": "2",
       "contacted_domains": []
     },
     "language": "go",
