@@ -1,6 +1,6 @@
 # MCPlain rules
 
-Rules version 1: 20 rules, 12 red and 8 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
+Rules version 2: 20 rules, 12 red and 8 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
 
 Order of the verdict: red if a red rule fires; otherwise orange if an orange rule fires; otherwise gray if the status is not ok or if the code could not be fully read and followed; otherwise green. The rules apply to all server code (tools, code outside the tools, startup, install scripts, imported examples), never to tests or examples that the server does not import.
 
@@ -304,11 +304,11 @@ A description names a sensitive path (SSH keys, credentials, startup files, sett
 
 **A dependency had malicious versions**: ORANGE, a power to be aware of (nothing suspicious found).
 
-OSV.dev lists some versions of a direct dependency as malicious (MAL- identifier). Check that the version installed with this server is not one of them.
+OSV.dev lists some versions of a direct dependency as malicious (MAL- identifier), and one of them can still be installed with this server. The alert stays off when every listed version was removed from the registry, or when the declared version range excludes them; a line of the technical details says so. When the registry cannot be asked, the alert stays on.
 
 - In plain words: **A dependency had malicious versions**. The OSV.dev database reports some versions of a package used by this server as malicious. Advice: Check that the version installed on your computer is not one of them.
 - Visible when reading the code: no
-- Known false positive: The version range declared by the package excludes those versions.
+- Known false positive: A lock file pins a safe version: MCPlain does not read lock files, so it still warns about a malicious version allowed by the declared range.
 - Sources:
   - [OSV.dev](https://osv.dev/)
 - Test fixtures: `engine/tests/fixtures/rules/O06/` (positive, near_miss, false_positive)
@@ -330,7 +330,7 @@ A tool name or description contains one invisible character that its context doe
 
 **Powerful capability**: ORANGE, a power to be aware of (nothing suspicious found).
 
-This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does.
+This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does. A require() whose every possible path is written in the code and ends with .json (lower case) reads a JSON file: it is not code built at runtime.
 
 - In plain words: **Can act on your computer**. The code can change files, run commands or touch secrets. Some tools need this. Advice: Check that this is what you want. Give it only the folder or the keys it needs.
 - Visible when reading the code: yes

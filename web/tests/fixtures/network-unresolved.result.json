@@ -183,7 +183,7 @@
     "reasons": [
       "caveat.network_unresolved"
     ],
-    "rules_version": "1",
+    "rules_version": "2",
     "rules_count": 20,
     "contacted_domains": [],
     "gray_case": "network_unresolved",
@@ -215,6 +215,7 @@
         }
       ],
       "not_checked_count": 1
-    }
+    },
+    "cleared": []
   }
 }

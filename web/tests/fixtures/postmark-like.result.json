@@ -186,7 +186,7 @@
       }
     ],
     "reasons": [],
-    "rules_version": "1",
+    "rules_version": "2",
     "rules_count": 20,
     "contacted_domains": [],
     "gray_case": null,
@@ -198,6 +198,7 @@
       "code": "rule.R05.plain_found",
       "params": {}
     },
-    "coverage": null
+    "coverage": null,
+    "cleared": []
   }
 }

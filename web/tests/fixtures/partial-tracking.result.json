@@ -221,7 +221,7 @@
     "reasons": [
       "caveat.incomplete_tracking"
     ],
-    "rules_version": "1",
+    "rules_version": "2",
     "rules_count": 20,
     "contacted_domains": [],
     "gray_case": "incomplete_tracking",
@@ -249,6 +249,7 @@
         }
       ],
       "not_checked_count": 1
-    }
+    },
+    "cleared": []
   }
 }

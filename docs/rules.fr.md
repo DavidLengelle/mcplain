@@ -1,6 +1,6 @@
 # Règles de MCPlain
 
-Règles version 1 : 20 règles, 12 rouges et 8 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
+Règles version 2 : 20 règles, 12 rouges et 8 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
 
 Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une règle orange se déclenche ; sinon gris si le statut n'est pas ok ou si le code n'a pas pu être lu et suivi en entier ; sinon vert. Les règles s'appliquent à tout le code serveur (outils, code hors des outils, démarrage, scripts d'installation, exemples importés), jamais aux tests ni aux exemples que le serveur n'importe pas.
 
@@ -304,11 +304,11 @@ Une description cite un chemin sensible (clés SSH, identifiants, fichiers de d�
 
 **Une dépendance a eu des versions malveillantes** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
-OSV.dev classe certaines versions d'une dépendance directe comme malveillantes (identifiant MAL-). Vérifie que la version installée avec ce serveur n'en fait pas partie.
+OSV.dev classe certaines versions d'une dépendance directe comme malveillantes (identifiant MAL-), et l'une d'elles peut encore être installée avec ce serveur. L'alerte ne s'allume pas quand toutes ces versions ont été retirées du registre, ou quand la plage de versions déclarée les exclut ; une ligne des détails techniques le dit. Si le registre n'a pas pu être interrogé, l'alerte s'allume.
 
 - En clair : **Une dépendance a eu des versions malveillantes**. La base OSV.dev signale certaines versions d'un paquet utilisé par ce serveur comme malveillantes. Conseil : Vérifie que la version installée chez toi n'en fait pas partie.
 - Visible en lisant le code : non
-- Faux positif connu : La plage de versions déclarée exclut ces versions.
+- Faux positif connu : Un fichier de verrouillage fixe une version saine : MCPlain ne lit pas les fichiers de verrouillage, donc il prévient quand même pour une version malveillante permise par la plage déclarée.
 - Sources :
   - [OSV.dev](https://osv.dev/)
 - Fixtures de test : `engine/tests/fixtures/rules/O06/` (positive, near_miss, false_positive)
@@ -330,7 +330,7 @@ Le nom ou la description d'un outil contient un caractère invisible que le cont
 
 **Capacité puissante** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
-Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin.
+Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin. Un require() dont tous les chemins possibles sont écrits dans le code et finissent par .json (en minuscules) lit un fichier JSON : ce n'est pas du code construit à l'exécution.
 
 - En clair : **Peut agir sur ton ordinateur**. Le code peut modifier des fichiers, lancer des commandes ou toucher à des secrets. Certains outils en ont besoin. Conseil : Vérifie que c'est bien ce que tu veux. Donne-lui seulement le dossier ou les clés dont il a besoin.
 - Visible en lisant le code : oui
