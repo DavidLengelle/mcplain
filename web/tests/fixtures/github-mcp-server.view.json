@@ -1,11 +1,11 @@
 {
-  "id": "281f7014-23fb-41ce-88c9-f356b5ec84e5",
+  "id": "a10e9a21-e62f-4e32-8c64-78bea7f56d79",
   "input": "https://github.com/github/github-mcp-server",
   "select": null,
   "state": "done",
-  "created_at": "2026-11-03T14:37:00.512755+00:00",
-  "finished_at": "2026-11-03T14:37:01.824606+00:00",
-  "analyzed_at": "2026-11-03T14:28:21.994996+00:00",
+  "created_at": "2026-11-03T21:58:45.975441+00:00",
+  "finished_at": "2026-11-03T21:58:47.333527+00:00",
+  "analyzed_at": "2026-11-03T21:46:41.074660+00:00",
   "from_cache": true,
   "result": {
     "error": null,
@@ -48,8 +48,8 @@
       },
       "coverage": null,
       "gray_case": "unsupported_language",
-      "rules_count": 20,
-      "rules_version": "2",
+      "rules_count": 23,
+      "rules_version": "3",
       "contacted_domains": []
     },
     "language": "go",

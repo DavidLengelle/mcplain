@@ -1,11 +1,11 @@
 {
-  "id": "6b6ec139-07bb-420d-b0b7-cc1b7c9d53c1",
+  "id": "4b4c246c-b5a3-4d4b-a19e-a5892e7da847",
   "input": "https://github.com/punkpeye/awesome-mcp-servers",
   "select": null,
   "state": "done",
-  "created_at": "2026-11-03T14:37:08.842949+00:00",
-  "finished_at": "2026-11-03T14:37:11.934825+00:00",
-  "analyzed_at": "2026-11-03T14:37:11.934825+00:00",
+  "created_at": "2026-11-03T21:58:53.115232+00:00",
+  "finished_at": "2026-11-03T21:58:56.032649+00:00",
+  "analyzed_at": "2026-11-03T21:58:56.032649+00:00",
   "from_cache": false,
   "result": {
     "error": null,
@@ -46,8 +46,8 @@
       },
       "coverage": null,
       "gray_case": "link_list",
-      "rules_count": 20,
-      "rules_version": "2",
+      "rules_count": 23,
+      "rules_version": "3",
       "contacted_domains": []
     },
     "language": null,

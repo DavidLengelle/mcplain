@@ -1,11 +1,11 @@
 {
-  "id": "859082c8-4dd9-46cf-8718-8a21fbdbb763",
+  "id": "8458252b-c031-481f-a32b-276152bacad6",
   "input": "npx -y @mcplain-demo/this-package-does-not-exist",
   "select": null,
   "state": "failed",
-  "created_at": "2026-11-03T14:37:02.632630+00:00",
-  "finished_at": "2026-11-03T14:37:03.107481+00:00",
-  "analyzed_at": "2026-11-03T14:37:03.107481+00:00",
+  "created_at": "2026-11-03T21:58:48.009449+00:00",
+  "finished_at": "2026-11-03T21:58:48.789498+00:00",
+  "analyzed_at": "2026-11-03T21:58:48.789498+00:00",
   "from_cache": false,
   "result": {
     "error": {
@@ -36,8 +36,8 @@
       },
       "coverage": null,
       "gray_case": "error",
-      "rules_count": 20,
-      "rules_version": "2",
+      "rules_count": 23,
+      "rules_version": "3",
       "contacted_domains": []
     },
     "language": null,

@@ -1,11 +1,11 @@
 {
-  "id": "627c5cea-566f-4769-a4bf-8183ad909329",
+  "id": "d062907e-d7e2-471c-89c9-1b88474110a9",
   "input": "uvx mcp-server-time",
   "select": null,
   "state": "done",
-  "created_at": "2026-11-03T14:36:58.351689+00:00",
-  "finished_at": "2026-11-03T14:36:59.297303+00:00",
-  "analyzed_at": "2026-11-03T14:28:20.857864+00:00",
+  "created_at": "2026-11-03T21:58:43.926606+00:00",
+  "finished_at": "2026-11-03T21:58:45.003288+00:00",
+  "analyzed_at": "2026-11-03T21:46:39.799070+00:00",
   "from_cache": true,
   "result": {
     "error": null,
@@ -233,6 +233,7 @@
         "install_scripts": [],
         "network_imports": [],
         "sensitive_paths": [],
+        "install_commands": [],
         "internet_domains": null,
         "invisible_unicode": [],
         "network_not_followed": []
@@ -255,8 +256,8 @@
       },
       "coverage": null,
       "gray_case": null,
-      "rules_count": 20,
-      "rules_version": "2",
+      "rules_count": 23,
+      "rules_version": "3",
       "contacted_domains": []
     },
     "language": null,

@@ -1,11 +1,11 @@
 {
-  "id": "589464b0-bc18-45e9-996b-1d6cb63965e0",
+  "id": "89cb5fc7-4533-4e77-a5fa-a34e0d714b09",
   "input": "npx -y @modelcontextprotocol/server-filesystem",
   "select": null,
   "state": "done",
-  "created_at": "2026-11-03T14:36:56.263077+00:00",
-  "finished_at": "2026-11-03T14:36:57.792233+00:00",
-  "analyzed_at": "2026-11-03T14:28:17.099941+00:00",
+  "created_at": "2026-11-03T21:58:41.872587+00:00",
+  "finished_at": "2026-11-03T21:58:43.245237+00:00",
+  "analyzed_at": "2026-11-03T21:46:35.790939+00:00",
   "from_cache": true,
   "result": {
     "error": null,
@@ -120,6 +120,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 372,
+                "plain": false,
                 "sends": null,
                 "column": 18,
                 "detail": "fs.readFile",
@@ -142,6 +143,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 587,
+                "plain": false,
                 "sends": null,
                 "column": 25,
                 "detail": "fs.stat",
@@ -164,6 +166,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 592,
+                "plain": false,
                 "sends": null,
                 "column": 30,
                 "detail": "fs.open flags=r",
@@ -186,6 +189,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 631,
+                "plain": false,
                 "sends": null,
                 "column": 30,
                 "detail": "fs.open flags=r",
@@ -208,6 +212,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -235,6 +240,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -262,6 +268,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -294,6 +301,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -326,6 +334,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -358,6 +367,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -468,6 +478,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 372,
+                "plain": false,
                 "sends": null,
                 "column": 18,
                 "detail": "fs.readFile",
@@ -490,6 +501,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 587,
+                "plain": false,
                 "sends": null,
                 "column": 25,
                 "detail": "fs.stat",
@@ -512,6 +524,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 592,
+                "plain": false,
                 "sends": null,
                 "column": 30,
                 "detail": "fs.open flags=r",
@@ -534,6 +547,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 631,
+                "plain": false,
                 "sends": null,
                 "column": 30,
                 "detail": "fs.open flags=r",
@@ -556,6 +570,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -583,6 +598,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -610,6 +626,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -642,6 +659,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -674,6 +692,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -706,6 +725,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -816,6 +836,7 @@
               {
                 "file": "dist/server.js",
                 "line": 103,
+                "plain": false,
                 "sends": null,
                 "column": 24,
                 "detail": "fs.createReadStream",
@@ -838,6 +859,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -865,6 +887,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -892,6 +915,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -924,6 +948,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -956,6 +981,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -988,6 +1014,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -1088,6 +1115,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 372,
+                "plain": false,
                 "sends": null,
                 "column": 18,
                 "detail": "fs.readFile",
@@ -1110,6 +1138,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -1137,6 +1166,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -1164,6 +1194,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -1196,6 +1227,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -1228,6 +1260,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -1260,6 +1293,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -1362,6 +1396,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -1389,6 +1424,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -1416,6 +1452,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 417,
+                "plain": false,
                 "sends": null,
                 "column": 28,
                 "detail": "fs.lstat",
@@ -1443,6 +1480,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -1475,6 +1513,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -1507,6 +1546,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -1539,6 +1579,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -1571,6 +1612,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 29,
+                "plain": false,
                 "sends": null,
                 "column": 45,
                 "detail": "fs.writeFile",
@@ -1603,6 +1645,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 168,
+                "plain": false,
                 "sends": null,
                 "column": 27,
                 "detail": "fs.lstatSync",
@@ -1635,6 +1678,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 171,
+                "plain": false,
                 "sends": null,
                 "column": 20,
                 "detail": "fs.openSync flags=?",
@@ -1667,6 +1711,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 173,
+                "plain": false,
                 "sends": null,
                 "column": 28,
                 "detail": "fs.fstatSync",
@@ -1699,6 +1744,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 174,
+                "plain": false,
                 "sends": null,
                 "column": 30,
                 "detail": "fs.lstatSync",
@@ -1815,6 +1861,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 519,
+                "plain": false,
                 "sends": null,
                 "column": 30,
                 "detail": "fs.readFile",
@@ -1837,6 +1884,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -1864,6 +1912,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -1891,6 +1940,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 417,
+                "plain": false,
                 "sends": null,
                 "column": 28,
                 "detail": "fs.lstat",
@@ -1918,6 +1968,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -1950,6 +2001,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -1982,6 +2034,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -2014,6 +2067,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -2046,6 +2100,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 29,
+                "plain": false,
                 "sends": null,
                 "column": 45,
                 "detail": "fs.writeFile",
@@ -2083,6 +2138,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 168,
+                "plain": false,
                 "sends": null,
                 "column": 27,
                 "detail": "fs.lstatSync",
@@ -2120,6 +2176,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 171,
+                "plain": false,
                 "sends": null,
                 "column": 20,
                 "detail": "fs.openSync flags=?",
@@ -2157,6 +2214,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 173,
+                "plain": false,
                 "sends": null,
                 "column": 28,
                 "detail": "fs.fstatSync",
@@ -2194,6 +2252,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 174,
+                "plain": false,
                 "sends": null,
                 "column": 30,
                 "detail": "fs.lstatSync",
@@ -2318,6 +2377,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -2345,6 +2405,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -2372,6 +2433,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 440,
+                "plain": false,
                 "sends": null,
                 "column": 17,
                 "detail": "fs.mkdirSync",
@@ -2399,6 +2461,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -2431,6 +2494,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -2463,6 +2527,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -2495,6 +2560,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -2597,6 +2663,7 @@
               {
                 "file": "dist/server.js",
                 "line": 409,
+                "plain": false,
                 "sends": null,
                 "column": 31,
                 "detail": "fs.readdir",
@@ -2613,6 +2680,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -2640,6 +2708,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -2667,6 +2736,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -2699,6 +2769,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -2731,6 +2802,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -2763,6 +2835,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -2863,6 +2936,7 @@
               {
                 "file": "dist/server.js",
                 "line": 429,
+                "plain": false,
                 "sends": null,
                 "column": 31,
                 "detail": "fs.readdir",
@@ -2879,6 +2953,7 @@
               {
                 "file": "dist/server.js",
                 "line": 438,
+                "plain": false,
                 "sends": null,
                 "column": 37,
                 "detail": "fs.stat",
@@ -2895,6 +2970,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -2922,6 +2998,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -2949,6 +3026,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -2981,6 +3059,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -3013,6 +3092,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -3045,6 +3125,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -3150,6 +3231,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 72,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.readdir",
@@ -3172,6 +3254,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -3199,6 +3282,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -3226,6 +3310,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -3258,6 +3343,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -3290,6 +3376,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -3322,6 +3409,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -3429,6 +3517,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 434,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -3451,6 +3540,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -3478,6 +3568,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -3505,6 +3596,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 224,
+                "plain": false,
                 "sends": null,
                 "column": 54,
                 "detail": "fs.renameSync",
@@ -3532,6 +3624,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -3564,6 +3657,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -3596,6 +3690,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -3628,6 +3723,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -3660,6 +3756,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 264,
+                "plain": false,
                 "sends": null,
                 "column": 23,
                 "detail": "fs.lstatSync",
@@ -3692,6 +3789,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 272,
+                "plain": false,
                 "sends": null,
                 "column": 20,
                 "detail": "fs.openSync flags=?",
@@ -3724,6 +3822,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 274,
+                "plain": false,
                 "sends": null,
                 "column": 28,
                 "detail": "fs.fstatSync",
@@ -3756,6 +3855,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 295,
+                "plain": false,
                 "sends": null,
                 "column": 21,
                 "detail": "fs.lstatSync",
@@ -3788,6 +3888,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 314,
+                "plain": false,
                 "sends": null,
                 "column": 23,
                 "detail": "fs.lstatSync",
@@ -3820,6 +3921,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 326,
+                "plain": false,
                 "sends": null,
                 "column": 9,
                 "detail": "fs.unlinkSync",
@@ -3852,6 +3954,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 369,
+                "plain": false,
                 "sends": null,
                 "column": 28,
                 "detail": "fs.fstatSync",
@@ -3884,6 +3987,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 168,
+                "plain": false,
                 "sends": null,
                 "column": 27,
                 "detail": "fs.lstatSync",
@@ -3921,6 +4025,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 171,
+                "plain": false,
                 "sends": null,
                 "column": 20,
                 "detail": "fs.openSync flags=?",
@@ -3958,6 +4063,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 173,
+                "plain": false,
                 "sends": null,
                 "column": 28,
                 "detail": "fs.fstatSync",
@@ -3995,6 +4101,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 174,
+                "plain": false,
                 "sends": null,
                 "column": 30,
                 "detail": "fs.lstatSync",
@@ -4032,6 +4139,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 238,
+                "plain": false,
                 "sends": null,
                 "column": 45,
                 "detail": "fs.read",
@@ -4069,6 +4177,7 @@
               {
                 "file": "dist/pinned-directory.js",
                 "line": 241,
+                "plain": false,
                 "sends": null,
                 "column": 45,
                 "detail": "fs.writeFile",
@@ -4188,6 +4297,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -4215,6 +4325,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 72,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.readdir",
@@ -4242,6 +4353,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -4269,6 +4381,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -4301,6 +4414,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -4333,6 +4447,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -4365,6 +4480,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -4475,6 +4591,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 357,
+                "plain": false,
                 "sends": null,
                 "column": 25,
                 "detail": "fs.stat",
@@ -4497,6 +4614,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 68,
+                "plain": false,
                 "sends": null,
                 "column": 26,
                 "detail": "fs.realpath",
@@ -4524,6 +4642,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 269,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -4551,6 +4670,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 172,
+                "plain": false,
                 "sends": null,
                 "column": 46,
                 "detail": "fs.readdir",
@@ -4583,6 +4703,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 180,
+                "plain": false,
                 "sends": null,
                 "column": 52,
                 "detail": "fs.lstat",
@@ -4615,6 +4736,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 181,
+                "plain": false,
                 "sends": null,
                 "column": 53,
                 "detail": "fs.lstat",
@@ -4647,6 +4769,7 @@
               {
                 "file": "dist/lib.js",
                 "line": 237,
+                "plain": false,
                 "sends": null,
                 "column": 15,
                 "detail": "fs.lstat",
@@ -4774,6 +4897,7 @@
           {
             "file": "dist/index.js",
             "line": 54,
+            "plain": false,
             "sends": null,
             "column": 33,
             "detail": "fs.stat",
@@ -4790,6 +4914,7 @@
           {
             "file": "dist/index.js",
             "line": 118,
+            "plain": false,
             "sends": null,
             "column": 16,
             "detail": "fs.realpathSync",
@@ -4806,6 +4931,7 @@
           {
             "file": "dist/path-utils.js",
             "line": 140,
+            "plain": false,
             "sends": null,
             "column": 22,
             "detail": "fs.realpath",
@@ -4822,6 +4948,7 @@
           {
             "file": "dist/path-utils.js",
             "line": 144,
+            "plain": false,
             "sends": null,
             "column": 22,
             "detail": "fs.realpath",
@@ -4838,6 +4965,7 @@
           {
             "file": "dist/roots-utils.js",
             "line": 71,
+            "plain": false,
             "sends": null,
             "column": 33,
             "detail": "fs.stat",
@@ -4854,6 +4982,7 @@
           {
             "file": "dist/version.js",
             "line": 24,
+            "plain": false,
             "sends": null,
             "column": 25,
             "detail": "require(.json)",
@@ -4879,6 +5008,7 @@
         "install_scripts": [],
         "network_imports": [],
         "sensitive_paths": [],
+        "install_commands": [],
         "internet_domains": null,
         "invisible_unicode": [],
         "network_not_followed": []
@@ -4916,7 +5046,9 @@
               "function": "writeAll"
             }
           ],
+          "title": null,
           "detail": "fs_write",
+          "params": {},
           "source": null,
           "outside": null,
           "function": "writeAll",
@@ -4952,7 +5084,9 @@
               "function": "writeAll"
             }
           ],
+          "title": null,
           "detail": "fs_write",
+          "params": {},
           "source": null,
           "outside": null,
           "function": "writeAll",
@@ -4978,7 +5112,9 @@
               "function": "createDirectoryInPlace"
             }
           ],
+          "title": null,
           "detail": "fs_write",
+          "params": {},
           "source": null,
           "outside": null,
           "function": "createDirectoryInPlace",
@@ -5004,7 +5140,9 @@
               "function": "renameIntoDirectory"
             }
           ],
+          "title": null,
           "detail": "fs_write",
+          "params": {},
           "source": null,
           "outside": null,
           "function": "renameIntoDirectory",
@@ -5021,8 +5159,8 @@
       },
       "coverage": null,
       "gray_case": null,
-      "rules_count": 20,
-      "rules_version": "2",
+      "rules_count": 23,
+      "rules_version": "3",
       "contacted_domains": []
     },
     "language": null,
