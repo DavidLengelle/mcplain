@@ -2,14 +2,11 @@
 
 from dataclasses import dataclass
 
-from mcplain.adapters.common import hidden_tag_text
+from mcplain.adapters.common import hidden_tag_text, is_flag
 from mcplain.models import Tool
 
 TAG_FIRST = 0xE0000
 TAG_LAST = 0xE007F
-TAG_CANCEL = 0xE007F
-TAG_PRINTABLE = range(0xE0020, 0xE007F)
-BLACK_FLAG = 0x1F3F4
 VARIATION_FIRST = 0xE0100
 VARIATION_LAST = 0xE01EF
 OPERATOR_FIRST = 0x2061
@@ -89,15 +86,6 @@ def _justified(text: str, index: int) -> bool:
     if codepoint in JOINERS and before and after:
         return _in(JOINING_SCRIPT_RANGES, before) and _in(JOINING_SCRIPT_RANGES, after)
     return False
-
-
-def is_flag(text: str, start: int, end: int) -> bool:
-    """Tell whether a run of tag characters is a flag sequence like the Scottish flag"""
-
-    run = text[start:end]
-    if start == 0 or ord(text[start - 1]) != BLACK_FLAG or len(run) < 2 or ord(run[-1]) != TAG_CANCEL:
-        return False
-    return all(ord(character) in TAG_PRINTABLE for character in run[:-1])
 
 
 def hidden_characters(text: str) -> tuple[list[HiddenCharacters], list[HiddenCharacters]]:

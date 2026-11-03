@@ -12,6 +12,7 @@ from mcplain.adapters.common import (
     contains,
     extract_urls,
     hidden_tag_text,
+    is_flag,
     scan_invisible,
     source_offset,
 )
@@ -43,7 +44,6 @@ from mcplain.models import (
 )
 from mcplain.paths import iter_files, location_kind
 from mcplain.patterns import PIPE_TO_SHELL, analyzer_talk, excerpt
-from mcplain.rules.text import is_flag
 
 TOO_LARGE_REASON = "too_large"
 RAW_BIDI_PATTERN = re.compile("[\u202a-\u202e\u2066-\u2069]+")

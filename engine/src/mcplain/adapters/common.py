@@ -37,6 +37,9 @@ INVISIBLE_PATTERN = re.compile(
 )
 TAG_BASE = 0xE0000
 PRINTABLE_ASCII = range(0x20, 0x7F)
+TAG_CANCEL = 0xE007F
+TAG_PRINTABLE = range(0xE0020, 0xE007F)
+BLACK_FLAG = 0x1F3F4
 URL_PATTERN = re.compile(r"https?://[^\s\"'<>`\\{}|^\x00-\x1f]+", re.IGNORECASE)
 URL_TRAILING = ".,;:)]!?"
 HOST_PATTERN = re.compile(r"^[a-z0-9.-]+$|^\[[0-9a-f:.]+\]$")
@@ -171,6 +174,15 @@ def codepoint_label(character: str) -> str:
     """Return the U+XXXX label of a character"""
 
     return f"U+{ord(character):04X}"
+
+
+def is_flag(text: str, start: int, end: int) -> bool:
+    """Tell whether a run of tag characters is a flag sequence like the Scottish flag"""
+
+    run = text[start:end]
+    if start == 0 or ord(text[start - 1]) != BLACK_FLAG or len(run) < 2 or ord(run[-1]) != TAG_CANCEL:
+        return False
+    return all(ord(character) in TAG_PRINTABLE for character in run[:-1])
 
 
 def hidden_tag_text(characters: str) -> str | None:
