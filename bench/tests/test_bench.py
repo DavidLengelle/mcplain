@@ -1,5 +1,6 @@
 """Tests of the bench script, with a simulated API"""
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -83,6 +84,14 @@ def record(identifier: str, color: str | None, outcome: str = bench.VERDICT, **e
     if color == "gray" and item["cause"] is None:
         item["cause"] = bench.gray_cause(item)
     return item
+
+
+@pytest.fixture(autouse=True)
+def fingerprint_key(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Give every test the same secret key, and never the private key file of the machine"""
+
+    monkeypatch.setenv(bench.KEY_ENV, "test-key")
+    monkeypatch.setattr(bench, "KEY_FILE", tmp_path / "missing.key")
 
 
 def no_sleep(seconds: float) -> None:
@@ -296,7 +305,9 @@ def test_the_summary_never_names_a_red_server() -> None:
     assert bench.fingerprint("secret-name") in bench.progress_line(records[0])
     unlisted = bench.render_markdown(bench.build_run(records, {"servers": {}}, "0.3.0", "2026-10-29"))
     assert "secret-name" not in unlisted
-    assert f"Not in the baseline: b, red #2 ({bench.fingerprint('other-secret')})" in unlisted
+    first = bench.fingerprint("secret-name")
+    second = bench.fingerprint("other-secret")
+    assert f"Not in the baseline: b, red #1 ({first}), red #2 ({second})" in unlisted
 
 
 def test_a_red_on_a_real_package_fails_the_check_even_when_it_is_new() -> None:
@@ -317,9 +328,8 @@ def test_the_masked_results_never_hold_the_name_of_a_red_server() -> None:
     assert "secret-name" not in text
     assert "9.9.9" not in text
     label = f"red #1 ({bench.fingerprint('secret-name')})"
-    assert masked["records"][0]["id"] == label
+    assert [item["id"] for item in masked["records"]] == ["down", "b", label]
     assert masked["comparison"]["color_changes"] == [{"id": label, "before": "green", "after": "red"}]
-    assert masked["records"][2]["id"] == "b"
     assert masked["comparison"]["version_changes"] == [{"id": label, "before": None, "after": None}]
 
 
@@ -436,3 +446,28 @@ def test_the_ci_run_masks_a_red_server_and_fails(tmp_path: Path) -> None:
     assert "secret-name" not in output.read_text(encoding="utf-8")
     assert "secret-name" not in summary.read_text(encoding="utf-8")
     assert bench.fingerprint("secret-name") in output.read_text(encoding="utf-8")
+
+
+def test_without_a_key_a_red_server_has_no_fingerprint(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(bench.KEY_ENV)
+    assert bench.fingerprint("secret-name") is None
+    assert bench.red_labels([record("secret-name", "red")]) == {"secret-name": "red #1"}
+
+
+def test_the_fingerprint_needs_the_secret_key() -> None:
+    plain = hashlib.sha256(b"secret-name").hexdigest()[: bench.FINGERPRINT_LENGTH]
+    keyed = bench.fingerprint("secret-name")
+    assert keyed is not None and keyed != plain
+    assert len(keyed) == bench.FINGERPRINT_LENGTH
+
+
+def test_red_servers_come_last_so_their_place_tells_nothing() -> None:
+    baseline = {"servers": {name: {"color": "green", "version": "1.0.0"} for name in ("a-secret", "b", "c")}}
+    records = [record("a-secret", "red"), record("b", "orange"), record("c", "gray", gray_case="no_tools_found")]
+    run = bench.build_run(records, baseline, "0.4.0", "2026-11-03")
+    masked = bench.mask_run(run)
+    assert [item["id"] for item in masked["records"]][:2] == ["b", "c"]
+    assert [item["id"] for item in masked["comparison"]["color_changes"]][-1].startswith("red #1")
+    rows = [line for line in bench.render_markdown(run).splitlines() if line.startswith("| ") and "| green |" in line]
+    assert rows[-1].startswith("| red #1")
+    assert bench.shown_names(["a-secret", "b"], bench.red_labels(records)).startswith("b, red #1")

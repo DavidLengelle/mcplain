@@ -38,6 +38,8 @@ jobs:
           docker compose up -d --build --wait api dispatcher
       - name: Run the bench on the latest versions
         working-directory: bench
+        env:
+          MCPLAIN_BENCH_KEY: ${{ secrets.MCPLAIN_BENCH_KEY }}
         run: uv run --locked python bench.py run --check --mask-red --output results/bench.json --summary "$GITHUB_STEP_SUMMARY"
       - name: Keep the full results
         if: always()

@@ -2,6 +2,8 @@
 
 import argparse
 import hashlib
+import hmac
+import os
 import json
 import re
 import sys
@@ -59,6 +61,8 @@ NETWORK_FAILURE = "network_failure"
 INPUT_FAILURE = "input_failure"
 BENCH_TIMEOUT = "bench_timeout"
 FINGERPRINT_LENGTH = 8
+KEY_ENV = "MCPLAIN_BENCH_KEY"
+KEY_FILE = BENCH_DIR / "private" / "fingerprint.key"
 VERSION_PATTERN = re.compile(r'^__version__ = "([^"]+)"$', re.MULTILINE)
 
 
@@ -344,21 +348,68 @@ def red_ids(records: list[dict[str, Any]]) -> set[str]:
     return {record["id"] for record in records if record["outcome"] == VERDICT and record["color"] == "red"}
 
 
-def fingerprint(server_id: str) -> str:
-    """Return a short fingerprint of a server id: running the bench locally tells which server it is"""
+def fingerprint_key() -> bytes | None:
+    """Return the secret key of the fingerprints: the environment first, then the private file, or None"""
 
-    return hashlib.sha256(server_id.encode("utf-8")).hexdigest()[:FINGERPRINT_LENGTH]
+    value = os.environ.get(KEY_ENV, "").strip()
+    if not value and KEY_FILE.exists():
+        value = KEY_FILE.read_text(encoding="utf-8").strip()
+    if not value:
+        return None
+    return value.encode("utf-8")
+
+
+def fingerprint(server_id: str) -> str | None:
+    """Return a short keyed fingerprint of a server id; without the secret key, nobody can tell which server it is"""
+
+    key = fingerprint_key()
+    if key is None:
+        return None
+    return hmac.new(key, server_id.encode("utf-8"), hashlib.sha256).hexdigest()[:FINGERPRINT_LENGTH]
+
+
+def red_label(server_id: str, number: int | None = None) -> str:
+    """Return what replaces the name of a red server: red, its number and its keyed fingerprint when there is a key"""
+
+    label = "red"
+    if number is not None:
+        label = f"red #{number}"
+    mark = fingerprint(server_id)
+    if mark is not None:
+        label = f"{label} ({mark})"
+    return label
 
 
 def red_labels(records: list[dict[str, Any]]) -> dict[str, str]:
-    """Return the label that replaces the name of each red server: its number and its fingerprint"""
+    """Return the label that replaces the name of each red server"""
 
     reds = red_ids(records)
     labels: dict[str, str] = {}
     for record in records:
         if record["id"] in reds and record["id"] not in labels:
-            labels[record["id"]] = f"red #{len(labels) + 1} ({fingerprint(record['id'])})"
+            labels[record["id"]] = red_label(record["id"], len(labels) + 1)
     return labels
+
+
+def item_id(item: dict[str, Any]) -> str:
+    """Return the server id of a record or of a row of the comparison"""
+
+    return item["id"]
+
+
+def masked_last(items: list[Any], labels: dict[str, str], key: Any = None) -> list[Any]:
+    """Put the red servers after the others, so that their place in a list does not tell their name"""
+
+    def server_of(item: Any) -> str:
+        """Return the server id of one item"""
+
+        if key is None:
+            return item
+        return key(item)
+
+    named = [item for item in items if server_of(item) not in labels]
+    hidden = sorted((item for item in items if server_of(item) in labels), key=lambda item: labels[server_of(item)])
+    return named + hidden
 
 
 def shown_name(server_id: str, labels: dict[str, str]) -> str:
@@ -368,9 +419,9 @@ def shown_name(server_id: str, labels: dict[str, str]) -> str:
 
 
 def shown_names(server_ids: list[str], labels: dict[str, str]) -> str:
-    """Return a list of server ids for a summary, with the red ones under their label"""
+    """Return a list of server ids for a summary, the red ones last and under their label"""
 
-    return ", ".join(shown_name(item, labels) for item in server_ids) or "none"
+    return ", ".join(shown_name(item, labels) for item in masked_last(server_ids, labels)) or "none"
 
 
 def render_markdown(run: dict[str, Any]) -> str:
@@ -398,7 +449,7 @@ def render_markdown(run: dict[str, Any]) -> str:
     if summary["failures"]:
         lines.extend(["### Failures apart (not a gray of the engine)", "", "| Server | Outcome | Code |", "| --- | --- | --- |"])
         lines.extend(
-            f"| {shown_name(item['id'], hidden)} | {item['outcome']} | {item['error_code']} |" for item in summary["failures"]
+            f"| {shown_name(item['id'], hidden)} | {item['outcome']} | {item['error_code']} |" for item in masked_last(summary["failures"], hidden, item_id)
         )
         lines.append("")
     lines.extend(comparison_lines(comparison, hidden))
@@ -414,7 +465,7 @@ def comparison_lines(comparison: dict[str, Any], hidden: dict[str, str]) -> list
         lines = ["### Color changes", "", "| Server | Baseline | Now |", "| --- | --- | --- |"]
         lines.extend(
             f"| {shown_name(item['id'], hidden)} | {item['before']} | {item['after']} |"
-            for item in comparison["color_changes"]
+            for item in masked_last(comparison["color_changes"], hidden, item_id)
         )
         lines.append("")
     else:
@@ -423,14 +474,14 @@ def comparison_lines(comparison: dict[str, Any], hidden: dict[str, str]) -> list
         lines.extend(["### Witnesses with a wrong color", "", "| Witness | Expected | Now |", "| --- | --- | --- |"])
         lines.extend(
             f"| {shown_name(item['id'], hidden)} | {item['expected']} | {item['after']} |"
-            for item in comparison["witness_failures"]
+            for item in masked_last(comparison["witness_failures"], hidden, item_id)
         )
         lines.append("")
     if comparison["version_changes"]:
         lines.extend(["### New versions", "", "| Server | Baseline | Now |", "| --- | --- | --- |"])
         lines.extend(
             f"| {shown_name(item['id'], hidden)} | {item['before']} | {item['after']} |"
-            for item in comparison["version_changes"]
+            for item in masked_last(comparison["version_changes"], hidden, item_id)
         )
         lines.append("")
     if comparison["unverified"]:
@@ -500,6 +551,12 @@ def mask_run(run: dict[str, Any]) -> dict[str, Any]:
 
     labels = red_labels(run["records"])
     masked = json.loads(json.dumps(run))
+    masked["records"] = masked_last(masked["records"], labels, item_id)
+    masked["summary"]["failures"] = masked_last(masked["summary"]["failures"], labels, item_id)
+    for key in ("color_changes", "version_changes", "witness_failures"):
+        masked["comparison"][key] = masked_last(masked["comparison"][key], labels, item_id)
+    for key in ("unverified", "new", "removed"):
+        masked["comparison"][key] = masked_last(masked["comparison"][key], labels)
     for record in masked["records"]:
         label = labels.get(record["id"])
         if label is not None:
@@ -538,7 +595,7 @@ def progress_line(record: dict[str, Any]) -> str:
 
     name = record["id"]
     if record["color"] == "red" and record["outcome"] == VERDICT:
-        name = f"red ({fingerprint(record['id'])})"
+        name = red_label(record["id"])
     state = record["color"] or record["outcome"]
     if record["cause"]:
         state = f"{state}: {record['cause']}"
