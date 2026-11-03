@@ -19,6 +19,8 @@ class Capability(StrEnum):
     BASE64_DECODE = "base64_decode"
     SENSITIVE_PATH = "sensitive_path"
     INSTALL_SCRIPT = "install_script"
+    LOCAL_CONNECTION = "local_connection"
+    DOCKER_SOCKET = "docker_socket"
 
 
 POWERFUL_CAPABILITIES: frozenset[Capability] = frozenset(
@@ -29,8 +31,16 @@ POWERFUL_CAPABILITIES: frozenset[Capability] = frozenset(
         Capability.DYNAMIC_CODE,
         Capability.SENSITIVE_PATH,
         Capability.INSTALL_SCRIPT,
+        Capability.DOCKER_SOCKET,
     }
 )
+LOCAL_CAPABILITIES: frozenset[Capability] = frozenset({Capability.LOCAL_CONNECTION, Capability.DOCKER_SOCKET})
+JAVASCRIPT_SOCKET_CONNECTS: frozenset[str] = frozenset({"net.createConnection", "net.connect"})
+PYTHON_LOCAL_SOCKET_FAMILY = "socket.AF_UNIX"
+PYTHON_LOCAL_SOCKET = "socket.socket(AF_UNIX)"
+PYTHON_SOCKET_CONNECTS: frozenset[str] = frozenset({"connect", "connect_ex"})
+LOCAL_HOSTS: frozenset[str] = frozenset({"localhost", "127.0.0.1", "::1"})
+DOCKER_SOCKET_SUFFIX = "docker.sock"
 
 
 class RuleKind(StrEnum):

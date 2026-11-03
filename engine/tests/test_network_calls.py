@@ -106,7 +106,7 @@ def unrelated(session):
         ('axios({ url: "https://api.example.com/x" })', UrlKind.LITERAL),
         ("https.request({ hostname: host })", UrlKind.DYNAMIC),
         ("new WebSocket(url)", UrlKind.DYNAMIC),
-        ("net.connect(80)", UrlKind.UNKNOWN),
+        ("net.connect(80, host)", UrlKind.UNKNOWN),
     ],
 )
 def test_javascript_url_kind(tmp_path: Path, call: str, kind: UrlKind) -> None:

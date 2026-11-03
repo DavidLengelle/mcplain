@@ -20,6 +20,7 @@ from mcplain.adapters.dataflow import (
     Loop,
     Member,
     Name,
+    Nested,
     Operation,
     Result,
     Return,
@@ -34,6 +35,7 @@ from mcplain.adapters.python_syntax import dotted_parts, split_arguments
 from mcplain.capabilities import (
     PYTHON_ENV_GETTERS,
     PYTHON_ENV_MAPPINGS,
+    PYTHON_LOCAL_SOCKET,
     PYTHON_RULES,
     PYTHON_WRITE_MODE_CHARS,
     Capability,
@@ -559,12 +561,12 @@ class PythonLowering:
         if kind == "unary_operator":
             return self.expr(node.child_by_field_name("argument"))
         if kind in SEQUENCE_NODES:
-            return Union(tuple(self.expr(child) for child in node.named_children))
+            return Union(tuple(Nested(self.expr(child)) for child in node.named_children))
         if kind == "dictionary":
             parts = []
             for child in node.named_children:
                 if child.type == "pair":
-                    parts.append(self.expr(child.child_by_field_name("value")))
+                    parts.append(Nested(self.expr(child.child_by_field_name("value"))))
                 elif child.type == "dictionary_splat":
                     parts.append(self.expr(child))
             return Union(tuple(parts))
@@ -787,6 +789,8 @@ class PythonLowering:
         if imported and qualified in PYTHON_COPY_CALLS:
             destination = inputs.argument(PYTHON_COPY_CALLS[qualified])
             return self._sinks(inputs, offset, [(FlowSinkKind.FILE_WRITE, ROLE_PATH, destination, qualified)])
+        if self.file.unix_socket(qualified, imported, positional, keywords):
+            return Operation(tuple(inputs.items), offset)
         if imported:
             rule = match_rule(PYTHON_RULES, qualified, RuleKind.MODULE)
             if rule is not None and rule.capability is Capability.NETWORK:
@@ -814,7 +818,10 @@ class PythonLowering:
 
         receiver_text = node_text(receiver)
         first = inputs.argument(0)
-        if self.file._client_of(receiver_text, offset) is not None or receiver_text in self.network:
+        client = self.file._client_of(receiver_text, offset)
+        if client == PYTHON_LOCAL_SOCKET:
+            return Operation(tuple(inputs.items), offset)
+        if client is not None or receiver_text in self.network:
             return self._network(inputs, offset, f"{receiver_text}.{method}")
         if method in PYTHON_HANDLE_WRITE_METHODS and receiver_text in self.handles:
             target = _names(self.handles[receiver_text])
@@ -849,6 +856,13 @@ class PythonLowering:
             names = _names(receiver)
             updates = tuple((name, inputs.arguments()) for name in names)
             return Operation(tuple(inputs.items), offset, updates=updates)
+        if method == "get" and positional and positional[0].type in STRING_NODES:
+            key = self.file.static_text(positional[0])
+            if not key.dynamic:
+                default = EMPTY
+                if len(positional) > 1:
+                    default = self.expr(positional[1])
+                return Union((Member(self.expr(receiver), key.value), default))
         return Operation(tuple(inputs.items), offset, result=Result("union", (0,)))
 
     def _join(self, receiver: Node, positional: list[Node], inputs: _Inputs, offset: int) -> Expr:

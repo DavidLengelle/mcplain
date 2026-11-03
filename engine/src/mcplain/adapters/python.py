@@ -45,6 +45,7 @@ from mcplain.adapters.report import (
     RawTool,
 )
 from mcplain.capabilities import (
+    DOCKER_SOCKET_SUFFIX,
     NETWORK_BODY_KEYS,
     NETWORK_CLIENT_METHODS,
     NETWORK_SEND_METHODS,
@@ -52,11 +53,14 @@ from mcplain.capabilities import (
     PYTHON_ENV_GETTERS,
     PYTHON_ENV_MAPPINGS,
     PYTHON_IMPORT_LOADERS,
+    PYTHON_LOCAL_SOCKET,
+    PYTHON_LOCAL_SOCKET_FAMILY,
     PYTHON_NETWORK_CLIENTS,
     PYTHON_OFFLINE_PARTS,
     PYTHON_OPEN_FUNCTIONS,
     PYTHON_OPEN_GLOBALS,
     PYTHON_RULES,
+    PYTHON_SOCKET_CONNECTS,
     PYTHON_TEXT_HELPERS,
     PYTHON_URL_FUNCTIONS,
     PYTHON_WRITE_MODE_CHARS,
@@ -1502,9 +1506,35 @@ class _PythonFile:
         qualified, imported = self._resolve(parts)
         if imported and qualified in PYTHON_NETWORK_CLIENTS:
             return qualified
+        if self.local_socket(node):
+            return PYTHON_LOCAL_SOCKET
         if len(parts) == 1 and not imported:
             return self.client_factories.get(parts[0])
         return None
+
+    def local_socket(self, call: Node) -> bool:
+        """Tell whether socket.socket() opens a Unix socket, which never leaves this computer"""
+
+        parts = dotted_parts(call.child_by_field_name("function"))
+        if not parts:
+            return False
+        qualified, imported = self._resolve(parts)
+        positional, keywords = split_arguments(call.child_by_field_name("arguments"))
+        return self.unix_socket(qualified, imported, positional, keywords)
+
+    def unix_socket(self, qualified: str, imported: bool, positional: list[Node], keywords: dict[str, Node]) -> bool:
+        """Tell whether the arguments of socket.socket() ask for the Unix family"""
+
+        if not imported or qualified != "socket.socket":
+            return False
+        family = keywords.get("family")
+        if family is None and positional:
+            family = positional[0]
+        family_parts = dotted_parts(family)
+        if not family_parts:
+            return False
+        resolved, family_imported = self._resolve(family_parts)
+        return family_imported and resolved == PYTHON_LOCAL_SOCKET_FAMILY
 
     def _index_client_factories(self) -> None:
         """Remember module functions of this file whose every return gives the same kind of network client"""
@@ -1635,6 +1665,9 @@ class _PythonFile:
         arguments = call.child_by_field_name("arguments")
         if callee is not None and callee.type == "attribute" and self._client_call(call, callee, arguments):
             return
+        if self.local_socket(call):
+            self._add(Capability.LOCAL_CONNECTION, call, "socket.socket")
+            return
         parts = dotted_parts(callee)
         if parts:
             qualified, imported = self._resolve(parts)
@@ -1686,11 +1719,17 @@ class _PythonFile:
 
         attribute = callee.child_by_field_name("attribute")
         target = callee.child_by_field_name("object")
-        if attribute is None or target is None or node_text(attribute) not in NETWORK_CLIENT_METHODS:
+        if attribute is None or target is None:
             return False
         method = node_text(attribute)
         constructor = self._client_of(node_text(target), call.start_byte)
-        if constructor is None:
+        if constructor == PYTHON_LOCAL_SOCKET:
+            positional, _ = split_arguments(arguments)
+            if method in PYTHON_SOCKET_CONNECTS and positional:
+                if self.static_text(positional[0]).value.endswith(DOCKER_SOCKET_SUFFIX):
+                    self._add(Capability.DOCKER_SOCKET, call, f"{PYTHON_LOCAL_SOCKET}.{method}")
+            return True
+        if constructor is None or method not in NETWORK_CLIENT_METHODS:
             return False
         index = 0
         if method in URL_AFTER_METHOD:

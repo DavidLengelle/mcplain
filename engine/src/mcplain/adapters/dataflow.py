@@ -81,6 +81,13 @@ class Member(Expr):
 
 
 @dataclass(frozen=True)
+class Nested(Expr):
+    """Class for a value put inside an object or a list literal: the whole environment is then one of its fields"""
+
+    value: Expr
+
+
+@dataclass(frozen=True)
 class Call(Expr):
     """Class for a call to a function of the package, resolved through the call graph"""
 
@@ -232,6 +239,7 @@ class Label:
     pasted: bool = False
     decoded: bool = False
     written: bool = False
+    nested: bool = False
     kinds: frozenset[PathKind] = frozenset()
     steps: tuple[Step, ...] = field(default=(), compare=False)
 
@@ -440,9 +448,10 @@ class FlowEngine:
             return self._compose(expr.parts, [self._expr(part, env, frame) for part in expr.parts])
         if isinstance(expr, Member):
             labels = self._expr(expr.value, env, frame)
-            if expr.name is None:
-                return labels
-            return frozenset(_refine(label, expr.name) for label in labels)
+            read = (_read_field(label, expr.name) for label in labels)
+            return frozenset(label for label in read if label is not None)
+        if isinstance(expr, Nested):
+            return frozenset(_nest(label) for label in self._expr(expr.value, env, frame))
         if isinstance(expr, Call):
             return self._call(expr, env, frame)
         if isinstance(expr, Operation):
@@ -588,11 +597,14 @@ class FlowEngine:
             if hit.label.parameter < 0:
                 continue
             for label in bound.get(hit.label.parameter, NO_LABELS):
-                frame.hits.append(Hit(_through(label, hit.label, step), hit.sink, hit.file, hit.function, call.offset))
+                carried = _through(label, hit.label, step)
+                if carried is not None:
+                    frame.hits.append(Hit(carried, hit.sink, hit.file, hit.function, call.offset))
         result: set[Label] = set()
         for label in summary.returns:
             if label.parameter >= 0:
-                result.update(_through(item, label, step) for item in bound.get(label.parameter, NO_LABELS))
+                carried_labels = (_through(item, label, step) for item in bound.get(label.parameter, NO_LABELS))
+                result.update(item for item in carried_labels if item is not None)
             else:
                 result.add(replace(label, steps=(step, *label.steps)))
         return frozenset(result)
@@ -653,9 +665,35 @@ def _refine(label: Label, name: str) -> Label:
     return replace(label, detail=name, whole=False)
 
 
-def _through(label: Label, inner: Label, step: Step) -> Label:
-    """Carry a caller label through a callee label met at a sink or a return"""
+def _nest(label: Label) -> Label:
+    """Mark the whole environment put inside a literal: reading one of its fields may give the whole environment back"""
 
+    if label.kind is FlowSourceKind.ENVIRONMENT:
+        return replace(label, nested=True)
+    return label
+
+
+def _read_field(label: Label, name: str | None) -> Label | None:
+    """Read a field of a labelled value: a field of the whole environment named in the code is one variable only"""
+
+    if label.kind is FlowSourceKind.ENVIRONMENT:
+        if label.nested:
+            return replace(label, nested=False)
+        if name is not None:
+            return None
+        return label
+    if name is None:
+        return label
+    return _refine(label, name)
+
+
+def _through(label: Label, inner: Label, step: Step) -> Label | None:
+    """Carry a caller label through a callee label met at a sink or a return, or drop it when a named field was read"""
+
+    if label.kind is FlowSourceKind.ENVIRONMENT and inner.parameter >= 0 and not inner.whole:
+        if not label.nested:
+            return None
+        label = replace(label, nested=False)
     detail = label.detail
     whole = label.whole
     if label.whole and not inner.whole:

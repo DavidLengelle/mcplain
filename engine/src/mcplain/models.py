@@ -420,6 +420,8 @@ class Alert(BaseModel):
     steps: list[CallStep] = Field(default_factory=list)
     quote: str | None = None
     detail: str | None = None
+    title: str | None = None
+    params: dict[str, str] = Field(default_factory=dict)
 
 
 class GrayCase(StrEnum):

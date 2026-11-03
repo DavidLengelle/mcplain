@@ -57,7 +57,7 @@ Chaque rapport montre six voyants, pour le serveur et pour chaque outil. Une cap
 | Lit tes fichiers | `files_read` | `fs_read` | aucune |
 | Modifie tes fichiers | `files_write` | `fs_write` | R08 |
 | Va sur Internet | `internet` | `network` | R04, R05, R07, R10 |
-| Lance des commandes | `commands` | `dynamic_code`, `install_script`, `process_exec` | R07, R09, R10 |
+| Lance des commandes | `commands` | `docker_socket`, `dynamic_code`, `install_script`, `process_exec` | R07, R09, R10 |
 | Touche à tes secrets | `secrets` | `env_read_secret`, `sensitive_path` | R03, R04 |
 | Texte caché | `hidden_text` | caractères invisibles trouvés | R01, R02, R06, R12 |
 
@@ -108,7 +108,7 @@ Une description cite un fichier sensible (clés SSH, identifiants, configuration
 
 **Envoie des secrets sur le réseau** : ROUGE, usage suspect.
 
-Ce code lit un fichier secret (par exemple tes clés SSH) ou toutes tes variables d'environnement d'un coup, et les envoie sur le réseau.
+Ce code lit un fichier secret (par exemple tes clés SSH) ou toutes tes variables d'environnement d'un coup, et les envoie sur le réseau. Une variable lue par un nom écrit dans le code (env.HOST, env["HOST"], config.clientId), même dans un objet construit à partir de tout l'environnement, n'est que cette variable. Tout l'environnement compte quand l'objet entier part (JSON.stringify, Object.entries, un parcours, un étalement dans le corps d'une requête) ou quand la clé n'est pas écrite dans le code (env[x]). Une connexion locale (chemin de socket ou port seul, path sans host, localhost, 127.0.0.1, ::1, socket AF_UNIX en Python) ne va pas sur Internet.
 
 - En clair : **Envoie tes secrets sur Internet**. Le code lit un fichier secret ou toutes tes variables d'environnement, puis les envoie sur le réseau. Conseil : Ne l'installe pas. S'il est déjà installé, retire-le et change tes clés et tes mots de passe.
 - Visible en lisant le code : oui
@@ -331,7 +331,7 @@ Le nom ou la description d'un outil contient un caractère invisible que le cont
 
 **Capacité puissante** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
-Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin. Un require() dont tous les chemins possibles sont écrits dans le code et finissent par .json (en minuscules) lit un fichier JSON : ce n'est pas du code construit à l'exécution. Un module nommé par un texte écrit dans le code (require("x"), import("x"), __import__("x"), importlib.import_module("x")) est un import ordinaire.
+Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin. Un require() dont tous les chemins possibles sont écrits dans le code et finissent par .json (en minuscules) lit un fichier JSON : ce n'est pas du code construit à l'exécution. Un module nommé par un texte écrit dans le code (require("x"), import("x"), __import__("x"), importlib.import_module("x")) est un import ordinaire. Une connexion au socket de Docker (un chemin qui finit par docker.sock) peut commander Docker sur ton ordinateur : elle allume « Lance des commandes ».
 
 - En clair : **Peut agir sur ton ordinateur**. Le code peut modifier des fichiers, lancer des commandes ou toucher à des secrets. Certains outils en ont besoin. Conseil : Vérifie que c'est bien ce que tu veux. Donne-lui seulement le dossier ou les clés dont il a besoin.
 - Visible en lisant le code : oui

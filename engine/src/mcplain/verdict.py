@@ -1,6 +1,6 @@
 """Verdict: the rule registry decides the color from the alerts of every registered rule, then the lamps"""
 
-from mcplain.capabilities import Capability, belongs_to, is_request
+from mcplain.capabilities import LOCAL_CAPABILITIES, Capability, belongs_to, is_request
 from mcplain.config import DEFAULT_LIMITS
 from mcplain.lamps import LampId, lamp_states, level_for
 from mcplain.models import (
@@ -86,7 +86,8 @@ def network_not_followed(server: ServerAnalysis) -> list[str]:
     requests = [
         finding
         for finding in counted_findings(server)
-        if finding.capability is Capability.NETWORK and is_request(finding.detail, finding.url_kind in ADDRESS_KINDS)
+        if (finding.capability is Capability.NETWORK and is_request(finding.detail, finding.url_kind in ADDRESS_KINDS))
+        or finding.capability in LOCAL_CAPABILITIES
     ]
     libraries = {item.library for item in server.network_imports if item.location_kind is LocationKind.SERVER_CODE}
     return sorted(
@@ -241,8 +242,12 @@ def headline(result: AnalysisResult, verdict: Verdict, unknown_network: bool) ->
     """Return the title and the sentence of a verdict: the plain texts of the first alert, or those of its color"""
 
     if verdict.alerts:
-        rule = verdict.alerts[0].rule
-        return Message(code=f"rule.{rule}.plain_title"), Message(code=f"rule.{rule}.plain_found")
+        first = verdict.alerts[0]
+        title = first.title or f"rule.{first.rule}.plain_title"
+        return (
+            Message(code=title, params=dict(first.params)),
+            Message(code=f"rule.{first.rule}.plain_found", params=dict(first.params)),
+        )
     if verdict.color is VerdictColor.GRAY and verdict.gray_case is not None:
         params: dict[str, str] = {}
         if verdict.gray_case is GrayCase.UNSUPPORTED_LANGUAGE:

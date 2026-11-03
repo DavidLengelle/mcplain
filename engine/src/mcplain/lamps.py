@@ -49,7 +49,7 @@ LAMPS: tuple[LampSpec, ...] = (
     LampSpec(LampId.INTERNET, frozenset({Capability.NETWORK}), frozenset({"R04", "R05", "R07", "R10"})),
     LampSpec(
         LampId.COMMANDS,
-        frozenset({Capability.PROCESS_EXEC, Capability.DYNAMIC_CODE, Capability.INSTALL_SCRIPT}),
+        frozenset({Capability.PROCESS_EXEC, Capability.DYNAMIC_CODE, Capability.INSTALL_SCRIPT, Capability.DOCKER_SOCKET}),
         frozenset({"R07", "R09", "R10"}),
     ),
     LampSpec(

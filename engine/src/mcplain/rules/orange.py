@@ -23,6 +23,7 @@ from mcplain.rules.text import hidden_characters, tool_texts
 from mcplain.version_ranges import range_excludes
 
 RETIRED = "retired"
+DOCKER_TITLE = "rule.O08.docker.plain_title"
 OUT_OF_RANGE = "range"
 REGISTRY_NAMES: dict[str, str] = {"npm": "npm", "PyPI": "PyPI"}
 
@@ -321,14 +322,22 @@ class PowerfulCapability(Rule):
                     continue
                 if finding.capability in POWERFUL_CAPABILITIES and finding.capability.value not in seen:
                     seen.add(finding.capability.value)
-                    alerts.append(self.finding_alert(finding, tool.name, finding.capability.value))
+                    alerts.append(self._capability_alert(finding, tool.name))
         grouped: dict[tuple[str, bool, OutsideKind | None], Finding] = {}
         for finding in context.outside_findings():
             if finding.capability in POWERFUL_CAPABILITIES:
                 grouped.setdefault((finding.capability.value, finding.shared_by_tools, finding.outside), finding)
-        for (capability, _, _), finding in grouped.items():
-            alerts.append(self.finding_alert(finding, None, capability))
+        for finding in grouped.values():
+            alerts.append(self._capability_alert(finding, None))
         return alerts
+
+    def _capability_alert(self, finding: Finding, tool: str | None) -> Alert:
+        """Build the alert of one capability, with the precise title of the Docker socket"""
+
+        alert = self.finding_alert(finding, tool, finding.capability.value)
+        if finding.capability is Capability.DOCKER_SOCKET:
+            alert.title = DOCKER_TITLE
+        return alert
 
 
 ORANGE_RULES: tuple[type[Rule], ...] = (

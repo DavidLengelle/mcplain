@@ -57,7 +57,7 @@ Every report shows six lamps, for the server and for each tool. A capability fou
 | Reads your files | `files_read` | `fs_read` | none |
 | Changes your files | `files_write` | `fs_write` | R08 |
 | Goes on the Internet | `internet` | `network` | R04, R05, R07, R10 |
-| Runs commands | `commands` | `dynamic_code`, `install_script`, `process_exec` | R07, R09, R10 |
+| Runs commands | `commands` | `docker_socket`, `dynamic_code`, `install_script`, `process_exec` | R07, R09, R10 |
 | Touches your secrets | `secrets` | `env_read_secret`, `sensitive_path` | R03, R04 |
 | Hidden text | `hidden_text` | invisible characters found | R01, R02, R06, R12 |
 
@@ -108,7 +108,7 @@ A description names a sensitive file (SSH keys, credentials, configuration) and 
 
 **Sends secrets over the network**: RED, suspicious use.
 
-This code reads a secret file (for example your SSH keys) or all your environment variables at once, and sends them over the network.
+This code reads a secret file (for example your SSH keys) or all your environment variables at once, and sends them over the network. A variable read by a name written in the code (env.HOST, env["HOST"], config.clientId), even from an object built from the whole environment, is only that variable. The whole environment counts when the whole object leaves (JSON.stringify, Object.entries, a loop, a spread into a request body) or when the key is not written in the code (env[x]). A local connection (a socket path or a port alone, path without host, localhost, 127.0.0.1, ::1, an AF_UNIX socket in Python) does not go on the Internet.
 
 - In plain words: **Sends your secrets over the Internet**. The code reads a secret file or all your environment variables, then sends them over the network. Advice: Do not install it. If it is already installed, remove it and change your keys and passwords.
 - Visible when reading the code: yes
@@ -331,7 +331,7 @@ A tool name or description contains one invisible character that its context doe
 
 **Powerful capability**: ORANGE, a power to be aware of (nothing suspicious found).
 
-This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does. A require() whose every possible path is written in the code and ends with .json (lower case) reads a JSON file: it is not code built at runtime. A module named by a string written in the code (require("x"), import("x"), __import__("x"), importlib.import_module("x")) is an ordinary import.
+This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does. A require() whose every possible path is written in the code and ends with .json (lower case) reads a JSON file: it is not code built at runtime. A module named by a string written in the code (require("x"), import("x"), __import__("x"), importlib.import_module("x")) is an ordinary import. A connection to the Docker socket (a path ending with docker.sock) can control Docker on your computer: it lights "Runs commands".
 
 - In plain words: **Can act on your computer**. The code can change files, run commands or touch secrets. Some tools need this. Advice: Check that this is what you want. Give it only the folder or the keys it needs.
 - Visible when reading the code: yes

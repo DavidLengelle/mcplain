@@ -47,6 +47,7 @@ from mcplain.adapters.report import (
     RawTool,
 )
 from mcplain.capabilities import (
+    DOCKER_SOCKET_SUFFIX,
     JAVASCRIPT_BASE64_ENCODINGS,
     JAVASCRIPT_BUFFER_DECODERS,
     JAVASCRIPT_CLIENT_URL_KEYS,
@@ -56,10 +57,12 @@ from mcplain.capabilities import (
     JAVASCRIPT_OFFLINE_PARTS,
     JAVASCRIPT_OPEN_FUNCTIONS,
     JAVASCRIPT_RULES,
+    JAVASCRIPT_SOCKET_CONNECTS,
     JAVASCRIPT_STRING_TIMERS,
     JAVASCRIPT_URL_GLOBALS,
     JAVASCRIPT_URL_KEYS,
     JAVASCRIPT_WRITE_FLAG_CHARS,
+    LOCAL_HOSTS,
     NETWORK_BODY_KEYS,
     NETWORK_CLIENT_METHODS,
     NETWORK_SEND_METHODS,
@@ -2089,6 +2092,10 @@ class _JavaScriptFile:
             if imported:
                 kind = RuleKind.MODULE
             rule = match_rule(JAVASCRIPT_RULES, qualified, kind)
+            local = self.local_connection(qualified, arguments)
+            if local is not None:
+                self._add(local, call, qualified)
+                return
             if rule is not None and rule.capability is Capability.NETWORK:
                 target = self._network_url_kind(qualified, arguments)
                 self._add(rule.capability, call, qualified, target, self._sends(qualified, arguments))
@@ -2103,6 +2110,38 @@ class _JavaScriptFile:
             rule = match_rule(JAVASCRIPT_RULES, method, RuleKind.METHOD)
             if rule is not None:
                 self._add(rule.capability, call, "." + method)
+
+    def local_connection(self, qualified: str, arguments: list[Node]) -> Capability | None:
+        """Tell whether net.connect() reaches this computer only: a socket path or a port alone, or a local host"""
+
+        if qualified not in JAVASCRIPT_SOCKET_CONNECTS:
+            return None
+        values = [argument for argument in arguments if unwrap(argument) is not None]
+        values = [argument for argument in values if unwrap(argument).type not in FUNCTION_TYPES]
+        if not values:
+            return None
+        options = self._as_object(values[0])
+        path: Node | None = None
+        if options is not None:
+            if len(values) > 1:
+                return None
+            host = self._object_value(options, "host")
+            path = self._object_value(options, "path")
+            if host is not None and self.static_text(host).value not in LOCAL_HOSTS:
+                return None
+            if host is None and path is None:
+                return None
+        elif len(values) == 1:
+            path = values[0]
+        elif len(values) == 2:
+            host_text = self.static_text(values[1])
+            if host_text.dynamic or host_text.value not in LOCAL_HOSTS:
+                return None
+        else:
+            return None
+        if path is not None and self.static_text(path).value.endswith(DOCKER_SOCKET_SUFFIX):
+            return Capability.DOCKER_SOCKET
+        return Capability.LOCAL_CONNECTION
 
     def _json_require(self, node: Node) -> bool:
         """Tell whether every possible path of a require ends with .json written in the code, a JSON file read"""

@@ -20,6 +20,7 @@ from mcplain.adapters.dataflow import (
     Loop,
     Member,
     Name,
+    Nested,
     Operation,
     Resolve,
     Result,
@@ -617,7 +618,7 @@ class JavaScriptLowering:
         if kind == "object":
             return self._object(node)
         if kind == "array":
-            return Union(tuple(self.expr(child) for child in node.named_children))
+            return Union(tuple(Nested(self.expr(child)) for child in node.named_children))
         if kind == "assignment_expression":
             left = node.child_by_field_name("left")
             if left is None:
@@ -689,9 +690,9 @@ class JavaScriptLowering:
         parts: list[Expr] = []
         for child in node.named_children:
             if child.type == "pair":
-                parts.append(self.expr(child.child_by_field_name("value")))
+                parts.append(Nested(self.expr(child.child_by_field_name("value"))))
             elif child.type == "shorthand_property_identifier":
-                parts.append(Name(node_text(child)))
+                parts.append(Nested(Name(node_text(child))))
             elif child.type == "spread_element":
                 parts.append(self.expr(child))
         return Union(tuple(parts))
@@ -855,6 +856,8 @@ class JavaScriptLowering:
         if imported:
             kind = RuleKind.MODULE
         rule = match_rule(JAVASCRIPT_RULES, qualified, kind)
+        if self.file.local_connection(qualified, arguments) is not None:
+            return Operation(tuple(inputs.items), offset)
         if rule is not None and rule.capability is Capability.NETWORK:
             return self._network(inputs, arguments, offset, qualified)
         if qualified.rsplit(".", 1)[-1] in JAVASCRIPT_TOOL_BUILDERS:
