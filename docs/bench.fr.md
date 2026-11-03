@@ -109,8 +109,11 @@ images, lance la pile avec docker compose, puis le banc sur les dernières versi
 - Le résumé (compteurs, pourcentage de verdicts clairs, serveurs dont la couleur ou la version a changé) est
   dans la page du run, onglet « Summary ».
 - Les résultats complets sont dans l'artefact `bench-results`, gardé 30 jours.
-- Le workflow **échoue** si la couleur d'un serveur change par rapport à `bench/baseline.json`, ou si un témoin
-  n'a pas sa couleur attendue. GitHub t'envoie alors un e-mail : c'est l'alerte.
+- Le workflow **échoue** si la couleur d'un serveur change par rapport à `bench/baseline.json`, si un témoin
+  n'a pas sa couleur attendue, ou si un vrai paquet est rouge. GitHub t'envoie alors un e-mail : c'est l'alerte.
+- Un serveur rouge n'est jamais nommé sur GitHub : le résumé et l'artefact disent « red #1 (3f9a0c21) », son
+  numéro et une empreinte courte de son nom (option `--mask-red`). Pour savoir de quel serveur il s'agit,
+  relance le banc en local : la ligne du serveur rouge porte la même empreinte.
 
 Pour le lancer à la main, sans `gh` : sur GitHub, onglet **Actions**, workflow **bench** à gauche, bouton
 **Run workflow**, branche `main`, puis **Run workflow**.
@@ -152,10 +155,11 @@ git add bench/baseline.json
 git commit -m "test: nouvelle référence du banc après vérification"
 ```
 
-La commande `baseline` laisse de côté, sans les nommer, deux sortes de serveurs : les rouges (un rouge sur un
-vrai paquet se vérifie d'abord à la main, voir la partie 7) et les délais dépassés (ce n'est pas une couleur
-vérifiée). Le nombre de serveurs laissés de côté est dans le champ `left_out`. Tant qu'un serveur n'est pas dans
-la référence, un changement de sa couleur ne déclenche pas d'alerte : refais la référence dès que possible.
+La commande `baseline` laisse de côté, sans les nommer, les serveurs rouges : un rouge sur un vrai paquet se
+vérifie d'abord à la main (voir la partie 7). Leur nombre est dans le champ `reds_left_out`.
+
+Un délai dépassé de l'atelier se relance une fois, seul (`uv run python bench.py run --only <id>
+--concurrency 1`). S'il dépasse encore, c'est une vraie cause de gris : la référence le garde en gris.
 
 ## 7. Un rouge sur un vrai paquet
 
@@ -163,13 +167,19 @@ Un rouge sur un paquet publié est soit un faux rouge (un défaut du moteur), so
 Dans les deux cas, son nom ne doit être écrit **ni dans un commit, ni dans un fichier suivi par git**, tant
 que David n'a pas tranché. C'est pour cela que :
 
-- les résumés et la sortie du banc remplacent le nom d'un serveur rouge par « name hidden » ;
+- les résumés et la sortie du banc remplacent le nom d'un serveur rouge par « red #n (empreinte) » ;
 - les résultats complets (`bench/results/*.json`) restent hors de git ;
+- en CI, l'option `--mask-red` masque aussi le nom, l'entrée et la version dans l'artefact ;
 - `bench.py baseline` laisse les rouges hors de la référence ;
 - sans référence, le résumé ne liste pas les serveurs (une comparaison de deux listes trahirait les noms cachés).
 
-L'artefact de la CI, lui, contient les noms : il n'est pas dans git, mais un compte GitHub connecté peut le
-télécharger.
+### Le dossier privé
+
+L'enquête sur chaque rouge (règle, fichier, ligne, passage de code, avis) est écrite dans `bench/private/`. Ce
+dossier est dans `.gitignore` : il reste sur la machine de David et n'est jamais commité ni envoyé sur GitHub.
+Pourquoi : tant que la décision n'est pas prise, accuser un vrai paquet en public serait injuste s'il s'agit
+d'un faux rouge, et dangereux s'il s'agit d'un vrai paquet malveillant (son auteur serait prévenu). Le contenu
+de ce dossier n'est décrit nulle part ailleurs.
 
 ## 8. Avant et après la séance 7
 
