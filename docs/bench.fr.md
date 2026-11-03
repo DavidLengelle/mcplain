@@ -112,8 +112,13 @@ images, lance la pile avec docker compose, puis le banc sur les dernières versi
 - Le workflow **échoue** si la couleur d'un serveur change par rapport à `bench/baseline.json`, si un témoin
   n'a pas sa couleur attendue, ou si un vrai paquet est rouge. GitHub t'envoie alors un e-mail : c'est l'alerte.
 - Un serveur rouge n'est jamais nommé sur GitHub : le résumé et l'artefact disent « red #1 (3f9a0c21) », son
-  numéro et une empreinte courte de son nom (option `--mask-red`). Pour savoir de quel serveur il s'agit,
-  relance le banc en local : la ligne du serveur rouge porte la même empreinte.
+  numéro et une empreinte courte de son nom (option `--mask-red`). Les rouges sont toujours rangés en fin de
+  liste, pour que leur place ne trahisse pas leur nom.
+- L'empreinte est calculée avec une clé secrète (HMAC) : sans la clé, personne ne peut retrouver le nom à partir
+  de la liste publique `servers.toml`. La clé est dans `bench/private/fingerprint.key` sur la machine de David,
+  et dans le secret GitHub `MCPLAIN_BENCH_KEY` (Settings, Secrets and variables, Actions). Sans ce secret, la CI
+  écrit seulement « red #1 ». Pour savoir de quel serveur il s'agit, relance le banc en local : la ligne du
+  serveur rouge porte la même empreinte.
 
 Pour le lancer à la main, sans `gh` : sur GitHub, onglet **Actions**, workflow **bench** à gauche, bouton
 **Run workflow**, branche `main`, puis **Run workflow**.
