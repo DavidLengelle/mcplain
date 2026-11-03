@@ -51,6 +51,7 @@ from mcplain.capabilities import (
     PYTHON_CLIENT_URL_KEYWORDS,
     PYTHON_ENV_GETTERS,
     PYTHON_ENV_MAPPINGS,
+    PYTHON_IMPORT_LOADERS,
     PYTHON_NETWORK_CLIENTS,
     PYTHON_OFFLINE_PARTS,
     PYTHON_OPEN_FUNCTIONS,
@@ -1650,6 +1651,8 @@ class _PythonFile:
                     key = positional[0]
                 self._env_access(call, key)
                 return
+            if qualified in PYTHON_IMPORT_LOADERS and self._literal_module(arguments):
+                return
             kind = RuleKind.GLOBAL
             if imported:
                 kind = RuleKind.MODULE
@@ -1669,6 +1672,14 @@ class _PythonFile:
             rule = match_rule(PYTHON_RULES, method, RuleKind.METHOD)
             if rule is not None:
                 self._add(rule.capability, call, "." + method)
+
+    def _literal_module(self, arguments: Node | None) -> bool:
+        """Tell whether an import call names its module with a string written in the code, an ordinary import"""
+
+        positional, _ = split_arguments(arguments)
+        if not positional or positional[0].type != "string":
+            return False
+        return not self._decode_string(positional[0]).dynamic
 
     def _client_call(self, call: Node, callee: Node, arguments: Node | None) -> bool:
         """Record client.get(url) and the like when client holds a known network client"""

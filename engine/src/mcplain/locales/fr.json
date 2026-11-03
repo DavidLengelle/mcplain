@@ -356,7 +356,7 @@
   "cli.source.linked_commit": "Commit consulté sur la branche {reference}",
   "cli.source.linked_commit_note": "pas forcément celui qui a servi à fabriquer le paquet",
   "rule.O08.title": "Capacité puissante",
-  "rule.O08.explanation": "Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin. Un require() dont tous les chemins possibles sont écrits dans le code et finissent par .json (en minuscules) lit un fichier JSON : ce n'est pas du code construit à l'exécution.",
+  "rule.O08.explanation": "Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin. Un require() dont tous les chemins possibles sont écrits dans le code et finissent par .json (en minuscules) lit un fichier JSON : ce n'est pas du code construit à l'exécution. Un module nommé par un texte écrit dans le code (require(\"x\"), import(\"x\"), __import__(\"x\"), importlib.import_module(\"x\")) est un import ordinaire.",
   "rule.O08.false_positive": "Un outil qui écrit seulement un fichier temporaire dans /tmp pour son propre usage.",
   "rule.O08.plain_title": "Peut agir sur ton ordinateur",
   "rule.O08.plain_found": "Le code peut modifier des fichiers, lancer des commandes ou toucher à des secrets. Certains outils en ont besoin.",

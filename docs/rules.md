@@ -331,7 +331,7 @@ A tool name or description contains one invisible character that its context doe
 
 **Powerful capability**: ORANGE, a power to be aware of (nothing suspicious found).
 
-This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does. A require() whose every possible path is written in the code and ends with .json (lower case) reads a JSON file: it is not code built at runtime.
+This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does. A require() whose every possible path is written in the code and ends with .json (lower case) reads a JSON file: it is not code built at runtime. A module named by a string written in the code (require("x"), import("x"), __import__("x"), importlib.import_module("x")) is an ordinary import.
 
 - In plain words: **Can act on your computer**. The code can change files, run commands or touch secrets. Some tools need this. Advice: Check that this is what you want. Give it only the folder or the keys it needs.
 - Visible when reading the code: yes

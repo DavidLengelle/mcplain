@@ -436,6 +436,7 @@ JAVASCRIPT_NETWORK_LIBRARIES: frozenset[str] = _network_libraries(JAVASCRIPT_RUL
 NOT_A_REQUEST: frozenset[str] = frozenset(
     {"socket.socket", "socket.socketpair", "axios.isAxiosError", "axios.isCancel"}
 )
+PYTHON_IMPORT_LOADERS: frozenset[str] = frozenset({"__import__", "importlib.import_module", "importlib.__import__"})
 PYTHON_OFFLINE_PARTS: frozenset[str] = frozenset(
     {
         "urllib3.util.retry",

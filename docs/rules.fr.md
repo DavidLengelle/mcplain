@@ -331,7 +331,7 @@ Le nom ou la description d'un outil contient un caractère invisible que le cont
 
 **Capacité puissante** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
-Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin. Un require() dont tous les chemins possibles sont écrits dans le code et finissent par .json (en minuscules) lit un fichier JSON : ce n'est pas du code construit à l'exécution.
+Ce code utilise une capacité puissante : lancer des commandes, écrire ou supprimer des fichiers, lire des secrets, exécuter du code construit à l'exécution, citer un chemin sensible ou exécuter du code à l'installation. Certains outils en ont besoin ; vérifie que celui-ci en a vraiment besoin. Un require() dont tous les chemins possibles sont écrits dans le code et finissent par .json (en minuscules) lit un fichier JSON : ce n'est pas du code construit à l'exécution. Un module nommé par un texte écrit dans le code (require("x"), import("x"), __import__("x"), importlib.import_module("x")) est un import ordinaire.
 
 - En clair : **Peut agir sur ton ordinateur**. Le code peut modifier des fichiers, lancer des commandes ou toucher à des secrets. Certains outils en ont besoin. Conseil : Vérifie que c'est bien ce que tu veux. Donne-lui seulement le dossier ou les clés dont il a besoin.
 - Visible en lisant le code : oui

@@ -131,3 +131,26 @@ def test_ordinary_names_are_not_sensitive(text: str) -> None:
     """Ordinary file names that only look like sensitive ones are not reported"""
 
     assert find_sensitive_paths(text) == []
+
+
+@pytest.mark.parametrize(
+    ("call", "dynamic"),
+    [
+        ('__import__("pkgutil")', False),
+        ('importlib.import_module("json")', False),
+        ('importlib.import_module(".storage", package=__name__)', False),
+        ('importlib.__import__("json")', False),
+        ("__import__(name)", True),
+        ("importlib.import_module(name)", True),
+        ('importlib.import_module(f"plugins.{name}")', True),
+        ('importlib.import_module("plugins." + name)', True),
+    ],
+)
+def test_python_imports_by_a_written_name_are_not_dynamic_code(tmp_path: Path, call: str, dynamic: bool) -> None:
+    """A module named by a string written in the code is an ordinary import, like require("x") in JavaScript"""
+
+    source = f"import importlib\n\n\ndef work(name):\n    return {call}\n"
+    (tmp_path / "server.py").write_text(source, encoding="utf-8")
+    analysis = PythonAdapter().analyze(tmp_path)
+    found = [finding.capability for finding in analysis.findings]
+    assert (Capability.DYNAMIC_CODE in found) is dynamic

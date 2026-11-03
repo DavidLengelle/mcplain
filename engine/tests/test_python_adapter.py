@@ -334,7 +334,7 @@ def run(data: str) -> None:
     base64.b64decode(data)
     eval(data)
     exec(data)
-    __import__("os")
+    __import__(data)
     urllib.request.urlopen("https://example.org")
     environ["GITHUB_TOKEN"]
     os.getenv("LOG_LEVEL")
