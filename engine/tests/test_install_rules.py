@@ -7,6 +7,7 @@ from pathlib import Path
 from mcplain.analyze import analyze_directory
 from mcplain.lamps import LampId, LampState
 from mcplain.models import AnalysisResult
+from mcplain.rules.red import shortened
 
 
 def rules(result: AnalysisResult) -> list[str]:
@@ -110,6 +111,31 @@ def test_an_install_request_built_from_an_environment_variable_stays_red(fixture
     """engine/tests/fixtures/rules/R10/false_positive takes its mirror from a variable: not proven, so red"""
 
     assert "R10" in rules(analyze_directory(fixtures / "rules" / "R10" / "false_positive"))
+
+
+def test_a_red_install_request_names_the_written_domains_and_what_the_install_code_reads(fixtures: Path) -> None:
+    """R10 says, from the engine findings only, the domains written in the file and what the install code reads"""
+
+    result = analyze_directory(fixtures / "rules" / "R10" / "false_positive")
+    [alert] = [alert for alert in result.verdict.alerts if alert.rule == "R10"]
+    assert alert.title == "rule.R10.request.plain_title"
+    assert alert.params == {"domains": "downloads.example.invalid", "data": "NOTES_MIRROR"}
+
+
+def test_a_red_install_request_without_reads_names_only_the_domains(fixtures: Path) -> None:
+    """User and machine names are not findings of the engine: only the domain is named, nothing is invented"""
+
+    result = analyze_directory(fixtures / "rules" / "R10" / "positive")
+    [alert] = [alert for alert in result.verdict.alerts if alert.rule == "R10"]
+    assert alert.title == "rule.R10.request_domains.plain_title"
+    assert alert.params == {"domains": "telemetry.attacker.invalid"}
+
+
+def test_a_long_list_of_install_reads_is_shortened() -> None:
+    """Past the limit, the list keeps the first items and counts the others"""
+
+    assert shortened(["A", "B", "C"], 2) == "A, B, +1"
+    assert shortened(["A"], 2) == "A"
 
 
 def install_package(tmp_path: Path, script: str, extra: dict[str, object] | None = None) -> Path:

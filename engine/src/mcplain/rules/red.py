@@ -1,6 +1,7 @@
 """Red rules: code that hides, steals, plants or runs something, or a serious flaw an attacker can use"""
 
 from mcplain.capabilities import MCP_CLIENT_CONFIG, Capability, PathKind, find_sensitive_paths, mcp_client
+from mcplain.config import DEFAULT_LIMITS
 from mcplain.flows import ROLE_PATH, FlowSinkKind, FlowSourceKind
 from mcplain.models import (
     Alert,
@@ -27,6 +28,17 @@ from mcplain.rules.text import ToolText, hidden_characters, tool_texts
 
 CODE_SINKS: frozenset[FlowSinkKind] = frozenset({FlowSinkKind.CODE, FlowSinkKind.SHELL})
 TAMPERING_KINDS: frozenset[PathKind] = frozenset({PathKind.AUTOSTART, PathKind.TOOL_CONFIG})
+INSTALL_READS: tuple[Capability, ...] = (
+    Capability.ENV_READ,
+    Capability.ENV_READ_SECRET,
+    Capability.SENSITIVE_PATH,
+    Capability.FS_READ,
+    Capability.PROCESS_EXEC,
+)
+R10_REQUEST_TITLE = "rule.R10.request.plain_title"
+R10_REQUEST_DOMAINS_TITLE = "rule.R10.request_domains.plain_title"
+R10_REQUEST_READS_TITLE = "rule.R10.request_reads.plain_title"
+LIST_SEPARATOR = ", "
 
 
 def text_alert(rule: Rule, item: ToolText, quote: str, detail: str | None = None) -> Alert:
@@ -91,6 +103,63 @@ def install_requests(context: RuleContext) -> list[Finding]:
         for finding in context.outside_findings()
         if finding.capability is Capability.NETWORK and finding.outside is OutsideKind.INSTALL
     ]
+
+
+def install_reads(context: RuleContext) -> list[str]:
+    """Return what the install-time code reads, as the engine names it: variables first, then files and commands"""
+
+    found: list[str] = []
+    for capability in INSTALL_READS:
+        places = sorted(
+            (finding.file, finding.line, finding.detail)
+            for finding in context.outside_findings()
+            if finding.capability is capability and finding.outside is OutsideKind.INSTALL and finding.detail
+        )
+        for _, _, detail in places:
+            if detail is not None and detail not in found:
+                found.append(detail)
+    return found
+
+
+def written_domains(context: RuleContext, file: str) -> list[str]:
+    """Return the domains written in one server code file, in order of appearance"""
+
+    found: list[str] = []
+    if context.server is None:
+        return found
+    for item in sorted(context.server.domains, key=lambda ref: ref.line):
+        if item.file == file and item.location_kind is LocationKind.SERVER_CODE and item.domain not in found:
+            found.append(item.domain)
+    return found
+
+
+def shortened(items: list[str], limit: int) -> str:
+    """Join a list, keeping the first items and counting the others"""
+
+    text = LIST_SEPARATOR.join(items[:limit])
+    if len(items) > limit:
+        text = f"{text}{LIST_SEPARATOR}+{len(items) - limit}"
+    return text
+
+
+def describe_install_request(alert: Alert, context: RuleContext, finding: Finding) -> None:
+    """Give an install request alert the domains written in its file and what the install code reads"""
+
+    domains = written_domains(context, finding.file)
+    if finding.url_host is not None and finding.url_host not in domains:
+        domains.insert(0, finding.url_host)
+    reads = install_reads(context)
+    limit = DEFAULT_LIMITS.max_install_reads
+    if domains:
+        alert.params["domains"] = shortened(domains, limit)
+    if reads:
+        alert.params["data"] = shortened(reads, limit)
+    if domains and reads:
+        alert.title = R10_REQUEST_TITLE
+    elif domains:
+        alert.title = R10_REQUEST_DOMAINS_TITLE
+    elif reads:
+        alert.title = R10_REQUEST_READS_TITLE
 
 
 def plain_install_request(finding: Finding) -> bool:
@@ -329,7 +398,9 @@ class InstallGoesOnline(Rule):
                 alerts.append(self.alert(file=script.file, line=script.line, quote=script.command, detail=script.kind))
         for finding in install_requests(context):
             if not plain_install_request(finding):
-                alerts.append(self.finding_alert(finding, None, finding.detail))
+                alert = self.finding_alert(finding, None, finding.detail)
+                describe_install_request(alert, context, finding)
+                alerts.append(alert)
         return alerts
 
 
