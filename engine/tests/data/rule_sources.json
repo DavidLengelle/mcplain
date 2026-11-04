@@ -1,0 +1,32 @@
+{
+  "recorded_on": "2026-11-04",
+  "urls": [
+    "https://attack.mitre.org/techniques/T1098/004/",
+    "https://attack.mitre.org/techniques/T1105/",
+    "https://attack.mitre.org/techniques/T1546/004/",
+    "https://cwe.mitre.org/data/definitions/201.html",
+    "https://cwe.mitre.org/data/definitions/494.html",
+    "https://cwe.mitre.org/data/definitions/506.html",
+    "https://cwe.mitre.org/data/definitions/78.html",
+    "https://embracethered.com/blog/posts/2024/hiding-and-finding-text-with-unicode-tags/",
+    "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+    "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/",
+    "https://github.com/DavidLengelle/mcplain/blob/main/CLAUDE.md",
+    "https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP01-2025-Token-Mismanagement-and-Secret-Exposure.md",
+    "https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP02-2025%E2%80%93Privilege-Escalation-via-Scope-Creep.md",
+    "https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md",
+    "https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP04-2025%E2%80%93Software-Supply-Chain-Attacks%26Dependency-Tampering.md",
+    "https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP05-2025%E2%80%93Command-Injection%26Execution.md",
+    "https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP06-2025%E2%80%93Intent-Flow-Subversion.md",
+    "https://github.com/ossf/malicious-packages",
+    "https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks",
+    "https://modelcontextprotocol.io/specification/2025-11-25/server/tools",
+    "https://osv.dev/",
+    "https://osv.dev/vulnerability/MAL-2024-11608",
+    "https://securitylabs.datadoghq.com/articles/shai-hulud-2.0-npm-worm/",
+    "https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/",
+    "https://thehackernews.com/2025/09/first-malicious-mcp-server-found.html",
+    "https://trojansource.codes/",
+    "https://unit42.paloaltonetworks.com/npm-supply-chain-attack/"
+  ]
+}

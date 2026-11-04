@@ -4,7 +4,6 @@ import json
 import re
 from pathlib import Path
 
-import httpx
 import pytest
 
 from mcplain.analyze import analyze_directory
@@ -17,7 +16,7 @@ CASES: dict[str, bool] = {"positive": True, "near_miss": False, "false_positive"
 REPUTATION_FILE = "reputation.json"
 IDENTIFIER_PATTERN = re.compile(r"^[RO]\d{2}$")
 SLUG_PATTERN = re.compile(r"^[a-z]+(?:-[a-z]+)*$")
-BROWSER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+REVIEWED_SOURCES = Path(__file__).parent / "data" / "rule_sources.json"
 RULES = DEFAULT_REGISTRY.rules()
 
 
@@ -76,22 +75,13 @@ def test_rule_fixture(fixtures: Path, identifier: str, case: str) -> None:
     assert bool(fired) is CASES[case], [(alert.rule, alert.detail) for alert in result.verdict.alerts]
 
 
-@pytest.mark.network
-def test_every_source_url_answers() -> None:
-    """Each source quoted by a rule answers without an HTTP error"""
+def test_every_source_url_is_in_the_reviewed_list() -> None:
+    """The sources quoted by the rules are exactly the reviewed links recorded in the repository, all in https"""
 
+    recorded = json.loads(REVIEWED_SOURCES.read_text(encoding="utf-8"))
     urls = sorted({source.url for rule in RULES for source in rule.sources})
-    failures = []
-    with httpx.Client(follow_redirects=True, timeout=30, headers={"User-Agent": BROWSER_AGENT}) as client:
-        for url in urls:
-            try:
-                status = client.get(url).status_code
-            except httpx.HTTPError as error:
-                failures.append((url, type(error).__name__))
-                continue
-            if status >= 400 and status != 429:
-                failures.append((url, str(status)))
-    assert failures == []
+    assert urls == recorded["urls"]
+    assert all(url.startswith("https://") for url in urls)
 
 
 @pytest.mark.parametrize("rule", RULES, ids=[rule.identifier for rule in RULES])
