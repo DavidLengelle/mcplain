@@ -338,11 +338,12 @@ def can_hide_text(item: InvisibleUnicode) -> bool:
 
 
 def code_hides_text(server: ServerAnalysis, tool: str | None) -> bool:
-    """Tell whether counted code outside the tool texts holds bidi controls, tags or variation selectors"""
+    """Tell whether counted code outside the tool texts holds bidi controls, tags or variation selectors not written as escapes"""
 
     return any(
         item.location_kind is LocationKind.SERVER_CODE
         and not item.in_description
+        and not item.escaped
         and can_hide_text(item)
         and (tool is None or item.tool == tool)
         for item in server.invisible_unicode
@@ -362,7 +363,7 @@ def attach_lamps(result: AnalysisResult) -> None:
     red_rules = {alert.rule for alert in alerts if alert.color is VerdictColor.RED}
     for server in result.servers:
         tools = [tool for tool in server.tools if tool.location_kind is LocationKind.SERVER_CODE]
-        capabilities = {finding.capability for finding in counted_findings(server)}
+        capabilities = {finding.capability for finding in counted_findings(server) if finding.unused_library is None}
         server.network_not_followed = network_not_followed(server)
         if server.network_not_followed:
             capabilities.add(Capability.NETWORK)

@@ -10,6 +10,7 @@ import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser
 
 from mcplain.adapters.base import Adapter
+from mcplain.adapters.bundles import MODULE_WRAPPERS, library_regions
 from mcplain.adapters.common import (
     ANNOTATION_KEYS,
     BOOLEAN_NODES,
@@ -299,6 +300,27 @@ def enclosing_function(node: Node) -> str | None:
     return None
 
 
+def _is_module_wrapper(function: Node) -> bool:
+    """Tell whether a function is the body of a bundled module, passed to __commonJS or __esm by the bundler"""
+
+    current = function
+    parent = current.parent
+    while parent is not None and parent.type == "parenthesized_expression":
+        current = parent
+        parent = current.parent
+    if parent is not None and parent.type == "pair":
+        current = parent
+        parent = current.parent
+    if parent is not None and parent.type == "object" and current.type in ("pair", "method_definition"):
+        current = parent
+        parent = current.parent
+    if parent is None or parent.type != "arguments" or parent.parent is None:
+        return False
+    call = parent.parent
+    callee = call.child_by_field_name("function")
+    return call.type == "call_expression" and callee is not None and node_text(callee) in MODULE_WRAPPERS
+
+
 def _runs_immediately(function: Node) -> bool:
     """Tell whether an inline function runs at once, like a map, then or new Promise callback"""
 
@@ -557,6 +579,7 @@ class _JavaScriptFile:
         self._find_calls()
         self._find_strings()
         self._find_comments_and_copies()
+        self.report.library_regions = library_regions(self.report.source, self.report.comments)
         self.report.flow_functions = JavaScriptLowering(self).functions()
         return self.report
 
@@ -876,6 +899,8 @@ class _JavaScriptFile:
             for node in self.nodes[node_type]:
                 if not _runs_immediately(node):
                     self.report.function_ranges.append((node.start_byte, node.end_byte))
+                if _is_module_wrapper(node):
+                    self.report.module_wrappers.append((node.start_byte, node.end_byte))
         for node in self.nodes["function_declaration"] + self.nodes["generator_function_declaration"]:
             name = node.child_by_field_name("name")
             if name is not None:

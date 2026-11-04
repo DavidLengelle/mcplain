@@ -283,10 +283,38 @@ def test_direction_marks_in_the_code_do_not_light_the_hidden_text_lamp(tmp_path:
     assert [item.codepoints for item in server.invisible_unicode] == [["U+200E", "U+200F"]]
 
 
-def test_a_bidi_control_in_the_code_still_lights_the_hidden_text_lamp(tmp_path: Path) -> None:
-    """U+202E is a bidi control that R01 counts: the lamp is on, as before"""
+def test_a_bidi_control_written_as_an_escape_in_data_does_not_light_the_lamp(tmp_path: Path) -> None:
+    """U+202E written as an escape in a data table no longer lights the lamp (decision of 3 November 2026)"""
 
-    assert hidden_text_state(tmp_path, ENCODING_TABLE.replace("\\u200e\\u200f", "\\u202e")) is LampState.ON
+    assert hidden_text_state(tmp_path, ENCODING_TABLE.replace("\\u200e\\u200f", "\\u202e")) is LampState.OFF
+    server = analyze_directory(tmp_path).servers[0]
+    assert [(item.codepoints, item.escaped) for item in server.invisible_unicode] == [(["U+202E"], True)]
+
+
+def test_a_bidi_control_written_as_itself_in_the_code_still_lights_the_lamp(tmp_path: Path) -> None:
+    """U+202E written as the character itself in a string is a bidi control that R01 counts: the lamp turns red"""
+
+    assert hidden_text_state(tmp_path, ENCODING_TABLE.replace("\\u200e\\u200f", "\u202e")) is LampState.DANGER
+
+
+def test_a_tag_written_as_itself_lights_the_lamp_and_its_escape_does_not(tmp_path: Path) -> None:
+    """Tag characters hide text: written as themselves they light the lamp, written as escapes they do not"""
+
+    hidden = "\U000E0068\U000E0069"
+    assert hidden_text_state(tmp_path, ENCODING_TABLE.replace("\\u200e\\u200f", hidden)) is LampState.ON
+    escaped = "\\u{E0068}\\u{E0069}"
+    assert hidden_text_state(tmp_path, ENCODING_TABLE.replace("\\u200e\\u200f", escaped)) is LampState.OFF
+
+
+def test_an_escaped_bidi_control_in_a_description_is_still_red(tmp_path: Path) -> None:
+    """R01 does not change for tool texts: an escaped bidi control in a description is still red and lights the lamp"""
+
+    source = ENCODING_TABLE.replace("Count the letters of the table", "Count the \\u202eletters")
+    (tmp_path / "package.json").write_text('{"name": "letters", "dependencies": {"@modelcontextprotocol/sdk": "^1"}}')
+    (tmp_path / "index.js").write_text(source, encoding="utf-8")
+    result = analyze_directory(tmp_path)
+    assert "R01" in {alert.rule for alert in result.verdict.alerts}
+    assert states(result.servers[0].lamps)[LampId.HIDDEN_TEXT] is LampState.DANGER
 
 
 FLAG_SERVER = """from mcp.server.fastmcp import FastMCP
@@ -313,4 +341,18 @@ def test_an_emoji_flag_in_the_code_is_not_hidden_text(tmp_path: Path) -> None:
     assert states(server.lamps)[LampId.HIDDEN_TEXT] is LampState.OFF
     (tmp_path / "server.py").write_text(FLAG_SERVER.replace("\\U0001F3F4", "A"), encoding="utf-8")
     server = analyze_directory(tmp_path).servers[0]
+    assert states(server.lamps)[LampId.HIDDEN_TEXT] is LampState.OFF
+    raw_tags = FLAG_SERVER.replace("\\U0001F3F4", "A").replace("\\U000E0067", "\U000E0067")
+    (tmp_path / "server.py").write_text(raw_tags, encoding="utf-8")
+    server = analyze_directory(tmp_path).servers[0]
     assert states(server.lamps)[LampId.HIDDEN_TEXT] is LampState.ON
+
+
+def test_direction_marks_written_as_themselves_stay_off_and_raise_no_r01(tmp_path: Path) -> None:
+    """U+200E and U+200F written as themselves in a data table: no R01, and the lamp stays off"""
+
+    source = ENCODING_TABLE.replace("\\u200e\\u200f", "\u200e\u200f")
+    assert hidden_text_state(tmp_path, source) is LampState.OFF
+    result = analyze_directory(tmp_path)
+    assert "R01" not in {alert.rule for alert in result.verdict.alerts}
+    assert [item.escaped for item in result.servers[0].invisible_unicode] == [False]

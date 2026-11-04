@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from mcplain.adapters.bundles import LibraryRegion
 from mcplain.adapters.common import SourceText, TextValue
 from mcplain.capabilities import Capability
 from mcplain.models import AnnotationValue, DeclarationKind, ToolParameter, TrackingGap, UrlKind
@@ -153,3 +154,5 @@ class FileReport:
     comments: list[tuple[int, str]] = field(default_factory=list)
     copies: list[RawCopy] = field(default_factory=list)
     network_imports: list[RawNetworkImport] = field(default_factory=list)
+    library_regions: list[LibraryRegion] = field(default_factory=list)
+    module_wrappers: list[tuple[int, int]] = field(default_factory=list)

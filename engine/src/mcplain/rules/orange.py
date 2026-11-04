@@ -340,7 +340,7 @@ class PowerfulCapability(Rule):
                     alerts.append(self._capability_alert(finding, tool.name))
         grouped: dict[tuple[str, bool, OutsideKind | None], Finding] = {}
         for finding in context.outside_findings():
-            if finding.capability in POWERFUL_CAPABILITIES:
+            if finding.capability in POWERFUL_CAPABILITIES and finding.unused_library is None:
                 grouped.setdefault((finding.capability.value, finding.shared_by_tools, finding.outside), finding)
         for finding in grouped.values():
             alerts.append(self._capability_alert(finding, None))

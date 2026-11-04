@@ -53,7 +53,7 @@ These imports do not count for the lock (known false positives):
 
 ## The lamps
 
-Every report shows six lamps, for the server and for each tool. A capability found in the code that counts for the verdict lights the lamp: it turns white, for information. A red rule that fires turns it to danger: it turns red. Orange rules never light a red lamp. A plain environment variable read (PORT, LOG_LEVEL) lights nothing. R11 (known malicious package) lights no lamp: it shows in the list of alerts. This table is generated from `engine/src/mcplain/lamps.py`.
+Every report shows six lamps, for the server and for each tool. A capability found in the code that counts for the verdict lights the lamp: it turns white, for information. A red rule that fires turns it to danger: it turns red. Orange rules never light a red lamp. A plain environment variable read (PORT, LOG_LEVEL) lights nothing. R11 (known malicious package) lights no lamp: it shows in the list of alerts. This table is generated from `engine/src/mcplain/lamps.py`. Code of a library embedded in a bundled package (a module that the bundler, esbuild, bun or rolldown, marks with a node_modules path) that nothing calls lights no lamp; code run when that module loads always does. In doubt (no mark, or unknown end of the module), it counts. For "Hidden text", an invisible character written as an escape (\u202e) in data of the code does not light the lamp; written as itself, it does. Tool names and descriptions still follow R01 and O07.
 
 | Lamp | Identifier | Lit by | Red when |
 | --- | --- | --- | --- |
@@ -334,7 +334,7 @@ A tool name or description contains one invisible character that its context doe
 
 **Powerful capability**: ORANGE, a power to be aware of (nothing suspicious found).
 
-This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does. A require() whose every possible path is written in the code and ends with .json (lower case) reads a JSON file: it is not code built at runtime. A module named by a string written in the code (require("x"), import("x"), __import__("x"), importlib.import_module("x")) is an ordinary import. A connection to the Docker socket (a path ending with docker.sock) can control Docker on your computer: it lights "Runs commands".
+This code uses a powerful capability: running commands, writing or deleting files, reading secrets, running code built at runtime, quoting a sensitive path, or running code at install time. Some tools need it; check that this one really does. A require() whose every possible path is written in the code and ends with .json (lower case) reads a JSON file: it is not code built at runtime. A module named by a string written in the code (require("x"), import("x"), __import__("x"), importlib.import_module("x")) is an ordinary import. A connection to the Docker socket (a path ending with docker.sock) can control Docker on your computer: it lights "Runs commands". Code of a library embedded in a bundled package (marked node_modules by the bundler) that nothing calls does not give O08; code run when that module loads does. Red rules count everywhere, called or not.
 
 - In plain words: **Can act on your computer**. The code can change files, run commands or touch secrets. Some tools need this. Advice: Check that this is what you want. Give it only the folder or the keys it needs.
 - Visible when reading the code: yes

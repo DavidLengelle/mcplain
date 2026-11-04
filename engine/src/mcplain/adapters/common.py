@@ -142,6 +142,18 @@ def source_offset(text: TextValue, index: int) -> int:
     return 0
 
 
+def written_raw(text: TextValue, start: int, end: int) -> bool:
+    """Tell whether one character of a decoded string between start and end is written as itself in the source"""
+
+    position = 0
+    for piece in text.pieces:
+        piece_end = position + len(piece.text)
+        if piece.raw and position < end and start < piece_end:
+            return True
+        position = piece_end
+    return False
+
+
 def invisible_category(character: str) -> InvisibleCategory | None:
     """Return the invisible family of one character"""
 

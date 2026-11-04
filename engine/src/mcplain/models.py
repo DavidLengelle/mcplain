@@ -135,6 +135,7 @@ class Finding(BaseModel):
     url_host: str | None = None
     sends: bool | None = None
     plain: bool = False
+    unused_library: str | None = None
 
 
 class FlowPoint(BaseModel):
@@ -320,6 +321,7 @@ class InvisibleUnicode(BaseModel):
     hidden_text: str | None = None
     in_description: bool = False
     in_source: bool = False
+    escaped: bool = False
     tool: str | None = None
     location_kind: LocationKind
 

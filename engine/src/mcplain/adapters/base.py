@@ -15,6 +15,7 @@ from mcplain.adapters.common import (
     is_flag,
     scan_invisible,
     source_offset,
+    written_raw,
 )
 from mcplain.adapters.flow_report import FlowAssembler, ToolScope
 from mcplain.adapters.report import FileReport, PackageContext, RawCall, RawHandler, RawString, RawTool
@@ -284,6 +285,7 @@ class Adapter(ABC):
                 slot.model.findings.append(finding.model_copy(update={"call_chain": chain}))
         startup_roots, install_roots = self._start_regions(graph, reports, locations, starts)
         outside = self._outside(graph, startup_roots, install_roots)
+        loaded = self._loaded_library_code(graph, reports)
         assembler = FlowAssembler(reports, locations, graph, self.limits)
         analysis.flows = assembler.build(scopes + shared_scopes, startup_roots, install_roots)
         server_seen: set[tuple[Capability, str, int]] = set()
@@ -295,7 +297,10 @@ class Adapter(ABC):
                 elif (path, index) in reached:
                     continue
                 elif locations[path] is LocationKind.SERVER_CODE:
-                    update = {"outside": outside.get((path, index), OutsideKind.NEVER_CALLED)}
+                    kind = outside.get((path, index), OutsideKind.NEVER_CALLED)
+                    update = {"outside": kind}
+                    if kind is OutsideKind.NEVER_CALLED and (path, index) not in loaded:
+                        update["unused_library"] = _unused_library(report, index)
                 finding = self._finding(reports, locations, built, path, index)
                 key = (finding.capability, finding.file, finding.line)
                 if key not in server_seen:
@@ -327,6 +332,18 @@ class Adapter(ABC):
                 function = graph.function(*target)
                 startup_roots.append(Region(target[0], function.start, function.end, own_body=True))
         return startup_roots, install_roots
+
+    def _loaded_library_code(self, graph: CallGraph, reports: dict[str, FileReport]) -> set[tuple[str, int]]:
+        """Return the findings that run when a bundled module loads: its wrapper body and what that body calls"""
+
+        roots = [
+            Region(path, start, end, own_body=True)
+            for path, report in reports.items()
+            for start, end in report.module_wrappers
+        ]
+        if not roots:
+            return set()
+        return {(reach.file, reach.index) for reach in graph.walk(roots).reaches}
 
     def _outside(
         self, graph: CallGraph, startup_roots: list[Region], install_roots: list[Region]
@@ -586,10 +603,36 @@ class Adapter(ABC):
                     codepoints=[codepoint_label(character) for character in run.characters],
                     hidden_text=hidden,
                     in_description=in_description,
+                    escaped=not written_raw(raw_string.value, run.index, end),
                     tool=tool_name,
                     location_kind=location,
                 )
             )
+
+
+def _unused_library(report: FileReport, index: int) -> str | None:
+    """Return the bundled package of a never-called finding inside one of its functions, or None when in doubt"""
+
+    raw = report.findings[index]
+    if raw.function is None:
+        return None
+    region = next(
+        (item for item in report.library_regions if item.start <= raw.offset < item.end),
+        None,
+    )
+    if region is None:
+        return None
+    enclosing = [
+        (start, end)
+        for start, end in report.function_ranges
+        if start <= raw.offset < end and region.start <= start and end <= region.end
+    ]
+    if not enclosing:
+        return None
+    innermost = max(enclosing)
+    if innermost in report.module_wrappers:
+        return None
+    return region.package
 
 
 def _tool_name(slots: list[_ToolSlot], offset: int) -> str | None:
