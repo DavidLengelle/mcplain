@@ -1,8 +1,8 @@
 {
-  "engine_version": "0.4.0",
-  "date": "2026-11-03T14:28:14+00:00",
-  "source": "2026-11-03-engine-0.4.0.json",
-  "reds_left_out": 7,
+  "engine_version": "0.5.1",
+  "date": "2026-11-04T08:47:15+00:00",
+  "source": "2026-11-04-engine-0.5.1.json",
+  "reds_left_out": 0,
   "servers": {
     "fetch": {
       "color": "orange",
@@ -94,6 +94,11 @@
       "gray_case": null,
       "version": "2.11.0"
     },
+    "sentry": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.42.0"
+    },
     "supabase": {
       "color": "orange",
       "gray_case": null,
@@ -117,7 +122,7 @@
     "firecrawl": {
       "color": "orange",
       "gray_case": null,
-      "version": "3.36.0"
+      "version": "3.36.1"
     },
     "gcloud": {
       "color": "orange",
@@ -125,8 +130,8 @@
       "version": "0.5.3"
     },
     "launchdarkly": {
-      "color": "orange",
-      "gray_case": null,
+      "color": "gray",
+      "gray_case": "no_tools_found",
       "version": "0.7.2"
     },
     "mongodb": {
@@ -144,10 +149,29 @@
       "gray_case": null,
       "version": "0.4.0"
     },
+    "hostinger": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "3.28.1"
+    },
     "storybook": {
       "color": "gray",
       "gray_case": "no_tools_found",
       "version": "10.6.5"
+    },
+    "desktop-commander": {
+      "color": "red",
+      "gray_case": null,
+      "version": "0.3.1",
+      "verified": true,
+      "rules": [
+        "R10"
+      ]
+    },
+    "gitlab": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.3.20"
     },
     "figma": {
       "color": "orange",
@@ -157,7 +181,12 @@
     "n8n": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.100.0"
+      "version": "2.101.0"
+    },
+    "xcodebuild": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.7.0"
     },
     "ms-365": {
       "color": "orange",
@@ -194,6 +223,11 @@
       "gray_case": null,
       "version": "0.7.0"
     },
+    "workspace": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "2.3.0"
+    },
     "excel": {
       "color": "orange",
       "gray_case": null,
@@ -212,7 +246,7 @@
     "dbt": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.10.0"
+      "version": "2.10.1"
     },
     "pagerduty": {
       "color": "orange",
@@ -228,6 +262,11 @@
       "color": "gray",
       "gray_case": "no_tools_found",
       "version": "0.9.0"
+    },
+    "falcon": {
+      "color": "orange",
+      "gray_case": null,
+      "version": "0.20.2"
     }
   }
 }

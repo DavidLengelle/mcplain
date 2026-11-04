@@ -203,22 +203,22 @@ de ce dossier n'est décrit nulle part ailleurs.
 
 ## 8. Avant et après les séances 7
 
-Trois mesures comptent. La première, faite avant toute correction (moteur 0.2.1). La mesure propre du
-3 novembre 2026 (moteur 0.4.0, règles version 2), qui sert encore de référence publique (`bench/baseline.json`).
-Et la mesure propre du 3 novembre au soir (moteur 0.5.0, règles version 3, séance 7 quater), faite après les
-corrections décidées ce jour-là. Les deux mesures propres ont été faites sur une machine vérifiée avant de
+Quatre mesures comptent. La première, faite avant toute correction (moteur 0.2.1). La mesure propre du
+3 novembre 2026 (moteur 0.4.0, règles version 2). La mesure propre du 3 novembre au soir (moteur 0.5.0, règles
+version 3, séance 7 quater), faite après les corrections décidées ce jour-là. Et la mesure du 4 novembre (moteur
+0.5.1, séance 7 quinquies), qui sert de référence publique (`bench/baseline.json`). Les mesures propres ont été faites sur une machine vérifiée avant de
 commencer (charge basse, aucun conteneur d'un autre projet), avec des images reconstruites et des analyses
 fraîches (aucune servie par le cache).
 
-| | Moteur 0.2.1 (29 octobre) | Moteur 0.4.0 (3 novembre) | Moteur 0.5.0 (3 novembre au soir) |
-| --- | --- | --- | --- |
-| Vert | 3 | 5 | 5 |
-| Orange | 30 | 30 | 36 |
-| Rouge | 7 | 7 | 1 |
-| Gris | 12 | 10 | 10 |
-| Délais dépassés | 0 | 0 | 0 |
-| Échecs à part | 0 | 0 | 0 |
-| Verdicts clairs | 78,4 % | 82,4 % | 82,4 % |
+| | Moteur 0.2.1 (29 octobre) | Moteur 0.4.0 (3 novembre) | Moteur 0.5.0 (3 novembre au soir) | Moteur 0.5.1 (4 novembre) |
+| --- | --- | --- | --- | --- |
+| Vert | 3 | 5 | 5 | 5 |
+| Orange | 30 | 30 | 36 | 35 |
+| Rouge | 7 | 7 | 1 | 1 |
+| Gris | 12 | 10 | 10 | 11 |
+| Délais dépassés | 0 | 0 | 0 | 0 |
+| Échecs à part | 0 | 0 | 0 | 0 |
+| Verdicts clairs | 78,4 % | 82,4 % | 82,4 % | 80,4 % |
 
 Ce qui a changé entre 0.2.1 et 0.4.0 (séances 7 et 7 bis) :
 
@@ -247,18 +247,30 @@ Une mesure intermédiaire (moteur 0.3.0, 29 octobre) avait été faussée par un
 dépassés) ; son résumé est gardé dans `bench/results/2026-10-29-engine-0.3.0.md`, mais elle ne sert pas de
 comparaison.
 
-La référence publique n'est pas encore mise à jour avec la mesure 0.5.0 : il n'y reste qu'un rouge laissé de
-côté, et son nom se déduirait en comparant `baseline.json` à `servers.toml`. La référence proposée est dans le
-dossier privé, en attendant la décision de David. En attendant, le banc du lundi en CI échoue (couleurs
-changées et un rouge), sans nommer personne.
+Ce qui a changé entre 0.5.0 et 0.5.1 (séance 7 quinquies, décisions du 3 novembre) :
+
+- le code jamais appelé des bibliothèques embarquées (depd, function-bind, ajv...) ne compte plus pour les voyants
+  ni pour O08. Le voyant « Lance des commandes » s'éteint sur pdf et launchdarkly, « Lit tes fichiers » sur
+  launchdarkly. launchdarkly n'a plus d'alerte : il passe d'orange à gris (`no_tools_found`), une cause de gris qui
+  était cachée sous l'orange. C'est la seule couleur qui change, d'où 80,4 % au lieu de 82,4 % ;
+- les caractères invisibles écrits en échappement dans des données n'allument plus « Texte caché » : il s'éteint
+  sur desktop-commander (table d'entités HTML) ;
+- les dossiers `snapshot-tests`, `smoke-tests`, `benchmarks`, les fichiers `test-*.js` et `build.js` à la racine
+  sont des tests ou de la construction : aucun voyant ne change, les serveurs touchés lancent aussi des commandes
+  depuis leur propre code ;
+- desktop-commander reste rouge (R10), décision de David : l'alerte nomme les adresses écrites dans le script
+  d'installation et ce que ce code lit. Ce rouge est vérifié : la référence le garde avec son nom
+  (`verified: true`, partie 6).
+
+La référence publique (`bench/baseline.json`) contient les 52 serveurs, aucun rouge laissé de côté.
 
 ## 9. Les causes de gris restantes
 
-Mesure 0.5.0, sans compter le témoin Go (les mêmes qu'avec 0.4.0) :
+Mesure 0.5.1, sans compter le témoin Go (ceux de 0.5.0, plus launchdarkly) :
 
 | Cause | Serveurs | Pourquoi |
 | --- | --- | --- |
 | `not_a_server` | 3 | Le vrai code est dans une autre dépendance (deux enveloppes), ou tout est empaqueté sans dépendance déclarée. |
-| `no_tools_found` | 3 | Les outils sont dans des paquets séparés, ou déclarés d'une façon que MCPlain ne connaît pas encore. |
+| `no_tools_found` | 4 | Les outils sont dans des paquets séparés, ou déclarés d'une façon que MCPlain ne connaît pas encore. |
 | `incomplete_tracking` | 2 | Des objets reçus en paramètre (type inconnu), et du code exécuté dans le navigateur. |
 | `network_unresolved` | 1 | Un client réseau créé à un endroit et passé en paramètre ailleurs. |
