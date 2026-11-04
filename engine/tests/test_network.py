@@ -64,12 +64,15 @@ def test_real_fetch_tool_reaches_the_network_through_fetch_url() -> None:
 
 
 def test_real_filesystem_tools_all_show_capabilities() -> None:
-    """write_file writes via writeFileContent and every tool but list_allowed_directories has a capability"""
+    """write_file writes through writeFileContent, the package's own helpers below it, and the verdict stays orange"""
 
     result = analyze_input("npx -y @modelcontextprotocol/server-filesystem@latest")
+    assert result.verdict.color is VerdictColor.ORANGE
     tools = {tool.name: tool for tool in result.servers[0].tools}
     write = [finding for finding in tools["write_file"].findings if finding.capability is Capability.FS_WRITE]
-    assert [step.function for step in write[0].call_chain] == ["writeFileContent"]
+    assert write
+    assert [step.function for step in write[0].call_chain][0] == "writeFileContent"
+    assert write[0].file.startswith("dist/")
     empty = sorted(name for name, tool in tools.items() if not tool.findings)
     assert empty == ["list_allowed_directories"]
 
