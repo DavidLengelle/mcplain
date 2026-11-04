@@ -29,9 +29,41 @@ IGNORED_DIRS: frozenset[str] = frozenset(
     }
 )
 TEST_DIRS: frozenset[str] = frozenset(
-    {"tests", "test", "__tests__", "__mocks__", "examples", "example", "docs", "doc", "e2e", "spec"}
+    {
+        "tests",
+        "test",
+        "__tests__",
+        "__mocks__",
+        "examples",
+        "example",
+        "docs",
+        "doc",
+        "e2e",
+        "spec",
+        "snapshot-tests",
+        "snapshot_tests",
+        "smoke-tests",
+        "smoke_tests",
+        "benchmarks",
+    }
 )
-TEST_FILE_PATTERNS: tuple[str, ...] = ("test_*.py", "*_test.py", "conftest.py", "*.test.*", "*.spec.*")
+TEST_FILE_PATTERNS: tuple[str, ...] = (
+    "test_*.py",
+    "*_test.py",
+    "conftest.py",
+    "*.test.*",
+    "*.spec.*",
+    "test-*.js",
+    "test-*.mjs",
+    "test-*.cjs",
+    "test-*.ts",
+    "test-*.mts",
+    "test-*.cts",
+    "test-*.py",
+)
+ROOT_BUILD_FILES: frozenset[str] = frozenset(
+    {"build.js", "build.mjs", "build.cjs", "build.ts", "build.mts", "build.cts", "build.py"}
+)
 BUILD_DIRS: frozenset[str] = frozenset({"scripts", "script", "tools", ".github", ".husky"})
 BUILD_NAME_PATTERN = re.compile(
     r"build|release|publish|deploy|bump|changelog|version|bundle|compile|lint|format|codegen|generate",
@@ -85,6 +117,8 @@ def location_kind(relative_path: str) -> LocationKind:
     if any(fnmatchcase(name, pattern) for pattern in TEST_FILE_PATTERNS):
         return LocationKind.TEST_OR_EXAMPLE
     if folders and folders[0] == ".github":
+        return LocationKind.BUILD_SCRIPT
+    if not folders and name in ROOT_BUILD_FILES:
         return LocationKind.BUILD_SCRIPT
     if any(fnmatchcase(name, pattern) for pattern in BUILD_FILE_PATTERNS):
         return LocationKind.BUILD_SCRIPT
