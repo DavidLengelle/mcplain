@@ -471,3 +471,75 @@ def test_red_servers_come_last_so_their_place_tells_nothing() -> None:
     rows = [line for line in bench.render_markdown(run).splitlines() if line.startswith("| ") and "| green |" in line]
     assert rows[-1].startswith("| red #1")
     assert bench.shown_names(["a-secret", "b"], bench.red_labels(records)).startswith("b, red #1")
+
+
+VERIFIED = {"servers": {"checked": {"color": "red", "gray_case": None, "version": "1.0.0", "verified": True, "rules": ["R10"]}}}
+
+
+def test_a_verified_red_is_named_and_does_not_fail() -> None:
+    """A red that David checked by hand (verified, same red rules) is named in the summary and passes the check"""
+
+    records = [record("checked", "red", rules=["O08", "R10"]), record("secret-name", "red", rules=["R05"]), record("b", "orange")]
+    run = bench.build_run(records, VERIFIED, "0.5.1", "2026-11-04")
+    assert run["comparison"]["verified_reds"] == ["checked"]
+    assert run["comparison"]["reds"] == 1
+    markdown = bench.render_markdown(run)
+    assert "| checked | R10 |" in markdown
+    assert "secret-name" not in markdown
+    assert "checked" in bench.progress_line(records[0], VERIFIED)
+    assert "secret-name" not in bench.progress_line(records[1], VERIFIED)
+    alone = bench.build_run([records[0], records[2]], VERIFIED, "0.5.1", "2026-11-04")
+    assert alone["comparison"]["failed"] is False
+    masked = bench.mask_run(alone)
+    assert [item["id"] for item in masked["records"]] == ["checked", "b"]
+    assert masked["records"][0]["input"] == "uvx checked"
+
+
+def test_a_red_that_is_not_verified_stays_masked() -> None:
+    """Without verified, or verified false, the red stays masked and fails, as before"""
+
+    for entry in ({"color": "red", "rules": ["R10"]}, {"color": "red", "verified": False, "rules": ["R10"]}, {"color": "red", "verified": "true", "rules": ["R10"]}):
+        run = bench.build_run([record("checked", "red", rules=["R10"])], {"servers": {"checked": entry}}, "0.5.1", "2026-11-04")
+        assert run["comparison"]["verified_reds"] == []
+        assert run["comparison"]["failed"] is True
+        assert "checked" not in bench.render_markdown(run)
+        assert "checked" not in json.dumps(bench.mask_run(run))
+
+
+def test_a_verified_red_with_another_red_rule_is_masked_again() -> None:
+    """A new red rule on a verified server needs a new check: masked, and the bench fails"""
+
+    run = bench.build_run([record("checked", "red", rules=["R10", "R04"])], VERIFIED, "0.5.1", "2026-11-04")
+    assert run["comparison"]["verified_reds"] == []
+    assert run["comparison"]["failed"] is True
+    assert "checked" not in bench.render_markdown(run)
+
+
+def test_the_baseline_keeps_a_red_marked_with_verify_and_carries_it_over() -> None:
+    """baseline --verify writes the red with verified and its red rules; a later baseline keeps it, others stay out"""
+
+    records = [record("checked", "red", rules=["O08", "R10"]), record("secret-name", "red", rules=["R05"]), record("b", "orange")]
+    run = bench.build_run(records, None, "0.5.1", "2026-11-04")
+    baseline = bench.make_baseline(run, "results.json", None, {"checked"})
+    assert baseline["servers"]["checked"] == {"color": "red", "gray_case": None, "version": "1.0.0", "verified": True, "rules": ["R10"]}
+    assert baseline["reds_left_out"] == 1
+    assert "secret-name" not in json.dumps(baseline)
+    again = bench.make_baseline(bench.build_run(records, baseline, "0.5.1", "2026-11-05"), "results.json", baseline)
+    assert again["servers"]["checked"]["verified"] is True
+    changed = [record("checked", "red", rules=["R04", "R10"])]
+    later = bench.make_baseline(bench.build_run(changed, baseline, "0.5.1", "2026-11-06"), "results.json", baseline)
+    assert "checked" not in later["servers"]
+
+
+def test_the_baseline_command_verifies_only_a_red_of_the_run(tmp_path: Path) -> None:
+    """--verify names a red of the results file; any other name is refused"""
+
+    results = tmp_path / "results.json"
+    bench.write_json(results, bench.build_run([record("checked", "red", rules=["R10"]), record("a", "orange")], None, "0.5.1", "2026-11-04"))
+    target = tmp_path / "baseline.json"
+    assert bench.main(["baseline", str(results), "--baseline", str(target), "--verify", "a"]) == 2
+    assert not target.exists()
+    assert bench.main(["baseline", str(results), "--baseline", str(target), "--verify", "checked"]) == 0
+    written = json.loads(target.read_text(encoding="utf-8"))
+    assert written["servers"]["checked"]["verified"] is True
+    assert written["reds_left_out"] == 0

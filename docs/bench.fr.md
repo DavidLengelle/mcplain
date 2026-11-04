@@ -163,6 +163,21 @@ git commit -m "test: nouvelle référence du banc après vérification"
 La commande `baseline` laisse de côté, sans les nommer, les serveurs rouges : un rouge sur un vrai paquet se
 vérifie d'abord à la main (voir la partie 7). Leur nombre est dans le champ `reds_left_out`.
 
+Quand David a vérifié un rouge et décidé qu'il reste rouge, la référence le garde, avec son nom :
+
+```bash
+uv run python bench.py baseline results/<date>-engine-<version>.json --verify <id>
+```
+
+Sa ligne porte alors `"verified": true` et ses règles rouges (`"rules": ["R10"]`). Un rouge vérifié :
+
+- apparaît avec son nom dans le résumé de la CI, table « Red verdicts checked by hand » ;
+- ne fait pas échouer le banc tant qu'il reste rouge avec les mêmes règles rouges ;
+- redevient masqué, et fait échouer le banc, si une autre règle rouge apparaît : il faut le revérifier.
+
+Une référence suivante garde la marque tant que les règles rouges ne changent pas. Un rouge sans `verified: true`
+(absent, `false`, ou autre chose que le booléen `true`) reste masqué comme avant.
+
 Un délai dépassé de l'atelier se relance une fois, seul (`uv run python bench.py run --only <id>
 --concurrency 1`). S'il dépasse encore, c'est une vraie cause de gris : la référence le garde en gris.
 

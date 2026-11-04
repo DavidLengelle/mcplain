@@ -329,6 +329,8 @@ def compare(records: list[dict[str, Any]], baseline: dict[str, Any] | None) -> d
         if record["witness"] and record["color"] != record["expected"]:
             witness_failures.append({"id": record["id"], "expected": record["expected"], "after": record["color"]})
     ids = {record["id"] for record in records}
+    verified = verified_reds(records, baseline)
+    hidden = red_ids(records) - verified
     return {
         "baseline": baseline is not None,
         "color_changes": color_changes,
@@ -337,8 +339,9 @@ def compare(records: list[dict[str, Any]], baseline: dict[str, Any] | None) -> d
         "unverified": unverified,
         "new": sorted(ids - set(reference)),
         "removed": sorted(set(reference) - ids),
-        "reds": len(red_ids(records)),
-        "failed": bool(color_changes or witness_failures or red_ids(records)),
+        "reds": len(hidden),
+        "verified_reds": sorted(verified),
+        "failed": bool(color_changes or witness_failures or hidden),
     }
 
 
@@ -346,6 +349,34 @@ def red_ids(records: list[dict[str, Any]]) -> set[str]:
     """Return the ids of the servers that got a red verdict"""
 
     return {record["id"] for record in records if record["outcome"] == VERDICT and record["color"] == "red"}
+
+
+def red_rules(record: dict[str, Any]) -> list[str]:
+    """Return the red rules of a record, sorted"""
+
+    return sorted(rule for rule in record.get("rules") or [] if rule.startswith("R"))
+
+
+def verified_reds(records: list[dict[str, Any]], baseline: dict[str, Any] | None) -> set[str]:
+    """Return the red servers that David checked by hand: verified in the baseline, with the same red rules"""
+
+    reference = {}
+    if baseline is not None:
+        reference = baseline.get("servers", {})
+    verified = set()
+    for record in records:
+        known = reference.get(record["id"])
+        if record["id"] not in red_ids([record]) or known is None:
+            continue
+        if known.get("color") == "red" and known.get("verified") is True and known.get("rules") == red_rules(record):
+            verified.add(record["id"])
+    return verified
+
+
+def hidden_reds(run: dict[str, Any]) -> set[str]:
+    """Return the red servers of a run whose names stay masked: every red that is not verified"""
+
+    return red_ids(run["records"]) - set(run["comparison"].get("verified_reds", []))
 
 
 def fingerprint_key() -> bytes | None:
@@ -380,10 +411,10 @@ def red_label(server_id: str, number: int | None = None) -> str:
     return label
 
 
-def red_labels(records: list[dict[str, Any]]) -> dict[str, str]:
-    """Return the label that replaces the name of each red server"""
+def red_labels(records: list[dict[str, Any]], verified: set[str] | None = None) -> dict[str, str]:
+    """Return the label that replaces the name of each red server that is not verified"""
 
-    reds = red_ids(records)
+    reds = red_ids(records) - (verified or set())
     labels: dict[str, str] = {}
     for record in records:
         if record["id"] in reds and record["id"] not in labels:
@@ -429,7 +460,8 @@ def render_markdown(run: dict[str, Any]) -> str:
 
     summary = run["summary"]
     comparison = run["comparison"]
-    hidden = red_labels(run["records"])
+    verified = set(comparison.get("verified_reds", []))
+    hidden = red_labels(run["records"], verified)
     counts = summary["counts"]
     lines = [
         f"## MCPlain bench, engine {run['engine_version']}, {run['date']}",
@@ -450,6 +482,12 @@ def render_markdown(run: dict[str, Any]) -> str:
         lines.extend(["### Failures apart (not a gray of the engine)", "", "| Server | Outcome | Code |", "| --- | --- | --- |"])
         lines.extend(
             f"| {shown_name(item['id'], hidden)} | {item['outcome']} | {item['error_code']} |" for item in masked_last(summary["failures"], hidden, item_id)
+        )
+        lines.append("")
+    if verified:
+        lines.extend(["### Red verdicts checked by hand", "", "| Server | Red rules |", "| --- | --- |"])
+        lines.extend(
+            f"| {record['id']} | {', '.join(red_rules(record))} |" for record in run["records"] if record["id"] in verified
         )
         lines.append("")
     lines.extend(comparison_lines(comparison, hidden))
@@ -528,15 +566,24 @@ def build_run(records: list[dict[str, Any]], baseline: dict[str, Any] | None, ve
     }
 
 
-def make_baseline(run: dict[str, Any], source: str) -> dict[str, Any]:
-    """Build the baseline from a run; a red verdict on a real package waits for a human decision and stays out"""
+def make_baseline(
+    run: dict[str, Any],
+    source: str,
+    previous: dict[str, Any] | None = None,
+    verify: set[str] | None = None,
+) -> dict[str, Any]:
+    """Build the baseline from a run; a red verdict stays out unless David checked it (verify, or verified before)"""
 
-    reds = red_ids(run["records"])
-    servers = {
-        record["id"]: {"color": record["color"], "gray_case": record["gray_case"], "version": record["version"]}
-        for record in run["records"]
-        if record["outcome"] == VERDICT and record["id"] not in reds
-    }
+    checked = verified_reds(run["records"], previous) | ((verify or set()) & red_ids(run["records"]))
+    reds = red_ids(run["records"]) - checked
+    servers = {}
+    for record in run["records"]:
+        if record["outcome"] != VERDICT or record["id"] in reds:
+            continue
+        entry = {"color": record["color"], "gray_case": record["gray_case"], "version": record["version"]}
+        if record["id"] in checked:
+            entry.update({"verified": True, "rules": red_rules(record)})
+        servers[record["id"]] = entry
     return {
         "engine_version": run["engine_version"],
         "date": run["date"],
@@ -549,7 +596,7 @@ def make_baseline(run: dict[str, Any], source: str) -> dict[str, Any]:
 def mask_run(run: dict[str, Any]) -> dict[str, Any]:
     """Return a copy of a run where the name, the input and the version of every red server are replaced by its label"""
 
-    labels = red_labels(run["records"])
+    labels = red_labels(run["records"], set(run["comparison"].get("verified_reds", [])))
     masked = json.loads(json.dumps(run))
     masked["records"] = masked_last(masked["records"], labels, item_id)
     masked["summary"]["failures"] = masked_last(masked["summary"]["failures"], labels, item_id)
@@ -590,11 +637,11 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def progress_line(record: dict[str, Any]) -> str:
-    """Return one short line about a finished server, without the name of a red one"""
+def progress_line(record: dict[str, Any], baseline: dict[str, Any] | None = None) -> str:
+    """Return one short line about a finished server, without the name of a red one that is not verified"""
 
     name = record["id"]
-    if record["color"] == "red" and record["outcome"] == VERDICT:
+    if record["id"] in red_ids([record]) and not verified_reds([record], baseline):
         name = red_label(record["id"])
     state = record["color"] or record["outcome"]
     if record["cause"]:
@@ -614,14 +661,14 @@ def command_run(arguments: argparse.Namespace) -> int:
     version = engine_version()
     now = datetime.now(UTC)
     date = now.strftime("%Y-%m-%d")
+    baseline = read_json(Path(arguments.baseline))
     records = run_bench(
         servers,
         api_url=arguments.api,
         concurrency=arguments.concurrency,
         timeout=arguments.timeout,
-        report=lambda record: print(progress_line(record), flush=True),
+        report=lambda record: print(progress_line(record, baseline), flush=True),
     )
-    baseline = read_json(Path(arguments.baseline))
     run = build_run(records, baseline, version, now.isoformat(timespec="seconds"))
     output = Path(arguments.output or RESULTS_DIR / f"{date}-engine-{version}.json")
     if arguments.mask_red:
@@ -646,7 +693,12 @@ def command_baseline(arguments: argparse.Namespace) -> int:
     if run is None:
         print(f"No results file: {arguments.results}", file=sys.stderr)
         return 2
-    baseline = make_baseline(run, Path(arguments.results).name)
+    verify = {item for item in arguments.verify.split(",") if item}
+    unknown = verify - red_ids(run["records"])
+    if unknown:
+        print(f"Not a red verdict of this run: {', '.join(sorted(unknown))}", file=sys.stderr)
+        return 2
+    baseline = make_baseline(run, Path(arguments.results).name, read_json(Path(arguments.baseline)), verify)
     write_json(Path(arguments.baseline), baseline)
     print(f"Baseline written: {arguments.baseline} ({len(baseline['servers'])} servers, {baseline['reds_left_out']} red left out)")
     return 0
@@ -678,7 +730,8 @@ def command_compare(arguments: argparse.Namespace) -> int:
 def render_comparison(before: dict[str, Any], after: dict[str, Any]) -> str:
     """Write two runs side by side in Markdown, without the name of a red server"""
 
-    hidden = {**red_labels(before["records"]), **red_labels(after["records"])}
+    verified = set(before["comparison"].get("verified_reds", [])) & set(after["comparison"].get("verified_reds", []))
+    hidden = {**red_labels(before["records"], verified), **red_labels(after["records"], verified)}
     left = before["summary"]
     right = after["summary"]
     lines = [
@@ -732,6 +785,7 @@ def parser() -> argparse.ArgumentParser:
     baseline = commands.add_parser("baseline", help="write the baseline from a results file")
     baseline.add_argument("results")
     baseline.add_argument("--baseline", default=str(BASELINE_FILE))
+    baseline.add_argument("--verify", default="")
     baseline.set_defaults(handler=command_baseline)
     summary = commands.add_parser("summary", help="print the summary of a results file")
     summary.add_argument("results")
