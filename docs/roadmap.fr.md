@@ -107,6 +107,19 @@ Décisions du 3 novembre 2026, codées :
       normal du paquet ; les liens des sources des règles sont comparés à une liste enregistrée
       (`engine/tests/data/rule_sources.json`) au lieu de sites extérieurs.
 
+## CORPUS, PARTIE 1 (4 novembre 2026, moteur 0.5.1)
+
+- [x] Corpus de serveurs honnêtes dont la réponse est connue : `engine/tests/fixtures/corpus/` (5 verts, 5 oranges,
+      5 gris), jugés par `engine/tests/test_corpus.py` (OK, ACCEPTABLE, ÉCHEC). Guide : `docs/corpus.fr.md`.
+- [x] Corpus privé des pièges (`engine/tests/fixtures/corpus-private/`, hors de git) : `.gitignore`, test de garde,
+      hook `.githooks/pre-commit`, rapport `bench/private/corpus.md`.
+- [ ] Partie 2 : les 5 pièges écrits en chat, déposés par David dans le dossier privé.
+- [ ] Écarts à revoir avec David (attendus inchangés, `known_gap`) : `green/slug-ts-class` sort gris
+      (`dynamic_descriptions`, outils rangés dans un champ de classe et enregistrés par `Object.entries`) ;
+      `gray/native-launcher` sort orange (O08 sur le `spawnSync` du lanceur l'emporte sur le gris du compilé) ;
+      `orange/echo-terminal` donne O08 sans O02 (la commande passe par `shlex.split`, le moteur perd l'étiquette).
+- [ ] MCPTox (arXiv 2508.14925) : dépôt `github.com/zhiqiangwang4/MCPTox-Benchmark` sans licence, rien importé.
+
 ## PROTECTIONS CONTRE LES ROBOTS ET QUOTAS (décidé le 23 octobre 2026)
 
 But : une armée de robots ne doit ni vider le budget de l'IA, ni bloquer
