@@ -1,7 +1,7 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter et 7 quater sont faites ; les parties « Protections » et « Adresses IP
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater et 7 quinquies sont faites ; les parties « Protections » et « Adresses IP
 partagées » (séances 8 et 9) ne sont pas codées.
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
@@ -65,27 +65,47 @@ Fait :
 - [x] Mesure propre (moteur 0.5.0) : 5 verts, 36 oranges, 1 rouge, 10 gris, 82,4 % (`docs/bench.fr.md`).
 - [x] Dependabot : aucune nouvelle demande depuis la #40.
 
-En attente de la décision de David :
+Décidé le 3 novembre 2026 et codé en séance 7 quinquies (voir plus bas) : la référence du banc, le sens des
+couleurs (inchangé) et les trois propositions sur les voyants.
 
-1. Publier la nouvelle référence du banc (`bench/baseline.json`) : elle est prête dans `bench/private/`, mais
-   avec un seul rouge laissé de côté, son nom se déduit de `servers.toml`. À décider avec le sens des couleurs.
-2. Le sens des couleurs (proposition de la séance 7 ter : O01 et O08 ne colorent plus). Simulation refaite sur la
-   mesure 0.5.0 : 14 verts, 3 oranges, 1 rouge, 34 gris ; cinq verts rassureraient à tort (voyants « Touche à
-   tes secrets » ou nombreux voyants allumés).
-3. Voyants, propositions qui changent leur sens (pas codées) :
-   - ignorer le code d'une bibliothèque embarquée jamais appelé (depd, function-bind, ajv, zod) : c'est la seule
-     chose qui allume « Lance des commandes » sur trois serveurs ;
-   - ignorer, pour « Texte caché », les caractères invisibles écrits en échappement dans des données (table des
-     entités HTML d'une bibliothèque embarquée) ;
-   - reconnaître comme tests ou scripts de build les dossiers `snapshot-tests`, `smoke-tests`, `benchmarks`, les
-     fichiers `test-*.js` et `build.js` à la racine, et les scripts de `scripts/` que le serveur n'importe pas.
-4. Lecture, suites possibles (par fréquence) : objets reçus en paramètre, rangés dans `self` ou paramètres de
+Pistes restantes :
+
+1. Lecture, suites possibles (par fréquence) : objets reçus en paramètre, rangés dans `self` ou paramètres de
    lambda (6 serveurs) ; outils déclarés d'une façon inconnue (7 serveurs, 7 façons) ; descriptions tirées d'une
    table de définitions (4) ; appels réseau sous une forme non reconnue, comme `(0, undici_1.fetch)(...)` (4) ;
    profondeur d'appels au-delà de 5 (4) ; `mcp.tool()(fn)` ; `Context` de FastMCP (`ctx.info`).
-5. Un chemin de client MCP écrit en morceaux (`path.join(home, ".cursor", "mcp.json")`) n'est pas reconnu comme
+2. Un chemin de client MCP écrit en morceaux (`path.join(home, ".cursor", "mcp.json")`) n'est pas reconnu comme
    chemin sensible : ni R08 ni O10 ne se déclenchent alors (limite qui existait déjà pour R08). Une piste :
    composer les morceaux littéraux de `path.join`.
+
+## SÉANCE 7 QUINQUIES (4 novembre 2026, moteur 0.5.1, règles version 3)
+
+Décisions du 3 novembre 2026, codées :
+
+- [x] Sens des couleurs : INCHANGÉ (rouge > orange > gris > vert ; orange = pouvoirs trouvés, rien de caché).
+      Raison : la simulation (O01 et O08 ne colorent plus) donnait 34 gris sur 52. La question sera rouverte quand
+      le moteur lira mieux les descriptions fabriquées et le réseau.
+- [x] Le code d'une bibliothèque embarquée jamais appelé ne compte plus pour les voyants ni pour O08. Une
+      bibliothèque embarquée est un module que l'outil d'empaquetage marque d'un chemin `node_modules`
+      (`// .../node_modules/x/...` d'esbuild et bun, `//#region` de rolldown). Le code exécuté au chargement du
+      module compte toujours, les règles rouges comptent partout. En cas de doute (pas de marque, fin du module
+      inconnue, fonction anonyme), il compte. Limites : un paquet minifié sans marque, et le Python, ne sont pas
+      concernés.
+- [x] Les caractères invisibles écrits en échappement dans des données n'allument plus « Texte caché ». R01 et O07
+      ne changent pas pour les noms et descriptions d'outils.
+- [x] Tests et construction : `snapshot-tests`, `smoke-tests`, `benchmarks` (et `snapshot_tests`, `smoke_tests`),
+      `test-*.js` (et `.mjs`, `.cjs`, `.ts`, `.py`), `build.js` à la racine (et `build.py`), sauf s'ils sont
+      importés par le serveur ou lancés à l'installation. Pas fait : les scripts de `scripts/` que rien n'importe
+      (ils ne faisaient pas partie de la décision).
+- [x] Desktop Commander reste rouge (R10), décision de David. L'alerte R10 d'une requête d'installation nomme
+      maintenant les adresses écrites dans le fichier et ce que lit le code d'installation (variables, fichiers,
+      commandes), à partir des trouvailles du moteur. Limite : le moteur ne suit pas encore quelles valeurs lues
+      partent vraiment dans la requête.
+- [x] Référence publique du banc : un rouge vérifié par David porte `verified: true` et ses règles rouges ; il est
+      nommé en CI. `bench/baseline.json` contient les 52 serveurs.
+- [x] Tests réseau : server-filesystem 2.1.0 écrit par ses propres fonctions (`pinned-directory.js`), changement
+      normal du paquet ; les liens des sources des règles sont comparés à une liste enregistrée
+      (`engine/tests/data/rule_sources.json`) au lieu de sites extérieurs.
 
 ## PROTECTIONS CONTRE LES ROBOTS ET QUOTAS (décidé le 23 octobre 2026)
 
@@ -123,6 +143,12 @@ l'IA).
    your specified workspace API usage limits ». À traiter comme
    « plafond atteint » : rapport sans notice, e-mail à l'admin, aucun
    nouvel essai automatique. (Séance 8)
+
+## SÉANCE 9 : SIGNALEMENT PAR L'AUTEUR (décidé le 3 novembre 2026, pas codé)
+
+- Sur chaque rapport, un bouton « Tu es l'auteur ? Signale une erreur ».
+- C'est un type de signalement en plus. Le commentaire est du texte brut, affiché avec `RawText`, et il n'est
+  jamais donné à l'IA (ni à la notice, ni à une traduction).
 
 ## ADRESSES IP PARTAGÉES (école, entreprise, open space, réseau mobile)
 
