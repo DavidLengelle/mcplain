@@ -1,0 +1,5 @@
+color = "orange"
+accept = ["orange"]
+rules = ["O04", "O08"]
+style = "TypeScript, registerTool with annotations readOnlyHint true, a helper that keeps a JSON cache on disk."
+tests = "readOnlyHint contradicted by a file write in a helper gives O04 (and O08 for the write)."

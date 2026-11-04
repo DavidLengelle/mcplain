@@ -1,0 +1,6 @@
+color = "gray"
+accept = ["gray"]
+rules = []
+gray_case = "dynamic_descriptions"
+style = "Python, FastMCP decorator whose description is returned by a function called at startup."
+tests = "A description built at runtime from values MCPlain cannot know gives gray, not green."

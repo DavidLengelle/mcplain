@@ -1,0 +1,5 @@
+color = "green"
+accept = ["green"]
+rules = []
+style = "Python, FastMCP decorators on functions declared inside build()."
+tests = "Tools recognized from @mcp.tool() inside a function, pure math, nothing to report."

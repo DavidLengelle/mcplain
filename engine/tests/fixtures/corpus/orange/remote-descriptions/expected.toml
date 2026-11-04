@@ -1,0 +1,5 @@
+color = "orange"
+accept = ["orange"]
+rules = ["O03"]
+style = "Python, FastMCP decorator whose description comes from a JSON downloaded at startup by a helper."
+tests = "A description computed from a network answer, through a helper and a dict lookup, gives O03."

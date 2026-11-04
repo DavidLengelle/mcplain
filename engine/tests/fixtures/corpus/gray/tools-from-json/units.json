@@ -1,0 +1,4 @@
+[
+  { "name": "inch_to_cm", "description": "Convert inches to centimeters", "factor": 2.54 },
+  { "name": "pound_to_kg", "description": "Convert pounds to kilograms", "factor": 0.45359237 }
+]

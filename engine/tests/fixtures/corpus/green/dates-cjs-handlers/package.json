@@ -1,0 +1,7 @@
+{
+  "name": "dates",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "index.js",
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0" }
+}

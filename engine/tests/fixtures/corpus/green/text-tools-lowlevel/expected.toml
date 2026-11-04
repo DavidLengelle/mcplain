@@ -1,0 +1,5 @@
+color = "green"
+accept = ["green"]
+rules = []
+style = "Python, low-level API: Server with list_tools and call_tool, dispatch on the tool name."
+tests = "Tools found in list_tools and followed through call_tool branches and a helper function."

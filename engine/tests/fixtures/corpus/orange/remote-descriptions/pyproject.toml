@@ -1,0 +1,4 @@
+[project]
+name = "remote-descriptions"
+version = "0.1.0"
+dependencies = ["fastmcp>=2", "requests"]

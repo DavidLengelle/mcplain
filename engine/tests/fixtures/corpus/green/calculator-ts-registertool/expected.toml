@@ -1,0 +1,5 @@
+color = "green"
+accept = ["green"]
+rules = []
+style = "TypeScript, McpServer.registerTool with zod schemas, inside an exported build()."
+tests = "TypeScript sources and registerTool recognized, arrow handlers followed."

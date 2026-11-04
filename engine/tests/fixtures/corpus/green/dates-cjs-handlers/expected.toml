@@ -1,0 +1,5 @@
+color = "green"
+accept = ["green"]
+rules = []
+style = "JavaScript CommonJS, low-level Server with setRequestHandler and a switch on the tool name."
+tests = "require() of the SDK, a constant table of tools and a switch handler, all followed."

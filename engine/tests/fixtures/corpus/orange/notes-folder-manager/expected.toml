@@ -1,0 +1,5 @@
+color = "orange"
+accept = ["orange"]
+rules = ["O08"]
+style = "JavaScript ES module, McpServer.registerTool, read, write and delete inside a folder chosen by an environment variable."
+tests = "File writing and deletion give O08, a plain folder variable is not a secret, the path guard does not hide the power."

@@ -1,0 +1,11 @@
+{
+  "name": "notes-native",
+  "version": "1.0.0",
+  "bin": { "notes-native": "bin/launcher.js" },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0" },
+  "optionalDependencies": {
+    "@example/notes-native-linux-x64": "1.0.0",
+    "@example/notes-native-darwin-arm64": "1.0.0",
+    "@example/notes-native-win32-x64": "1.0.0"
+  }
+}

@@ -1,0 +1,5 @@
+color = "orange"
+accept = ["orange"]
+rules = ["O01"]
+style = "Python package, FastMCP of the official SDK, the tool calls a helper that runs httpx.get on the address given by the AI."
+tests = "An address chosen by the AI and followed through a helper function gives O01."

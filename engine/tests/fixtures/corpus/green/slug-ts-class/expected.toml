@@ -1,0 +1,6 @@
+color = "green"
+accept = ["green"]
+rules = []
+style = "TypeScript, a class keeps its tools in an object literal and registers them in a loop."
+tests = "Tools whose names and descriptions sit in a class field, registered by Object.entries in another file."
+known_gap = "Engine 0.5.1: tools registered by Object.entries over a class field are read as one tool with a dynamic name and description (gray dynamic_descriptions)."

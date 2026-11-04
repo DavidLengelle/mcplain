@@ -1,0 +1,4 @@
+[project]
+name = "cpu-count"
+version = "0.1.0"
+dependencies = ["fastmcp>=2"]

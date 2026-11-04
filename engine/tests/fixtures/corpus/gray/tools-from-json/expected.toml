@@ -1,0 +1,6 @@
+color = "gray"
+accept = ["gray"]
+rules = []
+gray_case = "dynamic_descriptions"
+style = "JavaScript ES module, tools registered in a loop over a JSON file read at startup."
+tests = "Names and descriptions that only exist in a data file read at runtime cannot be checked: gray."

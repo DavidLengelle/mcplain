@@ -1,0 +1,4 @@
+[project]
+name = "echo-terminal"
+version = "0.1.0"
+dependencies = ["mcp>=1.9"]

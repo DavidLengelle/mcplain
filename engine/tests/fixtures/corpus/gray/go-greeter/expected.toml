@@ -1,0 +1,6 @@
+color = "gray"
+accept = ["gray"]
+rules = []
+gray_case = "unsupported_language"
+style = "Go, official go-sdk with mcp.AddTool inside a build() function."
+tests = "A language MCPlain does not read gives gray, never green."

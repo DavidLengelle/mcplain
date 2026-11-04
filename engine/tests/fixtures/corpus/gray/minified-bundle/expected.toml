@@ -1,0 +1,6 @@
+color = "gray"
+accept = ["gray"]
+rules = []
+gray_case = "no_tools_found"
+style = "JavaScript bundle minified on one line, its own method table instead of the SDK, no recognizable tool."
+tests = "When no tool can be recognized, MCPlain says gray instead of green."

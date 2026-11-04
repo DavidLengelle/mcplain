@@ -1,0 +1,7 @@
+color = "gray"
+accept = ["gray"]
+rules = []
+gray_case = "partially_compiled"
+style = "npm package whose bin entry only starts a platform binary shipped in optionalDependencies."
+tests = "The real server is compiled and out of reach: gray, the small launcher is not the server."
+known_gap = "Engine 0.5.1: O08 fires on the spawnSync of the launcher and orange wins over the compiled gray."

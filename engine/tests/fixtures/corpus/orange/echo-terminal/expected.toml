@@ -1,0 +1,5 @@
+color = "orange"
+accept = ["orange"]
+rules = ["O02", "O08"]
+style = "Python, FastMCP of the official SDK, a terminal tool that splits the command with shlex and runs it without a shell."
+tests = "A whole command chosen by the AI gives O02 (and O08 for the process), not R09: nothing is pasted into a shell."
