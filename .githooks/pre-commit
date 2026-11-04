@@ -1,0 +1,6 @@
+#!/bin/sh
+if git diff --cached --name-only --diff-filter=ACMRTD | grep -q "corpus-private"; then
+  echo "pre-commit: refused, a path under corpus-private is staged; these traps never leave this computer" >&2
+  exit 1
+fi
+exit 0

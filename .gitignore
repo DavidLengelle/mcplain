@@ -39,3 +39,5 @@ var/
 
 /bench/results/*.json
 /bench/private/
+
+/engine/tests/fixtures/corpus-private/

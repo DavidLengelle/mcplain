@@ -5,6 +5,9 @@ The user pastes a GitHub link, an `npx` command or a `uvx` command. MCPlain down
 reads it without running it, and explains what the server can do (network, files, commands,
 secrets...) with a provisional verdict.
 
+Always write to David in French: questions, reports and summaries. Code, identifiers and commit messages stay in
+English.
+
 ## Layout
 
 - `engine/`: the Python engine (uv project, package `mcplain`, tree-sitter parsers).
@@ -167,6 +170,17 @@ After changing a rule or its texts, regenerate the catalog from `engine/` (a tes
 Files under `engine/tests/fixtures/` are analyzed code: they are never imported or run, and a
 `pytest_ignore_collect` hook keeps pytest away from them whatever the working directory.
 Do not name fixture files `test_*.py`, `*_test.py` or `conftest.py`.
+
+### Corpus
+
+`engine/tests/fixtures/corpus/<color>/<name>/` holds honest MCP servers whose right answer is written in their
+`expected.toml`; `engine/tests/test_corpus.py` analyzes each one and fails on any failure. Guide: `docs/corpus.fr.md`.
+The public corpus holds honest servers only.
+
+engine/tests/fixtures/corpus-private/ holds inert test traps written in chat. Never commit, publish, install, run,
+open or copy them. Only run the corpus test on them. The folder is in `.gitignore`, a test fails if one of its files
+is tracked, and the versioned pre-commit hook (`.githooks/pre-commit`, enabled with
+`git config core.hooksPath .githooks`) refuses any commit with a `corpus-private` path.
 
 ### Inert fixtures
 
