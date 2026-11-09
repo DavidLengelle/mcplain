@@ -66,6 +66,7 @@ class Rule(ABC):
     kind: AlertKind = AlertKind.SUSPICIOUS_USE
     sources: tuple[RuleSource, ...] = ()
     visible_in_code: bool = True
+    external_positive: bool = False
 
     @property
     def fixtures(self) -> str:

@@ -128,12 +128,19 @@ Décisions du 3 novembre 2026, codées :
       `orange/` ; `gray/unit-notes` (honnête) le remplace, le test demande cinq gris.
 - [x] « Ce que MCPlain ne sait pas faire » : les attaques qui arrivent par les données, le serveur qui en imite un autre.
 - [x] Mesure du banc : 5 verts, 34 oranges, 1 rouge, 12 gris, 78,4 % (`docs/bench.fr.md`).
-- [ ] Référence du banc à décider avec David : sentry 0.49.0 sort gris (paquet empaqueté sans dépendance déclarée).
-      Tant qu'elle n'est pas changée, le banc du lundi échoue sur cet écart.
-- [ ] DVMCP (défis 1 à 10, commit `cdc4c6b`) : attendus, script et test sont sur la branche locale `dvmcp`, non poussée. Les
-      défis 4, 5, 7 et 10 sont en ÉCHEC. Une correction demande une décision de David (une nouvelle détection
-      demanderait une fixture qui imite une attaque). Les défis 11 à 15 ne sont pas encore examinés.
+- [x] Décisions de David (moteur 0.6.0, règles version 4, 25 règles) : O12 et R13, consignes cachées dans une description,
+      sans fixture d'attaque ; défis 4 et 7 hors portée, avec leurs limites sur l'accueil et dans le README ; un paquet présenté
+      comme serveur MCP sans outil reconnu donne `no_tools_found` ; référence du banc avec sentry en gris.
+- [ ] DVMCP (commit `cdc4c6b`) : `scripts/fetch-dvmcp.sh` est sur main, la CI lit les cas positifs d'O12 et R13. Attendus et
+      classement restent sur la branche locale `dvmcp`, non poussée : les défis 5 et 10 sont en ÉCHEC, orange au lieu de rouge.
+      Leurs blocs n'ont aucun signal de R13. Décision de David attendue.
+- [ ] Défis 11 à 15 de DVMCP (identité, chaîne d'approvisionnement) : pas examinés.
 - [ ] DVMCP n'a pas de fichier LICENSE, son README annonce MIT : rien n'en est copié dans le dépôt.
+
+## PLUS TARD
+
+- Lire les paquets tout-en-un fabriqués par un bundler (cas de sentry 0.49.0) pour y reconnaître les outils, afin qu'ils ne
+  finissent plus en gris. Pas codé.
 
 ## PROTECTIONS CONTRE LES ROBOTS ET QUOTAS (décidé le 23 octobre 2026)
 

@@ -110,5 +110,8 @@ def render_catalog(t: Translator, registry: RuleRegistry = DEFAULT_REGISTRY) -> 
             ]
         )
         lines.extend(f"  - [{source.name}]({source.url})" for source in rule.sources)
-        lines.append(f"- {t('catalog.fixtures')}{t('cli.separator')}`{FIXTURES_ROOT}/{rule.fixtures}/` ({FIXTURE_CASES})")
+        cases = FIXTURE_CASES
+        if rule.external_positive:
+            cases = t("catalog.fixtures_external")
+        lines.append(f"- {t('catalog.fixtures')}{t('cli.separator')}`{FIXTURES_ROOT}/{rule.fixtures}/` ({cases})")
     return "\n".join(lines)

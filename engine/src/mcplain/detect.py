@@ -145,6 +145,12 @@ GO_MODULE_PATTERN = re.compile(r"^module\s+(\S+)", re.MULTILINE)
 JVM_LANGUAGE = "jvm"
 
 
+MCP_SERVER_WORDS = re.compile(
+    r"\bmcp[\s_-]+server\b|\bserver[\s_-]+(?:for[\s_-]+)?mcp\b|\bmodel[\s_-]+context[\s_-]+protocol[\s_-]+server\b",
+    re.IGNORECASE,
+)
+
+
 @dataclass
 class ManifestInfo:
     """Class that holds what one project file says about its folder"""
@@ -156,6 +162,7 @@ class ManifestInfo:
     name: str | None = None
     platform_binaries: bool = False
     native_build: bool = False
+    presented_as_server: bool = False
 
 
 @dataclass
@@ -302,6 +309,18 @@ def _read_manifest(root: Path, base: Path, path: Path) -> ManifestInfo | None:
     return reader(folder, file, path)
 
 
+def _presented_as_server(*values: object) -> bool:
+    """Tell whether the name, description or keywords of a project call it an MCP server"""
+
+    texts: list[str] = []
+    for value in values:
+        if isinstance(value, str):
+            texts.append(value)
+        else:
+            texts.extend(string_list(value))
+    return any(MCP_SERVER_WORDS.search(text) for text in texts)
+
+
 def _first_sdk(names: list[str], sdks: tuple[str, ...]) -> str | None:
     """Return the first known SDK found in a list of dependency names"""
 
@@ -329,6 +348,7 @@ def _package_json_manifest(folder: str, file: str, path: Path) -> ManifestInfo:
         sdk=_first_sdk(names, NPM_SDKS),
         name=package_name,
         platform_binaries=any(PLATFORM_PACKAGE_PATTERN.search(name) for name in optional),
+        presented_as_server=_presented_as_server(package_name, data.get("description"), data.get("keywords")),
     )
 
 
@@ -367,6 +387,7 @@ def _pyproject_manifest(folder: str, file: str, path: Path) -> ManifestInfo:
         sdk=_first_sdk(names, PYTHON_SDKS),
         name=project_name,
         native_build=any(marker in build_text.lower() for marker in NATIVE_BUILD_MARKERS),
+        presented_as_server=_presented_as_server(project_name, project.get("description"), project.get("keywords")),
     )
 
 
@@ -640,6 +661,9 @@ def _without_server(inventory: Inventory) -> Detection:
         dominant = code.most_common(1)[0][0]
     if dominant is not None and dominant not in SUPPORTED_LANGUAGES:
         return Detection(status=AnalysisStatus.UNSUPPORTED_LANGUAGE, language=dominant)
+    readable = any(language in SUPPORTED_LANGUAGES for language in code)
+    if readable and any(manifest.presented_as_server for manifest in inventory.manifests):
+        return Detection(status=AnalysisStatus.NO_TOOLS_FOUND, notes=["note.presented_as_mcp_server"])
     return Detection(status=AnalysisStatus.NOT_A_SERVER, notes=["note.no_mcp_sdk"])
 
 

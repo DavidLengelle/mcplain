@@ -28,7 +28,7 @@ from mcplain.rules.orange import ORANGE_RULES, cleared_dependencies
 from mcplain.rules.red import RED_RULES
 from mcplain.rules.text import BIDI_CONTROLS, hidden_characters, tool_texts
 
-RULES_VERSION = "3"
+RULES_VERSION = "4"
 SEVERITY: dict[VerdictColor, int] = {
     VerdictColor.GREEN: 0,
     VerdictColor.GRAY: 0,
@@ -44,6 +44,7 @@ STATUS_CASES: dict[AnalysisStatus, GrayCase] = {
     AnalysisStatus.UNSUPPORTED_LANGUAGE: GrayCase.UNSUPPORTED_LANGUAGE,
     AnalysisStatus.COMPILED: GrayCase.COMPILED,
     AnalysisStatus.NOT_A_SERVER: GrayCase.NOT_A_SERVER,
+    AnalysisStatus.NO_TOOLS_FOUND: GrayCase.NO_TOOLS_FOUND,
     AnalysisStatus.ERROR: GrayCase.ERROR,
 }
 TIMEOUT_ERRORS: frozenset[str] = frozenset({"job.atelier_timeout", "fetch.timeout"})
@@ -294,7 +295,7 @@ def compute_verdict(result: AnalysisResult, registry: RuleRegistry = DEFAULT_REG
     if not alerts and reasons:
         verdict.color = VerdictColor.GRAY
         verdict.gray_case = gray_case(result, reasons)
-        if verdict.gray_case in READING_CASES:
+        if verdict.gray_case in READING_CASES and result.servers:
             verdict.coverage = coverage(result)
     if verdict.color is VerdictColor.ORANGE and reading:
         verdict.coverage = coverage(result)

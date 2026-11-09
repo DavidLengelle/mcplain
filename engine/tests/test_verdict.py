@@ -1,7 +1,10 @@
 """Tests for the verdict rule engine"""
 
+from pathlib import Path
+
 import pytest
 
+from mcplain.analyze import analyze_directory
 from mcplain.capabilities import Capability
 from mcplain.models import (
     Alert,
@@ -73,7 +76,7 @@ def test_default_registry_has_every_rule() -> None:
 
     assert DEFAULT_REGISTRY.has_red_rules()
     verdict = compute_verdict(result([]))
-    assert (verdict.rules_version, verdict.rules_count) == ("3", 23)
+    assert (verdict.rules_version, verdict.rules_count) == ("4", 25)
 
 
 def test_green_without_powerful_capability() -> None:
@@ -254,3 +257,18 @@ def test_gray_case_for_a_timeout_a_link_list_and_a_caveat() -> None:
     empty.servers[0].files_analyzed = 0
     empty.servers[0].tools[0].gaps = [TrackingGap.MAX_DEPTH]
     assert compute_verdict(empty).gray_case is GrayCase.NOTHING_ANALYZABLE
+
+
+def test_package_presented_as_a_server_is_gray_no_tools_found_without_coverage(tmp_path: Path) -> None:
+    """The text no longer says that this is not an MCP server, and no empty coverage block is shown"""
+
+    (tmp_path / "package.json").write_text('{"name": "acme-mcp-server"}', encoding="utf-8")
+    (tmp_path / "bundle.cjs").write_text("module.exports = {};\n", encoding="utf-8")
+    result = analyze_directory(tmp_path)
+    assert result.status is AnalysisStatus.NO_TOOLS_FOUND
+    verdict = result.verdict
+    assert verdict.color is VerdictColor.GRAY
+    assert verdict.gray_case is GrayCase.NO_TOOLS_FOUND
+    assert verdict.title is not None and verdict.title.code == "gray.no_tools_found.reason"
+    assert verdict.coverage is None
+

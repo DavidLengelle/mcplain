@@ -33,7 +33,7 @@ from mcplain.rules.red import (
     plain_install_request,
     tampering_flows,
 )
-from mcplain.rules.text import hidden_characters, tool_texts
+from mcplain.rules.text import directives, hidden_characters, tool_texts
 from mcplain.version_ranges import range_excludes
 
 RETIRED = "retired"
@@ -439,6 +439,28 @@ class InstallContactsInternet(Rule):
         return alerts
 
 
+class HiddenDirective(Rule):
+    """Class for O12: a description holds an HTML comment or an instruction tag, without any other signal"""
+
+    identifier = "O12"
+    slug = "directive-to-read"
+    color = VerdictColor.ORANGE
+    kind = AlertKind.POWER_TO_KNOW
+    sources = (sources.INVARIANT_POISONING, sources.OWASP_MCP03)
+    external_positive = True
+
+    def evaluate(self, context: RuleContext) -> list[Alert]:
+        """Quote every hidden block that R13 leaves aside, so that the user can read it"""
+
+        alerts = []
+        for tool in context.tools():
+            for item, block, signal in directives(tool):
+                if not signal:
+                    quote = " ".join(block.split())[:QUOTE_LIMIT]
+                    alerts.append(self.alert(tool=tool.name, file=tool.file, line=tool.line, quote=quote, detail=item.parameter))
+        return alerts
+
+
 ORANGE_RULES: tuple[type[Rule], ...] = (
     OpenNetwork,
     AiChoosesTheCommand,
@@ -451,4 +473,5 @@ ORANGE_RULES: tuple[type[Rule], ...] = (
     SilenceToCheck,
     InstallerEditsClientConfig,
     InstallContactsInternet,
+    HiddenDirective,
 )

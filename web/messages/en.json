@@ -261,6 +261,14 @@
             "title": "See an attack that arrives through data",
             "text": "A trap can arrive later, in a page, a document or an answer that a tool reads. MCPlain reads the code, not that data."
           },
+          "toolAnswers": {
+            "title": "See a trap in the answer of a tool",
+            "text": "A tool can change what it answers after a few calls and slip in instructions for the AI. This happens while it runs: MCPlain never runs it, so it does not see it."
+          },
+          "writtenSecrets": {
+            "title": "Spot secrets written in the code",
+            "text": "A server can show passwords written in its code. MCPlain does not spot them. They are the server's, not yours: you are not exposed."
+          },
           "imitation": {
             "title": "See a server that imitates another",
             "text": "When several servers are plugged in, one can pretend to be another. MCPlain analyzes one server at a time."

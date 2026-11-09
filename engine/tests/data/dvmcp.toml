@@ -32,10 +32,11 @@ scope = "in"
 id = 4
 name = "rug pull"
 folder = "challenges/medium/challenge4"
-color = ["gray", "orange"]
-accept = ["orange", "gray", "red"]
-rules = ["O03"]
-scope = "in"
+color = []
+accept = ["green", "orange", "red", "gray"]
+rules = []
+scope = "out"
+reason = "The trap is in the answer of the tool, at run time."
 
 [[challenge]]
 id = 5
@@ -59,10 +60,11 @@ scope = "out"
 id = 7
 name = "token theft"
 folder = "challenges/medium/challenge7"
-color = ["orange", "red"]
-accept = ["red", "orange", "gray"]
-rules = ["O05", "O08", "R04"]
-scope = "in"
+color = []
+accept = ["green", "orange", "red", "gray"]
+rules = []
+scope = "out"
+reason = "Secrets written in the code that the server shows: the user is not exposed."
 
 [[challenge]]
 id = 8

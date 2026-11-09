@@ -45,6 +45,7 @@ class Challenge:
     accept: list[str]
     rules: list[str]
     scope: str
+    reason: str = ""
 
 
 @dataclass

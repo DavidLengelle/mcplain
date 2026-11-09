@@ -282,8 +282,8 @@
       }
     ],
     "reasons": [],
-    "rules_version": "3",
-    "rules_count": 23,
+    "rules_version": "4",
+    "rules_count": 25,
     "contacted_domains": [],
     "gray_case": null,
     "title": {

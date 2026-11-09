@@ -24,7 +24,7 @@ from mcplain.patterns import (
 )
 from mcplain.rules import sources
 from mcplain.rules.base import Rule, RuleContext
-from mcplain.rules.text import ToolText, hidden_characters, tool_texts
+from mcplain.rules.text import ToolText, directives, hidden_characters, tool_texts
 
 CODE_SINKS: frozenset[FlowSinkKind] = frozenset({FlowSinkKind.CODE, FlowSinkKind.SHELL})
 TAMPERING_KINDS: frozenset[PathKind] = frozenset({PathKind.AUTOSTART, PathKind.TOOL_CONFIG})
@@ -456,6 +456,26 @@ class TalksToTheAnalyzer(Rule):
         return alerts
 
 
+class HiddenDirectiveWithSignal(Rule):
+    """Class for R13: a hidden block of a description that also names a sensitive path, asks for silence or for content"""
+
+    identifier = "R13"
+    slug = "hidden-directive"
+    color = VerdictColor.RED
+    sources = (sources.INVARIANT_POISONING, sources.OWASP_MCP03)
+    external_positive = True
+
+    def evaluate(self, context: RuleContext) -> list[Alert]:
+        """Look in HTML comments and instruction tags for a signal the engine already knows"""
+
+        return [
+            text_alert(self, item, excerpt(block, 0))
+            for tool in context.tools()
+            for item, block, signal in directives(tool)
+            if signal
+        ]
+
+
 RED_RULES: tuple[type[Rule], ...] = (
     InvisibleText,
     AsksForSilence,
@@ -469,4 +489,5 @@ RED_RULES: tuple[type[Rule], ...] = (
     InstallGoesOnline,
     KnownMalicious,
     TalksToTheAnalyzer,
+    HiddenDirectiveWithSignal,
 )

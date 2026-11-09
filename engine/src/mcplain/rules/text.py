@@ -3,7 +3,9 @@
 from dataclasses import dataclass
 
 from mcplain.adapters.common import hidden_tag_text, is_flag
+from mcplain.capabilities import find_sensitive_paths
 from mcplain.models import Tool
+from mcplain.patterns import directive_blocks, silence_request, transmit_request
 
 TAG_FIRST = 0xE0000
 TAG_LAST = 0xE007F
@@ -64,6 +66,24 @@ def tool_texts(tool: Tool) -> list[ToolText]:
         if parameter.description:
             texts.append(ToolText(tool, "parameter", parameter.description, parameter.name))
     return texts
+
+
+def directives(tool: Tool) -> list[tuple[ToolText, str, bool]]:
+    """Return the hidden blocks of the texts of a tool, each with whether it also holds a signal the engine knows"""
+
+    names = [parameter.name for parameter in tool.parameters]
+    found = []
+    for item in tool_texts(tool):
+        if item.field == "name":
+            continue
+        for block in directive_blocks(item.text):
+            signal = (
+                bool(find_sensitive_paths(block))
+                or silence_request(block) is not None
+                or transmit_request(block, names) is not None
+            )
+            found.append((item, block, signal))
+    return found
 
 
 def _in(ranges: tuple[tuple[int, int], ...], character: str) -> bool:

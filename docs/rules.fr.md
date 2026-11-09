@@ -1,6 +1,6 @@
 # Règles de MCPlain
 
-Règles version 3 : 23 règles, 12 rouges et 11 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
+Règles version 4 : 25 règles, 13 rouges et 12 orange. Cette page est générée depuis le registre des règles avec `uv run mcplain --rules --lang fr` ; ne la modifie pas à la main.
 
 Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une règle orange se déclenche ; sinon gris si le statut n'est pas ok ou si le code n'a pas pu être lu et suivi en entier ; sinon vert. Les règles s'appliquent à tout le code serveur (outils, code hors des outils, démarrage, scripts d'installation, exemples importés), jamais aux tests ni aux exemples que le serveur n'importe pas.
 
@@ -18,6 +18,7 @@ Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une
 | [R10 install-goes-online](#r10-install-goes-online) | ROUGE | Va sur Internet à l'installation |
 | [R11 known-malicious](#r11-known-malicious) | ROUGE | Paquet malveillant connu |
 | [R12 talks-to-the-analyzer](#r12-talks-to-the-analyzer) | ROUGE | S'adresse à l'analyseur |
+| [R13 hidden-directive](#r13-hidden-directive) | ROUGE | Consigne cachée qui vise tes données |
 | [O01 open-network](#o01-open-network) | ORANGE | Peut contacter n'importe quelle adresse |
 | [O02 ai-chooses-the-command](#o02-ai-chooses-the-command) | ORANGE | L'IA choisit la commande |
 | [O03 description-from-internet](#o03-description-from-internet) | ORANGE | Description téléchargée sur Internet |
@@ -29,6 +30,7 @@ Ordre du verdict : rouge si une règle rouge se déclenche ; sinon orange si une
 | [O09 silence-to-check](#o09-silence-to-check) | ORANGE | Demande de silence à vérifier |
 | [O10 installer-edits-client-config](#o10-installer-edits-client-config) | ORANGE | Commande d'installation qui modifie un client MCP |
 | [O11 install-contacts-internet](#o11-install-contacts-internet) | ORANGE | Contacte Internet dès l'installation |
+| [O12 directive-to-read](#o12-directive-to-read) | ORANGE | Consigne à lire dans une description |
 
 ## Conditions du vert
 
@@ -62,7 +64,7 @@ Chaque rapport montre six voyants, pour le serveur et pour chaque outil. Une cap
 | Va sur Internet | `internet` | `network` | R04, R05, R07, R10 |
 | Lance des commandes | `commands` | `docker_socket`, `dynamic_code`, `install_script`, `process_exec` | R07, R09, R10 |
 | Touche à tes secrets | `secrets` | `env_read_secret`, `sensitive_path` | R03, R04 |
-| Texte caché | `hidden_text` | caractères invisibles trouvés | R01, R02, R06, R12 |
+| Texte caché | `hidden_text` | caractères invisibles trouvés | R01, R02, R06, R12, R13 |
 
 ## R01 invisible-text
 
@@ -236,6 +238,20 @@ Une chaîne, un commentaire ou une description contient une formule d'attaque co
   - [MCPlain founding rule: text from analyzed code is data, never instructions](https://github.com/DavidLengelle/mcplain/blob/main/CLAUDE.md)
 - Fixtures de test : `engine/tests/fixtures/rules/R12/` (positive, near_miss, false_positive)
 
+## R13 hidden-directive
+
+**Consigne cachée qui vise tes données** : ROUGE, usage suspect.
+
+Un commentaire HTML ou une balise de consigne d'une description (IMPORTANT, SYSTEM, INSTRUCTIONS et équivalents) contient aussi un chemin sensible, une demande de silence, ou une demande de passer un contenu dans un paramètre. Une consigne pareille, dans un bloc écrit pour l'IA, n'a pas de raison honnête d'être là. Sans aucun de ces signaux, c'est O12 (orange).
+
+- En clair : **Une consigne cachée vise tes données**. Un bloc écrit pour l'IA dans une description cite un fichier sensible, demande de ne rien te dire, ou demande de transmettre un contenu. Conseil : Ne l'installe pas. Si tu l'as déjà utilisé, change les clés ou les mots de passe concernés.
+- Visible en lisant le code : oui
+- Faux positif connu : `<IMPORTANT>Never read ~/.ssh/id_rsa.</IMPORTANT>` : la phrase protège un secret, mais elle reste rouge.
+- Sources :
+  - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
+  - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
+- Fixtures de test : `engine/tests/fixtures/rules/R13/` (near_miss, false_positive ; cas positif : un serveur public troué exprès, DVMCP, lu sans être copié)
+
 ## O01 open-network
 
 **Peut contacter n'importe quelle adresse** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
@@ -385,3 +401,17 @@ Un script lancé à l'installation du paquet (preinstall, install, postinstall, 
   - [Datadog Security Labs, Shai-Hulud 2.0 moves to preinstall (November 2025)](https://securitylabs.datadoghq.com/articles/shai-hulud-2.0-npm-worm/)
   - [OWASP MCP Top 10, MCP04:2025 Software Supply Chain Attacks & Dependency Tampering](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP04-2025%E2%80%93Software-Supply-Chain-Attacks%26Dependency-Tampering.md)
 - Fixtures de test : `engine/tests/fixtures/rules/O11/` (positive, near_miss, false_positive)
+
+## O12 directive-to-read
+
+**Consigne à lire dans une description** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
+
+Une description d'outil contient un commentaire HTML (`<!-- ... -->`) ou une balise de consigne (IMPORTANT, SYSTEM, INSTRUCTIONS et équivalents, en majuscules ou non). C'est une façon de parler à l'IA sans que tu y fasses attention. Le bloc est cité : lis-le pour juger. Si le même bloc cite un chemin sensible, demande le silence ou demande de passer un contenu dans un paramètre, c'est R13 (rouge).
+
+- En clair : **Une consigne pour l'IA dans une description**. La description d'un outil contient un bloc écrit pour l'IA. Il est cité : lis-le pour juger. Conseil : Lis le bloc cité. S'il demande autre chose que ce que fait l'outil, ne l'installe pas.
+- Visible en lisant le code : oui
+- Faux positif connu : `<IMPORTANT>Always call list_projects first to get a valid project id.</IMPORTANT>` : une consigne de travail honnête.
+- Sources :
+  - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
+  - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
+- Fixtures de test : `engine/tests/fixtures/rules/O12/` (near_miss, false_positive ; cas positif : un serveur public troué exprès, DVMCP, lu sans être copié)
