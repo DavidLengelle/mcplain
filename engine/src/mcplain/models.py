@@ -547,6 +547,7 @@ class AnalysisStatus(StrEnum):
     UNSUPPORTED_LANGUAGE = "unsupported_language"
     COMPILED = "compiled"
     NOT_A_SERVER = "not_a_server"
+    NO_TOOLS_FOUND = "no_tools_found"
     ERROR = "error"
 
 

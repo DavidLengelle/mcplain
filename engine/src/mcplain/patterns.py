@@ -113,6 +113,17 @@ ANALYSIS_TOOLS = re.compile(
     r"relecteurs?|réviseurs?|revue\s+de\s+(?:sécurité|code)|outils?\s+(?:d['’]analyse|de\s+sécurité))\b",
     re.IGNORECASE,
 )
+DIRECTIVE_TAG_NAMES = (
+    r"(?:important|critical|mandatory|instructions?|directives?|consignes?|"
+    r"system(?:[_-](?:prompt|message|instructions?|directives?|notes?))?)"
+)
+DIRECTIVE_BLOCKS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"<!--.*?(?:-->|\Z)", re.DOTALL),
+    re.compile(
+        rf"<\s*(?P<tag>{DIRECTIVE_TAG_NAMES})(?=[\s>/])[^<>]*>.*?(?:<\s*/\s*(?P=tag)\s*>|\Z)",
+        re.DOTALL | re.IGNORECASE,
+    ),
+)
 SENTENCE_END = re.compile(r"[.!?\n]")
 NEW_PARAGRAPH = re.compile(r"[ \t]*(?:\n|[-*•]\s|\d+[.)]\s)")
 
@@ -239,6 +250,13 @@ def sentence_around(text: str, start: int, end: int, with_mark: bool = False) ->
     if with_mark and last < len(text) and text[last] in ".!?":
         last += 1
     return text[first:last]
+
+
+def directive_blocks(text: str) -> list[str]:
+    """Return the HTML comments and the instruction tags of a text, in order, with what they enclose"""
+
+    found = [match for pattern in DIRECTIVE_BLOCKS for match in pattern.finditer(text)]
+    return [match.group() for match in sorted(found, key=lambda match: match.start())]
 
 
 def analyzer_talk(text: str) -> re.Match[str] | None:

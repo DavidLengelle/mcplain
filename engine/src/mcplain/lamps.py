@@ -57,7 +57,7 @@ LAMPS: tuple[LampSpec, ...] = (
         frozenset({Capability.ENV_READ_SECRET, Capability.SENSITIVE_PATH}),
         frozenset({"R03", "R04"}),
     ),
-    LampSpec(LampId.HIDDEN_TEXT, frozenset(), frozenset({"R01", "R02", "R06", "R12"}), lit_by_invisible_characters=True),
+    LampSpec(LampId.HIDDEN_TEXT, frozenset(), frozenset({"R01", "R02", "R06", "R12", "R13"}), lit_by_invisible_characters=True),
 )
 
 LAMP_ORDER: tuple[LampId, ...] = tuple(spec.lamp for spec in LAMPS)

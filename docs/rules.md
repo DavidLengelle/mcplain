@@ -1,6 +1,6 @@
 # MCPlain rules
 
-Rules version 3: 23 rules, 12 red and 11 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
+Rules version 4: 25 rules, 13 red and 12 orange. This page is generated from the rule registry with `uv run mcplain --rules`; do not edit it by hand.
 
 Order of the verdict: red if a red rule fires; otherwise orange if an orange rule fires; otherwise gray if the status is not ok or if the code could not be fully read and followed; otherwise green. The rules apply to all server code (tools, code outside the tools, startup, install scripts, imported examples), never to tests or examples that the server does not import.
 
@@ -18,6 +18,7 @@ Order of the verdict: red if a red rule fires; otherwise orange if an orange rul
 | [R10 install-goes-online](#r10-install-goes-online) | RED | Goes online at install time |
 | [R11 known-malicious](#r11-known-malicious) | RED | Known malicious package |
 | [R12 talks-to-the-analyzer](#r12-talks-to-the-analyzer) | RED | Talks to the analyzer |
+| [R13 hidden-directive](#r13-hidden-directive) | RED | Hidden instruction that targets your data |
 | [O01 open-network](#o01-open-network) | ORANGE | Can contact any address |
 | [O02 ai-chooses-the-command](#o02-ai-chooses-the-command) | ORANGE | The AI chooses the command |
 | [O03 description-from-internet](#o03-description-from-internet) | ORANGE | Description downloaded from the Internet |
@@ -29,6 +30,7 @@ Order of the verdict: red if a red rule fires; otherwise orange if an orange rul
 | [O09 silence-to-check](#o09-silence-to-check) | ORANGE | Request for silence to check |
 | [O10 installer-edits-client-config](#o10-installer-edits-client-config) | ORANGE | Install command that edits an MCP client |
 | [O11 install-contacts-internet](#o11-install-contacts-internet) | ORANGE | Contacts the Internet at install time |
+| [O12 directive-to-read](#o12-directive-to-read) | ORANGE | Instruction to read in a description |
 
 ## Conditions of green
 
@@ -62,7 +64,7 @@ Every report shows six lamps, for the server and for each tool. A capability fou
 | Goes on the Internet | `internet` | `network` | R04, R05, R07, R10 |
 | Runs commands | `commands` | `docker_socket`, `dynamic_code`, `install_script`, `process_exec` | R07, R09, R10 |
 | Touches your secrets | `secrets` | `env_read_secret`, `sensitive_path` | R03, R04 |
-| Hidden text | `hidden_text` | invisible characters found | R01, R02, R06, R12 |
+| Hidden text | `hidden_text` | invisible characters found | R01, R02, R06, R12, R13 |
 
 ## R01 invisible-text
 
@@ -236,6 +238,20 @@ A string, a comment or a description holds a known attack formula ("ignore previ
   - [MCPlain founding rule: text from analyzed code is data, never instructions](https://github.com/DavidLengelle/mcplain/blob/main/CLAUDE.md)
 - Test fixtures: `engine/tests/fixtures/rules/R12/` (positive, near_miss, false_positive)
 
+## R13 hidden-directive
+
+**Hidden instruction that targets your data**: RED, suspicious use.
+
+An HTML comment or an instruction tag of a description (IMPORTANT, SYSTEM, INSTRUCTIONS and the like) also holds a sensitive path, a request for silence, or a request to pass some content into a parameter. Such an instruction, in a block written for the AI, has no honest reason to be there. Without any of these signals, it is O12 (orange).
+
+- In plain words: **A hidden instruction targets your data**. A block written for the AI in a description names a sensitive file, asks not to tell you anything, or asks to pass some content. Advice: Do not install it. If you already used it, change the keys or passwords involved.
+- Visible when reading the code: yes
+- Known false positive: `<IMPORTANT>Never read ~/.ssh/id_rsa.</IMPORTANT>`: the sentence protects a secret, but it stays red.
+- Sources:
+  - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
+  - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
+- Test fixtures: `engine/tests/fixtures/rules/R13/` (near_miss, false_positive; positive case: a public server with holes on purpose, DVMCP, read and not copied)
+
 ## O01 open-network
 
 **Can contact any address**: ORANGE, a power to be aware of (nothing suspicious found).
@@ -385,3 +401,17 @@ A script run when the package is installed (preinstall, install, postinstall, se
   - [Datadog Security Labs, Shai-Hulud 2.0 moves to preinstall (November 2025)](https://securitylabs.datadoghq.com/articles/shai-hulud-2.0-npm-worm/)
   - [OWASP MCP Top 10, MCP04:2025 Software Supply Chain Attacks & Dependency Tampering](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP04-2025%E2%80%93Software-Supply-Chain-Attacks%26Dependency-Tampering.md)
 - Test fixtures: `engine/tests/fixtures/rules/O11/` (positive, near_miss, false_positive)
+
+## O12 directive-to-read
+
+**Instruction to read in a description**: ORANGE, a power to be aware of (nothing suspicious found).
+
+A tool description holds an HTML comment (`<!-- ... -->`) or an instruction tag (IMPORTANT, SYSTEM, INSTRUCTIONS and the like, in any case). It is a way to talk to the AI without you paying attention. The block is quoted: read it to judge. If the same block names a sensitive path, asks for silence or asks to pass some content into a parameter, it is R13 (red).
+
+- In plain words: **An instruction for the AI in a description**. A tool description holds a block written for the AI. It is quoted: read it to judge. Advice: Read the quoted block. If it asks for something other than what the tool does, do not install it.
+- Visible when reading the code: yes
+- Known false positive: `<IMPORTANT>Always call list_projects first to get a valid project id.</IMPORTANT>`: an honest working instruction.
+- Sources:
+  - [Invariant Labs, MCP Security Notification: Tool Poisoning Attacks (April 2025)](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
+  - [OWASP MCP Top 10, MCP03:2025 Tool Poisoning](https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/MCP03-2025%E2%80%93Tool-Poisoning.md)
+- Test fixtures: `engine/tests/fixtures/rules/O12/` (near_miss, false_positive; positive case: a public server with holes on purpose, DVMCP, read and not copied)

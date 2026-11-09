@@ -188,6 +188,57 @@ def test_project_without_sdk_is_not_a_server(tmp_path: Path) -> None:
     assert detection.notes == ["note.no_mcp_sdk"]
 
 
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"name": "@acme/mcp-server"},
+        {"name": "acme", "description": "Acme MCP server over stdio"},
+        {"name": "acme", "keywords": ["mcp-server"]},
+        {"name": "acme", "description": "A Model Context Protocol server for Acme"},
+    ],
+)
+def test_package_presented_as_a_server_without_sdk_has_no_tools_found(tmp_path: Path, fields: dict[str, object]) -> None:
+    """An all-in-one package does not declare the SDK: its metadata say that it is an MCP server"""
+
+    write(tmp_path / "package.json", json.dumps(fields))
+    write(tmp_path / "dist" / "server.cjs", "module.exports = {};\n")
+    detection = detect(tmp_path)
+    assert detection.status is AnalysisStatus.NO_TOOLS_FOUND
+    assert detection.notes == ["note.presented_as_mcp_server"]
+
+
+def test_python_project_presented_as_a_server_without_sdk_has_no_tools_found(tmp_path: Path) -> None:
+    """The name of a Python project counts like the name of a package"""
+
+    write(tmp_path / "pyproject.toml", "[project]\nname = 'acme-mcp-server'\n")
+    write(tmp_path / "acme.py", "VALUE = 1\n")
+    assert detect(tmp_path).status is AnalysisStatus.NO_TOOLS_FOUND
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"name": "mcp-client-kit", "description": "A client for MCP"},
+        {"name": "awesome-list", "description": "A collection of MCP servers"},
+        {"name": "acme", "keywords": ["mcp"]},
+    ],
+)
+def test_package_that_is_not_presented_as_a_server_stays_not_a_server(tmp_path: Path, fields: dict[str, object]) -> None:
+    """A client, a list of servers or the bare word mcp do not present a package as an MCP server"""
+
+    write(tmp_path / "package.json", json.dumps(fields))
+    write(tmp_path / "index.js", "export {};\n")
+    assert detect(tmp_path).status is AnalysisStatus.NOT_A_SERVER
+
+
+def test_presented_package_without_readable_code_stays_not_a_server(tmp_path: Path) -> None:
+    """Metadata alone are not a server: there must be code that MCPlain can read"""
+
+    write(tmp_path / "package.json", json.dumps({"name": "acme-mcp-server"}))
+    write(tmp_path / "README.md", "# Acme\n")
+    assert detect(tmp_path).status is AnalysisStatus.NOT_A_SERVER
+
+
 def test_rust_project_without_known_sdk_is_unsupported(tmp_path: Path) -> None:
     """A Rust project is reported as an unsupported language"""
 

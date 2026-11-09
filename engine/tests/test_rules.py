@@ -1,6 +1,7 @@
 """Tests for the rule cards and for the fixtures of every rule: positive, near miss and known false positive"""
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -18,6 +19,14 @@ IDENTIFIER_PATTERN = re.compile(r"^[RO]\d{2}$")
 SLUG_PATTERN = re.compile(r"^[a-z]+(?:-[a-z]+)*$")
 REVIEWED_SOURCES = Path(__file__).parent / "data" / "rule_sources.json"
 RULES = DEFAULT_REGISTRY.rules()
+DVMCP = Path(__file__).parent / "fixtures" / "external" / "dvmcp"
+DVMCP_HEAD = DVMCP / ".git" / "HEAD"
+REQUIRE_DVMCP = "MCPLAIN_REQUIRE_DVMCP"
+DVMCP_POSITIVES: dict[str, tuple[str, ...]] = {
+    "O12": ("challenges/medium/challenge5", "challenges/hard/challenge10"),
+    "R13": ("challenges/easy/challenge2",),
+}
+EXPECTED_FIRES: dict[tuple[str, str], bool] = {("R13", "false_positive"): False}
 
 
 def catalog(language: str) -> dict[str, str]:
@@ -63,7 +72,7 @@ def test_rules_have_unique_identifiers_and_slugs() -> None:
 
 @pytest.mark.parametrize(
     ("identifier", "case"),
-    [(rule.identifier, case) for rule in RULES for case in CASES],
+    [(rule.identifier, case) for rule in RULES for case in CASES if not (rule.external_positive and case == "positive")],
 )
 def test_rule_fixture(fixtures: Path, identifier: str, case: str) -> None:
     """A positive fixture fires the rule, a near miss does not, a known false positive still does"""
@@ -72,7 +81,40 @@ def test_rule_fixture(fixtures: Path, identifier: str, case: str) -> None:
     assert folder.is_dir(), folder
     result = analyze_fixture(folder)
     fired = [alert for alert in result.verdict.alerts if alert.rule == identifier]
-    assert bool(fired) is CASES[case], [(alert.rule, alert.detail) for alert in result.verdict.alerts]
+    expected = EXPECTED_FIRES.get((identifier, case), CASES[case])
+    assert bool(fired) is expected, [(alert.rule, alert.detail) for alert in result.verdict.alerts]
+
+
+def test_every_rule_without_positive_fixture_has_a_dvmcp_positive() -> None:
+    """A rule whose positive case must not be written in the repository reads it in DVMCP"""
+
+    assert {rule.identifier for rule in RULES if rule.external_positive} == set(DVMCP_POSITIVES)
+
+
+@pytest.mark.parametrize(
+    ("identifier", "folder"),
+    [(identifier, folder) for identifier, folders in DVMCP_POSITIVES.items() for folder in folders],
+)
+def test_rule_positive_read_in_dvmcp(identifier: str, folder: str) -> None:
+    """DVMCP is read by the engine, never run: its challenges are the positive cases of the hidden instruction rules"""
+
+    if not DVMCP_HEAD.is_file():
+        message = "DVMCP is not cloned: run scripts/fetch-dvmcp.sh to check this rule against it"
+        if os.environ.get(REQUIRE_DVMCP) == "1":
+            pytest.fail(message, pytrace=False)
+        pytest.skip(message)
+    fired = [alert.rule for alert in analyze_directory(DVMCP / folder).verdict.alerts]
+    if identifier not in fired:
+        pytest.fail(f"{identifier} did not fire on {folder}", pytrace=False)
+
+
+def test_honest_hidden_instruction_is_o12_and_never_r13(fixtures: Path) -> None:
+    """A working instruction in a tag is only quoted, and plain visible text gives nothing"""
+
+    tagged = analyze_directory(fixtures / "rules" / "O12" / "false_positive").verdict
+    assert [alert.rule for alert in tagged.alerts] == ["O12"]
+    plain = analyze_directory(fixtures / "rules" / "O12" / "near_miss").verdict
+    assert plain.alerts == []
 
 
 def test_every_source_url_is_in_the_reviewed_list() -> None:
