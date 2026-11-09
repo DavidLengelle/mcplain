@@ -157,12 +157,16 @@ Guide : `docs/ai.fr.md`.
 - [ ] Les noms des dépendances directes dans le rapport : le champ `libraries` du formulaire reste vide tant que le moteur ne les garde pas.
 - [x] Premier vrai essai (9 novembre) : notice française avec un encodage cassé venu de la réponse de l'IA. Règle de rejet `encoding`,
       prompt `notice-v2`, httpx déclaré comme dépendance directe de `api/`.
+- [x] Diagnostic (9 novembre) : la sortie imposée (`output_config.format`) cassait les accents. Elle est retirée, le prompt décrit le
+      JSON et notre contrôle le relit ; prompts `notice-v3` et `translation-v2`.
 - [ ] Mise en ligne : vrai filtre de sortie réseau (pare-feu ou proxy) pour le chef d'atelier et le rédacteur.
 - [ ] Séance 9 : bouton admin pour relancer une notice rejetée.
 
 ## PLUS TARD
 
 - Liste des bibliothèques dans le formulaire de l'IA.
+- Retester la sortie imposée avec `scripts/notice-diagnose.sh --with-format` (abandonnée le 9 novembre 2026 : accents cassés en
+  français).
 - Lire les paquets tout-en-un fabriqués par un bundler (cas de sentry 0.49.0) pour y reconnaître les outils, afin qu'ils ne
   finissent plus en gris. Pas codé.
 

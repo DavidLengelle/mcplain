@@ -44,7 +44,7 @@ Le prompt interdit à l'IA de juger la sécurité, et d'inventer une fonction qu
 
 ## 3. Les deux schémas
 
-**Ce que l'IA doit rendre** (`NOTICE_SCHEMA` dans `ai_prompts.py`, tout requis, aucun autre champ) :
+**Ce que l'IA doit rendre** (décrit dans le prompt, vérifié par pydantic côté MCPlain, tout requis, aucun autre champ) :
 
 ```json
 { "summary": "...", "use_cases": ["..."],
@@ -69,6 +69,21 @@ qu'en entrée (`tool_` suivi de la position de l'outil dans le rapport).
   vide comme absente : il n'affiche alors rien, jamais « tout va bien ».
 - La réponse contient aussi `status`, `source` (`ai` ou `template`), `fallback`, `model`, `date`, `reject_reason` et `resume`.
   Jamais le coût, ni les jetons, ni le `request-id`.
+
+## 3 bis. Pourquoi pas de sortie imposée
+
+L'API sait imposer un schéma JSON à la réponse (`output_config.format`). MCPlain ne s'en sert pas. Le 9 novembre 2026, en
+français, la sortie imposée a cassé les accents au début du texte (« Ă » suivi d'un caractère à la place de « à » ou « é »), deux
+fois de suite avec la même entrée (request-id `req_011Cgsjjrio3ZYG4SZuNTuMH`). La même requête sans sortie imposée, le prompt
+demandant juste du JSON, était propre, avec 190 jetons d'entrée en moins.
+
+Le prompt système décrit donc l'objet JSON attendu et demande de répondre par cet objet seul. MCPlain accepte seulement le texte
+entier comme un objet JSON, ou entouré d'un seul bloc ```` ```json ````. Tout le reste (une phrase avant ou après, deux objets, un
+JSON coupé) est rejeté avec `bad_json`.
+
+**La sécurité ne repose pas sur le schéma de l'API, mais sur notre contrôle de sortie** : pydantic relit chaque champ, puis les
+règles ci-dessous (longueurs, mots rassurants, liens, caractères invisibles, encodage) s'appliquent comme avant. Le schéma reste
+dans le code (`NOTICE_SCHEMA`), pour revérifier un jour la sortie imposée avec `scripts/notice-diagnose.sh --with-format`.
 
 ## 4. Les contrôles de sortie
 
@@ -100,7 +115,8 @@ Faux positifs acceptés par David, avec un test à leur nom :
 **Pourquoi la règle `encoding`.** Au premier vrai essai (9 novembre 2026), la notice française contenait « Ă » suivi d'une espace
 insécable à la place de « à », et « Ă© » à la place de « é » : les octets UTF-8 lus en Windows-1250. Le code de MCPlain est en
 UTF-8 de bout en bout, et un test le vérifie (`test_french_text_crosses_the_chain_unchanged`) : ces caractères étaient déjà dans le
-texte rendu par l'IA. La règle les arrête, et la version du prompt est passée à `notice-v2` pour ne plus servir la notice cassée.
+texte rendu par l'IA. La règle les arrête. Le diagnostic a ensuite montré que la sortie imposée en était la cause (voir 3 bis). Les
+prompts sont maintenant en `notice-v3` et `translation-v2`.
 
 Sont aussi rejetés : un domaine écrit par l'IA qui n'est pas dans le formulaire, comme `ASP.NET`. Les noms de fichiers courants
 (`package.json`, `Node.js`) passent.
@@ -194,7 +210,7 @@ environ. Lui seul appelle vraiment l'API. C'est toi qui le lances, jamais les te
 l'empreinte du code Python rangée dans l'image avec les 50 derniers commits). Il s'arrête si l'image n'est pas construite depuis le
 dernier commit.
 
-`scripts/notice-diagnose.sh` envoie deux fois la notice française d'une analyse déjà en base : A avec `output_config.format`, B sans,
-le prompt demandant alors du JSON. Il affiche le texte brut, chaque caractère non ASCII avec son code, les jetons et le coût (environ
-1,2 centime en tout). Il n'écrit rien en base, rien dans le cache, et ne compte pas dans le fusible. C'est toi qui le lances.
-
+`scripts/notice-diagnose.sh` envoie une fois la notice française d'une analyse déjà en base, construite par les mêmes fonctions que
+le rédacteur (`notice_body`). Mode par défaut : la requête réelle. Avec `--with-format` : la même, plus `output_config.format`. Il
+affiche le texte brut, chaque caractère non ASCII avec son code, le résultat du contrôle de sortie, les jetons et le coût (environ
+0,6 centime). Il n'écrit rien en base, rien dans le cache, et ne compte pas dans le fusible. C'est toi qui le lances.

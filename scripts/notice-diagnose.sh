@@ -1,12 +1,21 @@
 #!/bin/sh
-# Diagnosis of the broken French notice, for David only: two real calls, about 1.2 cent in all.
-# A: the real notice request, with output_config.format. B: the same without format, the prompt asking for JSON.
-# Nothing is written in the database nor in the cache, and nothing counts in the fuse: the calls go straight to the API.
-# The key is read from .env by Python and only ever put in the request header.
+# Diagnosis of the French notice, for David only: one real call, about 0.6 cent.
+#   scripts/notice-diagnose.sh                 the request the writer really sends (mode current)
+#   scripts/notice-diagnose.sh --with-format   the same request plus output_config.format, to check the imposed output again
+# A second argument names another analysis already in the database (default: uvx mcp-server-fetch).
+# The request is built by the same functions as the writer (notice_body). Nothing is written in the database nor in the
+# cache, and nothing counts in the fuse. The key is read from .env by Python and only ever put in the request header.
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+MODE="current"
+if [ "${1:-}" = "--with-format" ]; then
+    MODE="with-format"
+    shift
+elif [ "${1:-}" = "--current" ]; then
+    shift
+fi
 INPUT="${1:-uvx mcp-server-fetch}"
 
 if ! grep -Eq '^MCPLAIN_ANTHROPIC_API_KEY=.+' .env; then
@@ -24,56 +33,51 @@ if [ ! -s "$REPORT" ]; then
 fi
 
 cd api
-uv run --locked python - "$ROOT/.env" "$REPORT" <<'PY'
+uv run --locked python - "$ROOT/.env" "$REPORT" "$MODE" <<'PY'
 import json
 import os
 import sys
 import unicodedata
 
-ENV_FILE, REPORT = sys.argv[1], sys.argv[2]
+ENV_FILE, REPORT, MODE = sys.argv[1], sys.argv[2], sys.argv[3]
 for line in open(ENV_FILE, encoding="utf-8"):
     name, sep, value = line.strip().partition("=")
     if sep and (name == "MCPLAIN_ANTHROPIC_API_KEY" or name.startswith("MCPLAIN_AI_")):
         os.environ[name] = value.strip().strip("'\"")
 
 from mcplain.models import AnalysisResult
-from mcplain_api.ai_client import build_body, call_api, call_cost
+from mcplain_api.ai_check import OutputRejected, check_notice
+from mcplain_api.ai_client import call_api, call_cost, notice_body
 from mcplain_api.ai_form import build_form
-from mcplain_api.ai_prompts import NOTICE_PROMPT_VERSION, NOTICE_SCHEMA, NOTICE_SYSTEM, notice_message
+from mcplain_api.ai_prompts import NOTICE_PROMPT_VERSION
 from mcplain_api.settings import Settings
 
 settings = Settings(_env_file=None, database_url="sqlite://")
 KEY = settings.anthropic_api_key.get_secret_value()
 form = build_form(AnalysisResult.model_validate(json.load(open(REPORT, encoding="utf-8"))))
-message = notice_message(form, "fr")
-JSON_ONLY = (
-    "\n\nAnswer with one JSON object only, without Markdown, with exactly these fields: "
-    + json.dumps(NOTICE_SCHEMA, ensure_ascii=True)
-)
-with_format = build_body(settings, NOTICE_SYSTEM, message, NOTICE_SCHEMA, settings.ai_max_tokens)
-without_format = build_body(settings, NOTICE_SYSTEM + JSON_ONLY, message, NOTICE_SCHEMA, settings.ai_max_tokens)
-without_format["output_config"] = {"effort": settings.ai_effort}
-print(f"model {settings.ai_model}, prompt {NOTICE_PROMPT_VERSION}, effort {settings.ai_effort}, thinking {settings.ai_thinking}")
+body = notice_body(settings, form, "fr", with_format=MODE == "with-format")
+print(f"mode {MODE}, model {settings.ai_model}, prompt {NOTICE_PROMPT_VERSION}, output_config {sorted(body['output_config'])}")
 
 
 def clean(text: str) -> str:
     return text.replace(KEY, "[hidden]")
 
 
-total = 0.0
-for label, body in (("A, with output_config.format", with_format), ("B, without format, JSON asked in the prompt", without_format)):
-    reply = call_api(settings, body)
-    cost = call_cost(settings, reply.input_tokens, reply.output_tokens)
-    total += cost
-    print(f"\n===== {label}")
-    print(f"result {reply.kind.value}, HTTP {reply.status}, stop_reason {reply.stop_reason}, request-id {reply.request_id}")
-    print("--- raw text")
-    print(clean(reply.text))
-    print("--- non-ASCII characters")
-    for index, character in enumerate(reply.text):
-        if ord(character) > 127:
-            around = reply.text[max(0, index - 12):index + 4].encode("unicode_escape").decode("ascii")
-            print(f"  {index:5} U+{ord(character):04X} {unicodedata.name(character, '?'):40} {around}")
-    print(f"--- tokens in {reply.input_tokens}, out {reply.output_tokens}, cost {cost:.6f} USD")
-print(f"\ntotal {total:.6f} USD")
+reply = call_api(settings, body)
+cost = call_cost(settings, reply.input_tokens, reply.output_tokens)
+print(f"result {reply.kind.value}, HTTP {reply.status}, stop_reason {reply.stop_reason}, request-id {reply.request_id}")
+print("--- raw text")
+print(clean(reply.text))
+print("--- non-ASCII characters")
+for index, character in enumerate(reply.text):
+    if ord(character) > 127:
+        around = reply.text[max(0, index - 12):index + 4].encode("unicode_escape").decode("ascii")
+        print(f"  {index:5} U+{ord(character):04X} {unicodedata.name(character, '?'):40} {around}")
+print("--- check of the writer")
+try:
+    check_notice(reply.text, form)
+    print("accepted")
+except OutputRejected as rejected:
+    print(f"rejected: {rejected.reason.value}")
+print(f"--- tokens in {reply.input_tokens}, out {reply.output_tokens}, cost {cost:.6f} USD")
 PY
