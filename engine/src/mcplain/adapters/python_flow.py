@@ -63,6 +63,7 @@ from mcplain.flows import (
     PYTHON_SHELL_KEYWORD,
     PYTHON_SHELL_METHODS,
     PYTHON_SHELL_OPTION_CALLS,
+    PYTHON_SPLIT_CALLS,
     PYTHON_TOOL_BUILDERS,
     ROLE_ARGUMENTS,
     ROLE_CODE,
@@ -72,6 +73,7 @@ from mcplain.flows import (
     ROLE_DESCRIPTION,
     ROLE_PATH,
     ROLE_PROGRAM,
+    STRING_SPLIT_METHOD,
     FlowSinkKind,
     FlowSourceKind,
 )
@@ -747,7 +749,11 @@ class PythonLowering:
             sinks.append((FlowSinkKind.PROCESS, ROLE_PROGRAM, inputs.argument(position), detail))
             sinks.append((FlowSinkKind.PROCESS, ROLE_ARGUMENTS, rest, detail))
         else:
-            sinks.append((FlowSinkKind.PROCESS, ROLE_ARGUMENTS, inputs.argument(position) + rest, detail))
+            specs = (
+                SinkSpec(FlowSinkKind.PROCESS, ROLE_ARGUMENTS, inputs.argument(position), detail, offset, whole_list=True),
+                SinkSpec(FlowSinkKind.PROCESS, ROLE_ARGUMENTS, rest, detail, offset),
+            )
+            return Operation(tuple(inputs.items), offset, specs)
         return self._sinks(inputs, offset, sinks)
 
     def _known_call(
@@ -801,6 +807,8 @@ class PythonLowering:
                 sources += (inputs.add(Source(FlowSourceKind.NETWORK_RESPONSE, qualified, offset)),)
             sink = (FlowSinkKind.TOOL_DESCRIPTION, ROLE_DESCRIPTION, sources, qualified)
             return self._sinks(inputs, offset, [sink])
+        if imported and qualified in PYTHON_SPLIT_CALLS:
+            return Operation(tuple(inputs.items), offset, result=Result("split", inputs.argument(0, "s")))
         if qualified in PYTHON_PROPAGATORS:
             return Operation(tuple(inputs.items), offset, result=Result("union", inputs.arguments()))
         return None
@@ -852,6 +860,8 @@ class PythonLowering:
             if method == "replace":
                 parts = (0, *inputs.argument(1))
             return Operation(tuple(inputs.items), offset, result=Result("compose", parts))
+        if method == STRING_SPLIT_METHOD:
+            return Operation(tuple(inputs.items), offset, result=Result("split", (0,)))
         if method in PYTHON_MUTATING_METHODS:
             names = _names(receiver)
             updates = tuple((name, inputs.arguments()) for name in names)

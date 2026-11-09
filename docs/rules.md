@@ -254,7 +254,7 @@ A tool sends requests to an address the AI gives it. It can contact any address 
 
 **The AI chooses the command**: ORANGE, a power to be aware of (nothing suspicious found).
 
-A tool parameter is run as a whole command, as the program to start, or as code to evaluate (also after decoding). This is maximum power: the AI can run anything.
+A tool parameter is run as a whole command, as the program to start, or as code to evaluate (also after decoding). This is maximum power: the AI can run anything. A command split into a list (shlex.split, split) counts too. If the split text starts with a word written in the code and a space, the program is fixed: no O02, the tool stays at O08.
 
 - In plain words: **The AI chooses the command to run**. A tool runs the command or the code the AI gives it. So the AI can run anything on your computer. Advice: Use it only if you approve each command before it runs.
 - Visible when reading the code: yes

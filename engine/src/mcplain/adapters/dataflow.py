@@ -12,6 +12,7 @@ When in doubt, the engine drops the label (a missed flow) rather than inventing 
 calls return an unlabelled value, a reassigned variable loses its old labels, closures are not followed.
 """
 
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 
@@ -19,6 +20,8 @@ from mcplain.adapters.callgraph import CallGraph, Step
 from mcplain.adapters.report import RawCall
 from mcplain.capabilities import PathKind, path_kinds
 from mcplain.flows import WRITTEN_FILE_SOURCES, FlowSinkKind, FlowSourceKind
+
+FIXED_FIRST_WORD = re.compile(r"\s*[^\s'\"`\\]+\s")
 
 
 class Expr:
@@ -108,6 +111,7 @@ class SinkSpec:
     detail: str
     offset: int
     target: tuple[str, ...] = ()
+    whole_list: bool = False
 
 
 @dataclass(frozen=True)
@@ -240,6 +244,8 @@ class Label:
     decoded: bool = False
     written: bool = False
     nested: bool = False
+    split: bool = False
+    fixed_program: bool = False
     kinds: frozenset[PathKind] = frozenset()
     steps: tuple[Step, ...] = field(default=(), compare=False)
 
@@ -480,14 +486,21 @@ class FlowEngine:
 
         result: set[Label] = set()
         before = False
+        leading = ""
+        reading = True
         for part, labels in zip(parts, values):
             if before:
-                result.update(replace(label, pasted=True) for label in labels)
+                fixed = FIXED_FIRST_WORD.match(leading) is not None
+                result.update(replace(label, pasted=True, fixed_program=label.fixed_program or fixed) for label in labels)
             else:
                 result.update(labels)
+            text, whole = _leading_text(part)
+            if reading:
+                leading += text
+                reading = whole
             if isinstance(part, Literal):
                 before = before or bool(part.text)
-            elif not isinstance(part, Empty) and not labels:
+            elif text or (not isinstance(part, Empty) and not labels):
                 before = True
         return frozenset(result)
 
@@ -525,6 +538,8 @@ class FlowEngine:
             )
         if result.kind == "decode":
             return frozenset(replace(label, decoded=True) for label in labels)
+        if result.kind == "split":
+            return frozenset(replace(label, split=True) for label in labels)
         if result.kind == "source" and result.source is not None:
             return frozenset({Label(result.source, result.detail, frame.function.file, operation.offset)})
         return NO_LABELS
@@ -638,6 +653,24 @@ class FlowEngine:
         yield from self.functions.values()
 
 
+def _leading_text(expr: Expr) -> tuple[str, bool]:
+    """Return the text a string part starts with, and whether that text is the whole part"""
+
+    if isinstance(expr, Literal):
+        return expr.text, True
+    if isinstance(expr, Union) and expr.parts and isinstance(expr.parts[0], Literal):
+        return expr.parts[0].text, True
+    if isinstance(expr, Compose):
+        leading = ""
+        for part in expr.parts:
+            text, whole = _leading_text(part)
+            leading += text
+            if not whole:
+                return leading, False
+        return leading, True
+    return "", False
+
+
 def _union(groups: Iterator[Labels] | list[Labels]) -> Labels:
     """Return the union of label sets"""
 
@@ -706,5 +739,7 @@ def _through(label: Label, inner: Label, step: Step) -> Label | None:
         pasted=label.pasted or inner.pasted,
         decoded=label.decoded or inner.decoded,
         written=label.written or inner.written,
+        split=label.split or inner.split,
+        fixed_program=label.fixed_program or inner.fixed_program,
         steps=(*label.steps, step, *inner.steps),
     )

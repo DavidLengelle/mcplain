@@ -6,7 +6,7 @@ from mcplain.adapters.callgraph import CallGraph, Region, Step
 from mcplain.adapters.dataflow import FlowEngine, FlowFunction, Hit, Label, Summary
 from mcplain.adapters.report import FileReport
 from mcplain.config import Limits
-from mcplain.flows import RELEVANT_FLOWS, FlowSourceKind
+from mcplain.flows import RELEVANT_FLOWS, ROLE_ARGUMENTS, ROLE_PROGRAM, FlowSinkKind, FlowSourceKind
 from mcplain.models import CallStep, Flow, FlowPoint, LocationKind, OutsideKind
 
 PYTHON_SUFFIX = ".py"
@@ -217,6 +217,8 @@ class FlowAssembler:
             pasted=label.pasted,
             decoded=label.decoded,
             written=label.written,
+            split=label.split,
+            fixed_program=label.fixed_program,
             steps=label.steps,
         )
 
@@ -248,7 +250,7 @@ class FlowAssembler:
             path_kinds=sorted(label.kinds),
             source_point=self._point(source_report, label.offset),
             sink=hit.sink.kind,
-            sink_role=hit.sink.role,
+            sink_role=_sink_role(label, hit),
             sink_detail=hit.sink.detail,
             sink_point=self._point(sink_report, hit.sink.offset),
             steps=steps,
@@ -279,6 +281,17 @@ class FlowAssembler:
         return self.engine.summary((function.file, function.start))
 
 
+def _sink_role(label: Label, hit: Hit) -> str:
+    """Return the role of a value at its sink: split text that gives a whole command line names its program"""
+
+    if label.split and hit.sink.kind is FlowSinkKind.PROCESS:
+        if label.fixed_program:
+            return ROLE_ARGUMENTS
+        if hit.sink.whole_list:
+            return ROLE_PROGRAM
+    return hit.sink.role
+
+
 def _key(label: Label, hit: Hit) -> FlowKey:
     """Identify a flow by its source, its sink and how the value was shaped on the way"""
 
@@ -294,4 +307,6 @@ def _key(label: Label, hit: Hit) -> FlowKey:
         label.pasted,
         label.decoded,
         label.written,
+        label.split,
+        label.fixed_program,
     )

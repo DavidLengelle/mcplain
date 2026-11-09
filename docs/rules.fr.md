@@ -254,7 +254,7 @@ Un outil envoie des requêtes à une adresse que l'IA lui donne. Il peut contact
 
 **L'IA choisit la commande** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
-Un paramètre d'outil est lancé comme commande entière, comme programme à démarrer ou comme code à évaluer (y compris après décodage). C'est le pouvoir maximal : l'IA peut lancer n'importe quoi.
+Un paramètre d'outil est lancé comme commande entière, comme programme à démarrer ou comme code à évaluer (y compris après décodage). C'est le pouvoir maximal : l'IA peut lancer n'importe quoi. Une commande découpée en liste (shlex.split, split) compte aussi. Si le texte découpé commence par un mot écrit dans le code suivi d'une espace, le programme est fixe : pas d'O02, l'outil reste en O08.
 
 - En clair : **L'IA choisit la commande à lancer**. Un outil lance la commande ou le code que l'IA lui donne. L'IA peut donc lancer n'importe quoi sur ton ordinateur. Conseil : Utilise-le seulement si tu valides chaque commande avant qu'elle parte.
 - Visible en lisant le code : oui

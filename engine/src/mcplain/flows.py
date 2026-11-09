@@ -218,6 +218,8 @@ PYTHON_MUTATING_METHODS: frozenset[str] = frozenset(
     {"append", "extend", "add", "update", "insert", "appendleft", "extendleft", "setdefault"}
 )
 PYTHON_STRING_COMPOSERS: frozenset[str] = frozenset({"format", "join"})
+PYTHON_SPLIT_CALLS: frozenset[str] = frozenset({"shlex.split"})
+STRING_SPLIT_METHOD = "split"
 PYTHON_TOOL_BUILDERS: frozenset[str] = frozenset({"from_openapi", "from_fastapi"})
 
 JAVASCRIPT_SHELL_CALLS: frozenset[str] = frozenset(

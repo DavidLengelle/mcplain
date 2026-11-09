@@ -77,6 +77,7 @@ from mcplain.flows import (
     ROLE_DESCRIPTION,
     ROLE_PATH,
     ROLE_PROGRAM,
+    STRING_SPLIT_METHOD,
     FlowSinkKind,
     FlowSourceKind,
 )
@@ -981,6 +982,8 @@ class JavaScriptLowering:
             if method != "concat":
                 parts = (0, *inputs.argument(1))
             return Operation(tuple(inputs.items), offset, result=Result("compose", parts))
+        if method == STRING_SPLIT_METHOD:
+            return Operation(tuple(inputs.items), offset, result=Result("split", (0,)))
         if method in JAVASCRIPT_MUTATING_METHODS:
             updates = tuple((name, inputs.arguments()) for name in _names(receiver))
             return Operation(tuple(inputs.items), offset, updates=updates)
