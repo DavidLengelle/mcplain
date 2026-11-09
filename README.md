@@ -112,6 +112,10 @@ Finding nothing does not prove that a server is safe. MCPlain cannot see:
   descriptions after MCPlain read them. MCPlain analyzes one version, at one moment.
 - **Attacks that arrive later through data**: a web page, a file or an API answer that a tool reads
   can carry instructions for the AI. MCPlain reads the code, not the data the tools will read.
+- **A trap in the answer of a tool**: a tool can change what it answers after a few calls and slip in
+  instructions for the AI. This happens while it runs, and MCPlain never runs it.
+- **Secrets written in the code**: a server can show passwords written in its code. MCPlain does not
+  spot them. They are the server's, not yours: you are not exposed.
 - **A server that imitates another**: when several servers are plugged in, one can pretend to be
   another. MCPlain analyzes one server at a time.
 - **The code of the dependencies**: only their reputation on OSV.dev is checked (the analyzed

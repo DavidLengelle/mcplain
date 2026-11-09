@@ -1,18 +1,18 @@
 {
-  "engine_version": "0.5.1",
-  "date": "2026-11-04T08:47:15+00:00",
-  "source": "2026-11-04-engine-0.5.1.json",
+  "engine_version": "0.6.0",
+  "date": "2026-11-09T13:13:03+00:00",
+  "source": "2026-11-09-engine-0.6.0.json",
   "reds_left_out": 0,
   "servers": {
     "fetch": {
       "color": "orange",
       "gray_case": null,
-      "version": "2026.10.28"
+      "version": "2026.11.4"
     },
     "filesystem": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     "github-go": {
       "color": "gray",
@@ -22,27 +22,27 @@
     "time": {
       "color": "green",
       "gray_case": null,
-      "version": "2026.10.28"
+      "version": "2026.11.4"
     },
     "git": {
       "color": "orange",
       "gray_case": null,
-      "version": "2026.10.28"
+      "version": "2026.11.4"
     },
     "everything": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.1.0"
+      "version": "2.2.1"
     },
     "memory": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.0.1"
+      "version": "2.1.0"
     },
     "sequential-thinking": {
       "color": "green",
       "gray_case": null,
-      "version": "2.0.0"
+      "version": "2.1.1"
     },
     "pdf": {
       "color": "orange",
@@ -95,23 +95,23 @@
       "version": "2.11.0"
     },
     "sentry": {
-      "color": "orange",
-      "gray_case": null,
-      "version": "0.42.0"
+      "color": "gray",
+      "gray_case": "no_tools_found",
+      "version": "0.49.0"
     },
     "supabase": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.15.0"
+      "version": "0.16.1"
     },
     "context7": {
       "color": "orange",
       "gray_case": null,
-      "version": "4.5.0"
+      "version": "4.5.1"
     },
     "chrome-devtools": {
       "color": "gray",
-      "gray_case": "not_a_server",
+      "gray_case": "no_tools_found",
       "version": "1.12.0"
     },
     "playwright": {
@@ -122,7 +122,7 @@
     "firecrawl": {
       "color": "orange",
       "gray_case": null,
-      "version": "3.36.1"
+      "version": "3.38.0"
     },
     "gcloud": {
       "color": "orange",
@@ -137,12 +137,12 @@
     "mongodb": {
       "color": "gray",
       "gray_case": "no_tools_found",
-      "version": "3.2.2"
+      "version": "3.3.0"
     },
     "stripe": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.3.3"
+      "version": "0.3.4"
     },
     "next-devtools": {
       "color": "orange",
@@ -152,12 +152,12 @@
     "hostinger": {
       "color": "orange",
       "gray_case": null,
-      "version": "3.28.1"
+      "version": "3.31.3"
     },
     "storybook": {
       "color": "gray",
       "gray_case": "no_tools_found",
-      "version": "10.6.5"
+      "version": "10.6.6"
     },
     "desktop-commander": {
       "color": "red",
@@ -171,7 +171,7 @@
     "gitlab": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.3.20"
+      "version": "2.3.22"
     },
     "figma": {
       "color": "orange",
@@ -181,7 +181,7 @@
     "n8n": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.101.0"
+      "version": "2.102.0"
     },
     "xcodebuild": {
       "color": "orange",
@@ -191,7 +191,7 @@
     "ms-365": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.178.0"
+      "version": "0.182.1"
     },
     "calculator": {
       "color": "green",
@@ -201,7 +201,7 @@
     "atlassian": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.23.1"
+      "version": "0.24.1"
     },
     "blender": {
       "color": "gray",
@@ -226,12 +226,12 @@
     "workspace": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.3.0"
+      "version": "2.4.0"
     },
     "excel": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.2.6"
+      "version": "2.2.9"
     },
     "chroma": {
       "color": "orange",

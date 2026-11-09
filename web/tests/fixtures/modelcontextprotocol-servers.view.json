@@ -1,12 +1,12 @@
 {
-  "id": "d61d2618-8bb7-4999-aa9c-61858819f4af",
+  "id": "ae4c7dd3-350d-4458-bcf5-b7f19ebe0e81",
   "input": "https://github.com/modelcontextprotocol/servers",
   "select": null,
   "state": "done",
-  "created_at": "2026-11-09T10:33:39.781707+00:00",
-  "finished_at": "2026-11-09T10:33:41.909342+00:00",
-  "analyzed_at": "2026-11-09T10:33:05.254973+00:00",
-  "from_cache": true,
+  "created_at": "2026-11-09T13:16:59.508631+00:00",
+  "finished_at": "2026-11-09T13:17:04.009480+00:00",
+  "analyzed_at": "2026-11-09T13:17:04.009480+00:00",
+  "from_cache": false,
   "result": {
     "error": null,
     "notes": [],
@@ -44,8 +44,8 @@
       },
       "coverage": null,
       "gray_case": "multiple_servers",
-      "rules_count": 23,
-      "rules_version": "3",
+      "rules_count": 25,
+      "rules_version": "4",
       "contacted_domains": []
     },
     "language": null,

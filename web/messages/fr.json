@@ -261,6 +261,14 @@
             "title": "Voir une attaque qui arrive par les données",
             "text": "Un piège peut arriver plus tard, dans une page, un document ou une réponse qu'un outil lit. MCPlain lit le code, pas ces données."
           },
+          "toolAnswers": {
+            "title": "Voir un piège dans la réponse d'un outil",
+            "text": "Un outil peut changer ce qu'il répond après quelques appels et y glisser des consignes pour l'IA. Ça se passe quand il tourne : MCPlain ne le lance jamais, il ne le voit pas."
+          },
+          "writtenSecrets": {
+            "title": "Repérer les secrets écrits dans le code",
+            "text": "Un serveur peut montrer des mots de passe écrits en dur dans son code. MCPlain ne les repère pas. Ce sont ceux du serveur, pas les tiens : tu n'es pas exposé."
+          },
           "imitation": {
             "title": "Voir un serveur qui en imite un autre",
             "text": "Quand plusieurs serveurs sont branchés, l'un peut se faire passer pour un autre. MCPlain analyse un serveur à la fois."

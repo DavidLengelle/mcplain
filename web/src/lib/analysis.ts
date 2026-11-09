@@ -7,6 +7,7 @@ export const ANALYSIS_STATUSES = [
   "unsupported_language",
   "compiled",
   "not_a_server",
+  "no_tools_found",
   "error",
 ] as const;
 export const OUTSIDE_KINDS = ["startup", "install", "never_called"] as const;

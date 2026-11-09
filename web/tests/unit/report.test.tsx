@@ -228,6 +228,30 @@ describe("partial gray", () => {
   });
 });
 
+describe("package presented as an MCP server", () => {
+  it("says that no tool was recognized, not that this is not an MCP server", () => {
+    const raw = rawView(FAILED) as Record<string, unknown> & { result: Record<string, unknown> & { verdict: Record<string, unknown> } };
+    raw.result.status = "no_tools_found";
+    raw.result.error = null;
+    raw.result.verdict = {
+      ...raw.result.verdict,
+      gray_case: "no_tools_found",
+      title: { code: "gray.no_tools_found.reason", params: {} },
+      summary: { code: "gray.no_tools_found.advice", params: {} },
+      reasons: ["status.no_tools_found"],
+    };
+    raw.state = "done";
+    raw.error_code = null;
+    const view = parseAnalysisView(raw);
+    const { container } = renderWithIntl(<ReportView analysis={view!} />, "fr");
+    const verdict = container.querySelector("[data-verdict]");
+    expect(verdict?.getAttribute("data-verdict")).toBe("gray");
+    expect(verdict?.textContent).toContain("MCPlain n'a reconnu aucun outil dans ce serveur.");
+    expect(verdict?.textContent).not.toContain("ne ressemble pas à un serveur MCP");
+    expect(container.querySelector("[data-coverage]")).toBeNull();
+  });
+});
+
 describe("orange read in part", () => {
   it("shows the coverage block after the verdict, with the sentence about what the verdict covers", () => {
     const { container } = renderWithIntl(<ReportView analysis={loadView(ORANGE_PARTIAL)} />, "fr");
