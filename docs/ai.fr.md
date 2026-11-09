@@ -42,7 +42,35 @@ sont traduites, 12 000 caractères au total. Les suivantes restent en langue d'o
 Le prompt interdit à l'IA de juger la sécurité, et d'inventer une fonction que les noms ne suggèrent pas. Un nom d'outil reste
 écrit par un inconnu : c'est pourquoi la sortie est contrôlée après coup.
 
-## 3. Les contrôles de sortie
+## 3. Les deux schémas
+
+**Ce que l'IA doit rendre** (`NOTICE_SCHEMA` dans `ai_prompts.py`, tout requis, aucun autre champ) :
+
+```json
+{ "summary": "...", "use_cases": ["..."],
+  "tool_titles": [{ "name": "...", "title": "...", "sentence": "..." }],
+  "mismatch": false, "alert": "" }
+```
+
+`name` est le nom filtré du formulaire. La traduction rend `{ "items": [{ "id": "tool_0", "text": "..." }] }`, avec les mêmes `id`
+qu'en entrée (`tool_` suivi de la position de l'outil dans le rapport).
+
+**Ce que l'API publique renvoie au site** (`content`, après contrôle) :
+
+```json
+{ "summary": "...", "use_cases": ["..."],
+  "tool_titles": [{ "tool_index": 0, "title": "...", "sentence": "..." }],
+  "alert": null }
+```
+
+- `name` devient `tool_index`, la position de l'outil dans le rapport : deux noms bruts peuvent donner le même nom filtré, la
+  position, elle, est unique.
+- `mismatch` disparaît : `alert` vaut `null` quand `mismatch` est faux ou quand l'alerte est vide. Le site traite aussi une alerte
+  vide comme absente : il n'affiche alors rien, jamais « tout va bien ».
+- La réponse contient aussi `status`, `source` (`ai` ou `template`), `fallback`, `model`, `date`, `reject_reason` et `resume`.
+  Jamais le coût, ni les jetons, ni le `request-id`.
+
+## 4. Les contrôles de sortie
 
 `api/src/mcplain_api/ai_check.py` lit ce que l'IA a écrit, **avant** tout enregistrement. L'IA peut alerter, jamais rassurer.
 
@@ -52,12 +80,13 @@ Le prompt interdit à l'IA de juger la sécurité, et d'inventer une fonction qu
 | Mots rassurants (`ai_words.py`) | un seul mot : **toute** la notice est rejetée | ne s'applique pas : c'est le texte de l'auteur, marqué comme tel |
 | Liens | `http://`, `https://`, `www.`, `<`, `>`, `](`, e-mail, domaine absent du formulaire | une adresse absente de l'original |
 | Caractères invisibles | même liste que R01 et O07 | même liste |
+| Encodage cassé | `Ã` ou `Ă` suivi d'un caractère, `Â` suivi d'une espace insécable, `â€`, U+FFFD | idem, sauf si l'original contient déjà la séquence |
 
 - Un titre trop long, ou un outil inconnu : seul ce titre part, l'outil garde son nom technique.
 - Une traduction rejetée : seule cette description reste en original.
 - `mismatch` faux : l'alerte est ignorée. Le site n'écrit jamais « tout va bien ».
 - Une sortie rejetée n'est ni affichée ni gardée. Il reste un code : `forbidden_word`, `link`, `length`, `unknown_tool`,
-  `invisible`, `refusal`, `max_tokens`, `bad_json`.
+  `invisible`, `encoding`, `refusal`, `max_tokens`, `bad_json`.
 - Un refus de l'IA (`refusal`) donne la notice de secours. Aucun modèle de repli n'est demandé.
 
 Faux positifs acceptés par David, avec un test à leur nom :
@@ -66,10 +95,17 @@ Faux positifs acceptés par David, avec un test à leur nom :
 - Un outil `get_weather` avec la capacité `secrets` donne un avis, même s'il lit seulement sa propre clé d'API. L'avis ne change
   pas la couleur.
 
+- Un texte qui parlerait lui-même d'encodage et citerait « Ã© » est rejeté (code `encoding`). Conséquence : la notice de secours.
+
+**Pourquoi la règle `encoding`.** Au premier vrai essai (9 novembre 2026), la notice française contenait « Ă » suivi d'une espace
+insécable à la place de « à », et « Ă© » à la place de « é » : les octets UTF-8 lus en Windows-1250. Le code de MCPlain est en
+UTF-8 de bout en bout, et un test le vérifie (`test_french_text_crosses_the_chain_unchanged`) : ces caractères étaient déjà dans le
+texte rendu par l'IA. La règle les arrête, et la version du prompt est passée à `notice-v2` pour ne plus servir la notice cassée.
+
 Sont aussi rejetés : un domaine écrit par l'IA qui n'est pas dans le formulaire, comme `ASP.NET`. Les noms de fichiers courants
 (`package.json`, `Node.js`) passent.
 
-## 4. La notice de secours
+## 5. La notice de secours
 
 Elle est écrite à la main, et l'API la renvoie toujours, en codes de texte et paramètres. Les textes sont dans
 `api/src/mcplain_api/locales/`, servis par `GET /api/messages/{lang}` à côté de ceux du moteur. Le moteur n'a pas changé.
@@ -77,7 +113,7 @@ Elle est écrite à la main, et l'API la renvoie toujours, en codes de texte et 
 Elle dit le nombre d'outils, ce que le serveur peut faire d'après les voyants, et « MCPlain n'a pas pu écrire de résumé
 automatique pour ce serveur. » Une autre variante existe quand aucun outil n'est reconnu.
 
-## 5. Le cache
+## 6. Le cache
 
 La table `ai_texts` garde un seul texte par clé : type, langue, empreinte, version du prompt, modèle. L'empreinte (`form_hash`)
 est le SHA-256 du formulaire en JSON canonique.
@@ -92,7 +128,7 @@ est le SHA-256 du formulaire en JSON canonique.
 Pas d'appel non plus sans outil reconnu, pour une analyse échouée, ou sans description à traduire. Le banc ne demande jamais
 de notice : un test le vérifie.
 
-## 6. Les fusibles
+## 7. Les fusibles
 
 Avant chaque appel, le rédacteur calcule le **pire coût** : l'entrée estimée (taille de la requête en octets, divisée par 2)
 plus tout `max_tokens` au prix de sortie. Il ajoute la dépense déjà enregistrée :
@@ -106,7 +142,7 @@ sont comptés en UTC.
 Pire coût avec les réglages par défaut : **0,055 dollar** pour une notice (60 outils et 20 domaines de taille maximale) et
 **0,085 dollar** pour une traduction (12 000 caractères accentués). En pratique, c'est bien moins.
 
-## 7. Les erreurs
+## 8. Les erreurs
 
 | Réponse de l'API | Ce que fait le rédacteur |
 | --- | --- |
@@ -122,7 +158,7 @@ en séance 9.
 Sans clé (`MCPLAIN_ANTHROPIC_API_KEY` vide), la fonction est coupée : état `disabled`, aucun appel tenté, notice de secours.
 C'est le cas de la CI et du banc : **0 jeton par construction**.
 
-## 8. Où vit la clé
+## 9. Où vit la clé
 
 Seul le service `redacteur` de `compose.yaml` reçoit la clé. Il utilise la même image que l'API, avec une autre commande
 (`mcplain-redacteur`). Il n'a ni socket Docker, ni montage, ni port ouvert. Son système de fichiers est en lecture seule, il ne
@@ -137,7 +173,7 @@ fuiter, et n'importe qui dépenserait ton budget. La CI n'en a pas besoin : tout
 une vraie connexion est tentée. Un autre test échoue si un fichier de `.github/` contient le mot « anthropic ». Un filtre retire
 la clé des journaux.
 
-## 9. Ce que David règle dans la console Anthropic
+## 10. Ce que David règle dans la console Anthropic
 
 1. Crée un **espace de travail dédié** à MCPlain. Crée la clé dans cet espace, et nulle part ailleurs.
 2. Mets une **limite mensuelle** sur cet espace (par exemple 10 dollars, comme le budget de MCPlain). C'est le dernier filet : il
@@ -148,7 +184,7 @@ la clé des journaux.
 Si les prix changent, change `MCPLAIN_AI_PRICE_INPUT_PER_MTOK` et `MCPLAIN_AI_PRICE_OUTPUT_PER_MTOK`. Si tu changes de modèle,
 change aussi `MCPLAIN_AI_THINKING` : `between_tools` n'existe que sur Sonnet 5.5.
 
-## 10. Essayer pour de vrai
+## 11. Essayer pour de vrai
 
 `scripts/notice-smoke.sh` demande la notice en français et en anglais, et la traduction, pour `uvx mcp-server-fetch`. Il affiche le
 résultat contrôlé, le code de raison en cas de rejet, les jetons et le coût. Il dépense de vrais jetons : au plus 0,20 dollar

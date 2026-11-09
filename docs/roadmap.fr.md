@@ -155,9 +155,14 @@ Guide : `docs/ai.fr.md`.
 - [ ] ALTCHA (séance 9).
 - [ ] Décision sur httpx2 : le SDK anthropic actuel en dépend, respx ne l'intercepte pas, et Starlette le demande pour son client de test.
 - [ ] Les noms des dépendances directes dans le rapport : le champ `libraries` du formulaire reste vide tant que le moteur ne les garde pas.
+- [x] Premier vrai essai (9 novembre) : notice française avec un encodage cassé venu de la réponse de l'IA. Règle de rejet `encoding`,
+      prompt `notice-v2`, httpx déclaré comme dépendance directe de `api/`.
+- [ ] Mise en ligne : vrai filtre de sortie réseau (pare-feu ou proxy) pour le chef d'atelier et le rédacteur.
+- [ ] Séance 9 : bouton admin pour relancer une notice rejetée.
 
 ## PLUS TARD
 
+- Liste des bibliothèques dans le formulaire de l'IA.
 - Lire les paquets tout-en-un fabriqués par un bundler (cas de sentry 0.49.0) pour y reconnaître les outils, afin qu'ils ne
   finissent plus en gris. Pas codé.
 
