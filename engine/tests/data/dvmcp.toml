@@ -1,0 +1,92 @@
+repository = "https://github.com/harishsg993010/damn-vulnerable-MCP-server"
+sha = "cdc4c6b5b76353203effcb26058e50fa6067d3a6"
+
+[[challenge]]
+id = 1
+name = "basic prompt injection"
+folder = "challenges/easy/challenge1"
+color = []
+accept = ["green", "orange", "red", "gray"]
+rules = []
+scope = "out"
+
+[[challenge]]
+id = 2
+name = "tool poisoning"
+folder = "challenges/easy/challenge2"
+color = ["red"]
+accept = ["red", "gray"]
+rules = ["R02", "R03", "R12"]
+scope = "in"
+
+[[challenge]]
+id = 3
+name = "excessive permissions"
+folder = "challenges/easy/challenge3"
+color = ["orange"]
+accept = ["orange", "red", "gray"]
+rules = ["O08"]
+scope = "in"
+
+[[challenge]]
+id = 4
+name = "rug pull"
+folder = "challenges/medium/challenge4"
+color = ["gray", "orange"]
+accept = ["orange", "gray", "red"]
+rules = ["O03"]
+scope = "in"
+
+[[challenge]]
+id = 5
+name = "tool shadowing"
+folder = "challenges/medium/challenge5"
+color = ["red"]
+accept = ["red", "gray"]
+rules = []
+scope = "in"
+
+[[challenge]]
+id = 6
+name = "indirect injection"
+folder = "challenges/medium/challenge6"
+color = []
+accept = ["green", "orange", "red", "gray"]
+rules = []
+scope = "out"
+
+[[challenge]]
+id = 7
+name = "token theft"
+folder = "challenges/medium/challenge7"
+color = ["orange", "red"]
+accept = ["red", "orange", "gray"]
+rules = ["O05", "O08", "R04"]
+scope = "in"
+
+[[challenge]]
+id = 8
+name = "code execution"
+folder = "challenges/hard/challenge8"
+color = ["orange"]
+accept = ["orange", "red", "gray"]
+rules = ["O02", "O08"]
+scope = "in"
+
+[[challenge]]
+id = 9
+name = "command injection"
+folder = "challenges/hard/challenge9"
+color = ["red"]
+accept = ["red", "gray"]
+rules = ["R09"]
+scope = "in"
+
+[[challenge]]
+id = 10
+name = "combined attack"
+folder = "challenges/hard/challenge10"
+color = ["red"]
+accept = ["red", "gray"]
+rules = []
+scope = "in"
