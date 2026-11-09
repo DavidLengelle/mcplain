@@ -213,4 +213,7 @@ dernier commit.
 `scripts/notice-diagnose.sh` envoie une fois la notice française d'une analyse déjà en base, construite par les mêmes fonctions que
 le rédacteur (`notice_body`). Mode par défaut : la requête réelle. Avec `--with-format` : la même, plus `output_config.format`. Il
 affiche le texte brut, chaque caractère non ASCII avec son code, le résultat du contrôle de sortie, les jetons et le coût (environ
-0,6 centime). Il n'écrit rien en base, rien dans le cache, et ne compte pas dans le fusible. C'est toi qui le lances.
+0,6 centime). Avec `--matrix`, il envoie la notice 3 fois pour chacune de 5 variantes (V1 la requête réelle, V2 sans la liste des
+mots interdits dans le prompt, V3 effort `medium`, V4 sans `thinking`, V5 l'ancien mode B à l'identique), puis affiche un tableau :
+réponses cassées sur 3, jetons et coût moyens, coût total (environ 8 centimes). Il n'écrit rien en base, rien dans le cache, et ne
+compte pas dans le fusible. C'est toi qui le lances.

@@ -1,16 +1,20 @@
 """Tests of the guards around the AI: settings, where the key goes, where it never goes, and who may ask for a text"""
 
+import importlib.util
 import logging
 import re
 import socket
 from pathlib import Path
+from typing import Any
 
 import pytest
 from helpers import make_settings, report, tool_report
+from mcplain.models import AnalysisResult
 from pydantic import ValidationError
 from sqlalchemy.orm import sessionmaker
 
-from mcplain_api.ai_client import build_body, call_api
+from mcplain_api.ai_client import build_body, call_api, notice_body
+from mcplain_api.ai_form import build_form
 from mcplain_api.ai_logging import SecretFilter
 from mcplain_api.db import AiAdminAlert, AiState, AiText, Analysis, Base, make_engine, make_sessions
 from mcplain_api.redacteur import NO_KEY, Redacteur
@@ -216,18 +220,59 @@ def test_the_smoke_script_never_shows_the_key() -> None:
         assert shown not in text
 
 
-def test_the_diagnosis_script_never_shows_the_key_nor_writes() -> None:
-    """It reads the key in Python, hides it in what it prints, and never touches the AI tables"""
+def diagnosis_module() -> Any:
+    """Load scripts/notice_diagnose.py as data for the tests, without running it"""
 
-    text = (REPOSITORY / "scripts" / "notice-diagnose.sh").read_text(encoding="utf-8")
-    assert "grep -Eq '^MCPLAIN_ANTHROPIC_API_KEY=.+' .env" in text
-    assert 'replace(KEY, "[hidden]")' in text
-    for shown in ("cat .env", ". .env", "source .env", "$MCPLAIN_ANTHROPIC_API_KEY", "set -x", "print(KEY", "ai_texts", "INSERT", "UPDATE"):
-        assert shown not in text
-    assert "Redacteur" not in text
-    assert "notice_body(settings, form, \"fr\", with_format=MODE == \"with-format\")" in text
-    for copied in ("build_body", "NOTICE_SYSTEM", "NOTICE_SCHEMA", "JSON_ONLY"):
-        assert copied not in text
+    spec = importlib.util.spec_from_file_location("notice_diagnose", REPOSITORY / "scripts" / "notice_diagnose.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_diagnosis_script_never_shows_the_key_nor_writes() -> None:
+    """It reads the key in Python, hides it in what it prints, and never touches the database of the writer"""
+
+    shell = (REPOSITORY / "scripts" / "notice-diagnose.sh").read_text(encoding="utf-8")
+    text = (REPOSITORY / "scripts" / "notice_diagnose.py").read_text(encoding="utf-8")
+    assert "grep -Eq '^MCPLAIN_ANTHROPIC_API_KEY=.+' .env" in shell
+    assert 'text.replace(key, "[hidden]")' in text
+    for shown in ("cat .env", ". .env", "source .env", "$MCPLAIN_ANTHROPIC_API_KEY", "set -x"):
+        assert shown not in shell
+    for written in ("print(key", "ai_texts", "INSERT", "UPDATE", "Redacteur", "sessions", "build_body", "make_engine"):
+        assert written not in text
+    assert 'notice_body(settings, form, "fr"' in text
+
+
+def test_the_matrix_changes_one_thing_per_variant() -> None:
+    """V1 is the real request; V2 to V4 change one thing each; V5 is the former mode B, exactly"""
+
+    module = diagnosis_module()
+    settings = make_settings()
+    form = build_form(AnalysisResult.model_validate(report([tool_report("fetch")])))
+    base = notice_body(settings, form, "fr")
+    variants = {label[:2]: make(base) for label, make in module.VARIANTS}
+    assert variants["V1"] == base
+    assert variants["V2"]["system"] != base["system"]
+    assert not [character for character in variants["V2"]["system"] if ord(character) > 127]
+    assert {**variants["V2"], "system": base["system"]} == base
+    assert variants["V3"]["output_config"] == {"effort": "medium"}
+    assert {**variants["V3"], "output_config": base["output_config"]} == base
+    assert "thinking" not in variants["V4"]
+    assert {**variants["V4"], "thinking": base["thinking"]} == base
+    assert variants["V5"]["system"].endswith('"additionalProperties": false}')
+    assert "Answer with this JSON object only" not in variants["V5"]["system"]
+    assert {**variants["V5"], "system": base["system"]} == base
+    assert base == notice_body(settings, form, "fr")
+
+
+def test_a_broken_answer_shows_only_forty_characters() -> None:
+    """Only the place of the first broken sequence is printed"""
+
+    module = diagnosis_module()
+    text = "x" * 100 + "m\u0102\u00a9t\u0102\u00a9o" + "y" * 100
+    place = module.first_break(text)
+    assert len(place.encode("ascii").decode("unicode_escape")) == 40
+    assert module.first_break("Une météo très « propre ».") is None
 
 
 def test_the_smoke_script_stops_on_an_old_image() -> None:
