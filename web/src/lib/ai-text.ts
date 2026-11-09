@@ -106,6 +106,9 @@ function noticeContent(value: unknown): NoticeContent {
   if (fields.alert !== null && fields.alert !== undefined) {
     alert = textOf(fields.alert);
   }
+  if (alert !== null && alert.trim() === "") {
+    alert = null;
+  }
   return {
     summary: textOf(fields.summary),
     use_cases: listOf(fields.use_cases, textOf),

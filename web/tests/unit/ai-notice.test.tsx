@@ -168,6 +168,17 @@ describe("the notice block", () => {
     expect(block?.closest("[data-verdict]")).toBeNull();
   });
 
+  it.each([
+    ["an empty alert", ""],
+    ["an alert of spaces", "   "],
+    ["no alert", null],
+  ])("shows no opinion and no reassuring word with %s", (_name, alert) => {
+    const { container } = renderWithIntl(<AiNoticeSlot answer={parsed(ready({ alert }))} waiting={false} />, "fr");
+    expect(container.querySelector("[data-ai-alert]")).toBeNull();
+    expect(container.textContent).not.toContain("Avis de l'IA");
+    expect(container.textContent?.toLowerCase()).not.toMatch(/tout va bien|aucun problème|sans danger|sûr/);
+  });
+
   it("writes third-party-looking text as plain text", () => {
     const { container } = renderWithIntl(<AiNoticeSlot answer={parsed(ready({ summary: "<img src=x>" }))} waiting={false} />, "fr");
     expect(container.querySelector("img")).toBeNull();
