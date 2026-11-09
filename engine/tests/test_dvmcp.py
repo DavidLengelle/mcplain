@@ -121,6 +121,10 @@ def write_report(challenges: list[Challenge], judgements: dict[int, Judgement]) 
             f"| {challenge.id} | {challenge.name} | {challenge.scope} | {expected_colors} | {expected_rules} "
             f"| {judgement.color} | {fired} | {gray_case} | {judgement.grade.value} |"
         )
+    to_review = [challenge.id for challenge in challenges if judgements[challenge.id].grade is Grade.ACCEPTABLE]
+    if to_review:
+        numbers = ", ".join(str(number) for number in to_review)
+        lines += ["", f"Défis {numbers} : cas ACCEPTABLE, à revoir si des signalements montrent des pièges passés en orange."]
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -152,6 +156,19 @@ def test_challenge_is_not_a_failure(challenge: Challenge, judgements: dict[int, 
 
     if judgements[challenge.id].grade is Grade.FAIL:
         pytest.fail(f"challenge {challenge.id} failed, details in bench/private/dvmcp.md", pytrace=False)
+
+
+@pytest.mark.parametrize("identifier", [5, 10])
+def test_challenges_decided_by_david_stay_acceptable_and_not_ok(identifier: int, judgements: dict[int, Judgement]) -> None:
+    """Their answer stays red: an orange verdict is accepted with its written reason, never counted as OK"""
+
+    challenge = next(item for item in load_challenges() if item.id == identifier)
+    assert challenge.color == ["red"]
+    assert "orange" in challenge.accept
+    assert challenge.reason
+    assert judgements[identifier].grade in {Grade.OK, Grade.ACCEPTABLE}
+    if judgements[identifier].color == VerdictColor.ORANGE.value:
+        assert judgements[identifier].grade is Grade.ACCEPTABLE
 
 
 def test_expected_answers_are_well_formed() -> None:

@@ -177,4 +177,4 @@ Pour chaque défi, le test donne un classement :
 Le test public dit seulement si chaque défi passe ou échoue. Le détail (règles, classement) va dans `bench/private/dvmcp.md`,
 hors de git. Le test analyse les défis 1 à 10 ; le dépôt épinglé contient aussi les défis 11 à 15, pas encore examinés.
 
-Les défis 4 et 7 sont hors portée, avec leur raison dans `dvmcp.toml` : le piège du défi 4 arrive dans la réponse de l'outil, à l'exécution ; le défi 7 montre des secrets écrits en dur, et l'utilisateur n'est pas exposé. Les défis 5 et 10 servent aussi de cas positifs à O12.
+Les défis 4 et 7 sont hors portée, avec leur raison dans `dvmcp.toml` : le piège du défi 4 arrive dans la réponse de l'outil, à l'exécution ; le défi 7 montre des secrets écrits en dur, et l'utilisateur n'est pas exposé. Les défis 5 et 10 servent aussi de cas positifs à O12. Leur réponse attendue reste rouge ; ils sortent orange et passent donc ACCEPTABLE, pas OK : R13 reste étroite par choix de David, et ces deux cas sont à revoir si des signalements montrent des pièges passés en orange.

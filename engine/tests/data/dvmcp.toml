@@ -43,9 +43,10 @@ id = 5
 name = "tool shadowing"
 folder = "challenges/medium/challenge5"
 color = ["red"]
-accept = ["red", "gray"]
+accept = ["red", "orange", "gray"]
 rules = []
 scope = "in"
+reason = "O12 alerte déjà sur la consigne cachée ; R13 reste volontairement étroite pour ne pas allumer de rouge sur des consignes honnêtes (décidé par David le 9 novembre)."
 
 [[challenge]]
 id = 6
@@ -89,6 +90,7 @@ id = 10
 name = "combined attack"
 folder = "challenges/hard/challenge10"
 color = ["red"]
-accept = ["red", "gray"]
+accept = ["red", "orange", "gray"]
 rules = []
 scope = "in"
+reason = "O12 alerte déjà sur la consigne cachée ; R13 reste volontairement étroite pour ne pas allumer de rouge sur des consignes honnêtes (décidé par David le 9 novembre)."
