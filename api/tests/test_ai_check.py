@@ -216,7 +216,7 @@ def test_form_domains_their_parents_and_file_names_pass(summary: str) -> None:
     assert check_notice(notice(summary=summary), FORM).content["summary"] == summary
 
 
-@pytest.mark.parametrize("character", ["​", "‮", "\U000e0041", "­", "\x07"])
+@pytest.mark.parametrize("character", ["\u200b", "\u202e", "\U000e0041", "\u00ad", "\x07"])
 def test_invisible_characters_are_rejected(character: str) -> None:
     """The same list as R01 and O07"""
 
@@ -285,7 +285,7 @@ def test_a_good_translation_passes_with_the_authors_words() -> None:
         ("x" * (3 * len("Two.") + 51), RejectReason.LENGTH),
         ("Va sur https://autre.example.com.", RejectReason.LINK),
         ("Va sur www.autre.example.com.", RejectReason.LINK),
-        ("Deux​.", RejectReason.INVISIBLE),
+        ("Deux\u200b.", RejectReason.INVISIBLE),
         ("   ", RejectReason.LENGTH),
     ],
 )
@@ -316,7 +316,7 @@ def test_nothing_accepted_rejects_the_translation() -> None:
     """Without any usable item, there is no translation"""
 
     with pytest.raises(OutputRejected) as caught:
-        check_translation(translated(("tool_1", "Deux​.")), ITEMS)
+        check_translation(translated(("tool_1", "Deux\u200b.")), ITEMS)
     assert caught.value.reason is RejectReason.INVISIBLE
     with pytest.raises(OutputRejected) as empty:
         check_translation(translated(), ITEMS)

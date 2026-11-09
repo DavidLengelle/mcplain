@@ -205,3 +205,12 @@ def test_the_engine_does_not_read_any_ai_output() -> None:
             paths = list(root.rglob("*.py"))
         for path in paths:
             assert pattern.search(path.read_text(encoding="utf-8")) is None, path
+
+
+def test_the_smoke_script_never_shows_the_key() -> None:
+    """The script only tests that the line is filled; it never loads .env, nor prints a variable holding the key"""
+
+    text = (REPOSITORY / "scripts" / "notice-smoke.sh").read_text(encoding="utf-8")
+    assert "grep -Eq '^MCPLAIN_ANTHROPIC_API_KEY=.+' .env" in text
+    for shown in ("cat .env", ". .env", "source .env", "$MCPLAIN_ANTHROPIC_API_KEY", "set -x", "x-api-key"):
+        assert shown not in text
