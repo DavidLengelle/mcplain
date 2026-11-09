@@ -6,9 +6,8 @@ import pytest
 from helpers import lamps_of, make_settings, report, tool_report
 from mcplain.models import AnalysisResult
 
-from mcplain_api.ai_client import build_body
+from mcplain_api.ai_client import notice_body
 from mcplain_api.ai_form import MAX_FORM_TOOLS, MAX_TRANSLATION_CHARS, build_form, content_hash, translation_items
-from mcplain_api.ai_prompts import NOTICE_SCHEMA, NOTICE_SYSTEM, notice_message
 
 CANARY = "CANARY-7f3a"
 
@@ -134,7 +133,7 @@ def test_canary_never_reaches_the_request_body() -> None:
     data["verdict"]["alerts"] = [{"rule": "O01", "color": "orange", "kind": "power_to_know", "quote": CANARY, "detail": CANARY}]
     assert CANARY in json.dumps(data)
     form = build_form(AnalysisResult.model_validate(data))
-    body = build_body(make_settings(), NOTICE_SYSTEM, notice_message(form, "fr"), NOTICE_SCHEMA, 3500)
+    body = notice_body(make_settings(), form, "fr")
     assert CANARY not in json.dumps(body)
 
 

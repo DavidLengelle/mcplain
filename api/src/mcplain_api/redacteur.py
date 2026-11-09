@@ -19,17 +19,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from mcplain_api.ai_check import Checked, OutputRejected, RejectReason, check_notice, check_translation
-from mcplain_api.ai_client import CallKind, Reply, build_body, call_api, call_cost
+from mcplain_api.ai_client import CallKind, Reply, call_api, call_cost, notice_body, translation_body
 from mcplain_api.ai_form import build_form, canonical_json, content_hash, translation_items
 from mcplain_api.ai_logging import install_secret_filter
-from mcplain_api.ai_prompts import (
-    NOTICE_SCHEMA,
-    NOTICE_SYSTEM,
-    TRANSLATION_SCHEMA,
-    TRANSLATION_SYSTEM,
-    notice_message,
-    translation_message,
-)
 from mcplain_api.db import (
     AI_STATE_ROW,
     AiAdminAlert,
@@ -218,20 +210,12 @@ class Redacteur:
             form = build_form(result)
             if form is None or content_hash(form) != row.hash:
                 return None
-            body = build_body(
-                self.settings, NOTICE_SYSTEM, notice_message(form, row.lang), NOTICE_SCHEMA, self.settings.ai_max_tokens
-            )
+            body = notice_body(self.settings, form, row.lang)
             return Prepared(body, lambda text: check_notice(text, form))
         items = translation_items(result)
         if not items or content_hash(items) != row.hash:
             return None
-        body = build_body(
-            self.settings,
-            TRANSLATION_SYSTEM,
-            translation_message(items),
-            TRANSLATION_SCHEMA,
-            self.settings.ai_translation_max_tokens,
-        )
+        body = translation_body(self.settings, items)
         return Prepared(body, lambda text: check_translation(text, items))
 
     def worst_cost(self, body: dict[str, Any]) -> float:

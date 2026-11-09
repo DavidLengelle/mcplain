@@ -14,7 +14,7 @@ from helpers import lamps_of, make_settings, report, tool_report
 from sqlalchemy.orm import sessionmaker
 
 from mcplain_api.ai_client import API_URL, build_body, call_api
-from mcplain_api.ai_prompts import NOTICE_SCHEMA, NOTICE_SYSTEM
+from mcplain_api.ai_prompts import NOTICE_SYSTEM
 from mcplain_api.ai_view import _insert
 from mcplain_api.app import create_app
 from mcplain_api.db import AiState, AiText, Analysis, Base, make_engine, make_sessions, utc_now
@@ -470,7 +470,7 @@ def test_the_request_carries_french_as_utf8(sessions: sessionmaker) -> None:
 
     with respx.mock() as router:
         route = router.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
-        call_api(make_settings(anthropic_api_key=KEY), build_body(make_settings(), NOTICE_SYSTEM, FRENCH, NOTICE_SCHEMA, 10))
+        call_api(make_settings(anthropic_api_key=KEY), build_body(make_settings(), NOTICE_SYSTEM, FRENCH, 10))
     raw = route.calls.last.request.content
     assert "sécurisé".encode("utf-8") in raw
     assert FRENCH.encode("utf-8") in raw

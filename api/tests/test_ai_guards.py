@@ -167,7 +167,7 @@ def test_a_real_call_fails_in_the_tests() -> None:
     """Without a simulated answer, a call to the API stops on the socket guard of the tests"""
 
     settings = make_settings(anthropic_api_key=CANARY_KEY)
-    body = build_body(settings, "system", "message", {"type": "object"}, 10)
+    body = build_body(settings, "system", "message", 10)
     with pytest.raises(RuntimeError, match="network access is not allowed"):
         call_api(settings, body, sleep=lambda seconds: None)
     with pytest.raises(RuntimeError, match="network access is not allowed"):
@@ -225,6 +225,9 @@ def test_the_diagnosis_script_never_shows_the_key_nor_writes() -> None:
     for shown in ("cat .env", ". .env", "source .env", "$MCPLAIN_ANTHROPIC_API_KEY", "set -x", "print(KEY", "ai_texts", "INSERT", "UPDATE"):
         assert shown not in text
     assert "Redacteur" not in text
+    assert "notice_body(settings, form, \"fr\", with_format=MODE == \"with-format\")" in text
+    for copied in ("build_body", "NOTICE_SYSTEM", "NOTICE_SCHEMA", "JSON_ONLY"):
+        assert copied not in text
 
 
 def test_the_smoke_script_stops_on_an_old_image() -> None:

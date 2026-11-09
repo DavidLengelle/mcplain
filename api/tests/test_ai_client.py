@@ -12,10 +12,17 @@ from helpers import lamps_of, make_settings, report, tool_report
 from mcplain.models import AnalysisResult
 from sqlalchemy.orm import sessionmaker
 
-from mcplain_api.ai_client import API_URL, CallKind, build_body, call_api, call_cost
+from mcplain_api.ai_client import API_URL, CallKind, call_api, call_cost, notice_body, translation_body
 from mcplain_api.ai_form import build_form, content_hash, translation_items
 from mcplain_api.ai_logging import SecretFilter
-from mcplain_api.ai_prompts import NOTICE_SCHEMA, NOTICE_SYSTEM, TRANSLATION_PROMPT_VERSION, notice_message
+from mcplain_api.ai_prompts import (
+    NOTICE_PROMPT_VERSION,
+    NOTICE_SCHEMA,
+    NOTICE_SYSTEM,
+    TRANSLATION_PROMPT_VERSION,
+    TRANSLATION_SCHEMA,
+    notice_message,
+)
 from mcplain_api.db import AiAdminAlert, AiState, AiText, Analysis, Base, make_engine, make_sessions
 from mcplain_api.redacteur import Redacteur, next_day, next_month
 
@@ -83,7 +90,7 @@ class Bench:
         data = report(tools or [tool_report("get_time")])
         result = AnalysisResult.model_validate(data)
         text_hash = content_hash(build_form(result))
-        version = "notice-v1"
+        version = NOTICE_PROMPT_VERSION
         if kind == "translation":
             text_hash = content_hash(translation_items(result))
             version = TRANSLATION_PROMPT_VERSION
@@ -139,7 +146,7 @@ def test_request_body_is_exactly_the_expected_one(api: respx.MockRouter) -> None
     settings = make_settings(anthropic_api_key=KEY)
     form = build_form(AnalysisResult.model_validate(report([tool_report("get_time")])))
     message = notice_message(form, "fr")
-    body = build_body(settings, NOTICE_SYSTEM, message, NOTICE_SCHEMA, 3500)
+    body = notice_body(settings, form, "fr")
     reply = call_api(settings, body)
     request = route.calls.last.request
     assert str(request.url) == "https://api.anthropic.com/v1/messages"
@@ -151,12 +158,78 @@ def test_request_body_is_exactly_the_expected_one(api: respx.MockRouter) -> None
         "max_tokens": 3500,
         "system": NOTICE_SYSTEM,
         "messages": [{"role": "user", "content": message}],
-        "output_config": {"effort": "low", "format": {"type": "json_schema", "schema": NOTICE_SCHEMA}},
+        "output_config": {"effort": "low"},
         "thinking": {"type": "between_tools"},
     }
+    assert "Answer with this JSON object only" in body["system"]
     assert reply.kind is CallKind.ANSWERED
     assert json.loads(reply.text) == GOOD_NOTICE
     assert (reply.input_tokens, reply.output_tokens, reply.request_id) == (1000, 500, "req_1")
+
+
+def test_versions_leave_the_broken_texts_out_of_the_cache() -> None:
+    """Without the imposed output, the prompts changed: new versions"""
+
+    assert (NOTICE_PROMPT_VERSION, TRANSLATION_PROMPT_VERSION) == ("notice-v3", "translation-v2")
+
+
+def test_with_format_only_adds_the_schema() -> None:
+    """The diagnosis mode sends the same request plus output_config.format, nothing else"""
+
+    settings = make_settings()
+    form = build_form(AnalysisResult.model_validate(report([tool_report("get_time")])))
+    current = notice_body(settings, form, "fr")
+    checked = notice_body(settings, form, "fr", with_format=True)
+    assert checked["output_config"].pop("format") == {"type": "json_schema", "schema": NOTICE_SCHEMA}
+    assert checked == current
+    items = [{"id": "tool_0", "text": "Gives the time."}]
+    assert "format" not in translation_body(settings, items)["output_config"]
+    assert translation_body(settings, items, with_format=True)["output_config"]["format"]["schema"] == TRANSLATION_SCHEMA
+
+
+def raw_answer(text: str) -> httpx.Response:
+    """Return an answer of the API whose text block is exactly this text"""
+
+    return httpx.Response(
+        200,
+        content=json.dumps(
+            {"content": [{"type": "text", "text": text}], "stop_reason": "end_turn", "usage": {"input_tokens": 1, "output_tokens": 1}},
+            ensure_ascii=False,
+        ).encode("utf-8"),
+    )
+
+
+CLEAN_FRENCH = {**GOOD_NOTICE, "summary": "Il lit à l'été, ça, très « simple » et è."}
+
+
+@pytest.mark.parametrize(
+    ("text", "status", "reason"),
+    [
+        (json.dumps(GOOD_NOTICE), "ready", None),
+        ("  \n" + json.dumps(GOOD_NOTICE, indent=2) + "\n ", "ready", None),
+        ("```json\n" + json.dumps(GOOD_NOTICE) + "\n```", "ready", None),
+        (json.dumps(CLEAN_FRENCH, ensure_ascii=False), "ready", None),
+        ("Voici la notice :\n" + json.dumps(GOOD_NOTICE), "rejected", "bad_json"),
+        (json.dumps(GOOD_NOTICE) + "\nVoilà.", "rejected", "bad_json"),
+        (json.dumps(GOOD_NOTICE) + json.dumps(GOOD_NOTICE), "rejected", "bad_json"),
+        ("```json\n" + json.dumps(GOOD_NOTICE) + "\n```\n```json\n{}\n```", "rejected", "bad_json"),
+        ("```\n" + json.dumps(GOOD_NOTICE) + "\n```", "rejected", "bad_json"),
+        (json.dumps(GOOD_NOTICE)[:-20], "rejected", "bad_json"),
+        ("[" + json.dumps(GOOD_NOTICE) + "]", "rejected", "bad_json"),
+        (json.dumps({**GOOD_NOTICE, "summary": "Il lit \u0102\u00a0Paris."}, ensure_ascii=False), "rejected", "encoding"),
+    ],
+)
+def test_reading_the_answer_without_imposed_output(api: respx.MockRouter, text: str, status: str, reason: str | None) -> None:
+    """One JSON object alone, or in one json fence; anything else is bad_json, and every check stays"""
+
+    api.post(API_URL).mock(return_value=raw_answer(text))
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert (row.status, row.reject_reason) == (status, reason)
+    if status == "ready" and "été" in text:
+        assert row.content["summary"] == CLEAN_FRENCH["summary"]
 
 
 def test_output_schema_closes_every_object() -> None:

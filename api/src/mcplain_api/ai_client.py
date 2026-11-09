@@ -9,6 +9,14 @@ from typing import Any
 
 import httpx
 
+from mcplain_api.ai_prompts import (
+    NOTICE_SCHEMA,
+    NOTICE_SYSTEM,
+    TRANSLATION_SCHEMA,
+    TRANSLATION_SYSTEM,
+    notice_message,
+    translation_message,
+)
 from mcplain_api.settings import Settings
 
 LOGGER = logging.getLogger("mcplain.redacteur")
@@ -46,17 +54,40 @@ class Reply:
     status: int | None = None
 
 
-def build_body(settings: Settings, system: str, message: str, schema: dict[str, Any], max_tokens: int) -> dict[str, Any]:
-    """Return the body of a request: no sampling setting and no tool, ever"""
+def build_body(
+    settings: Settings, system: str, message: str, max_tokens: int, schema: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Return the body of a request: no sampling setting and no tool, ever; a schema is only for the diagnosis script"""
 
+    output_config: dict[str, Any] = {"effort": settings.ai_effort}
+    if schema is not None:
+        output_config["format"] = {"type": "json_schema", "schema": schema}
     return {
         "model": settings.ai_model,
         "max_tokens": max_tokens,
         "system": system,
         "messages": [{"role": "user", "content": message}],
-        "output_config": {"effort": settings.ai_effort, "format": {"type": "json_schema", "schema": schema}},
+        "output_config": output_config,
         "thinking": {"type": settings.ai_thinking},
     }
+
+
+def notice_body(settings: Settings, form: dict[str, Any], lang: str, with_format: bool = False) -> dict[str, Any]:
+    """Return the request of a notice, the one the writer sends; with_format only serves the diagnosis script"""
+
+    schema = None
+    if with_format:
+        schema = NOTICE_SCHEMA
+    return build_body(settings, NOTICE_SYSTEM, notice_message(form, lang), settings.ai_max_tokens, schema)
+
+
+def translation_body(settings: Settings, items: list[dict[str, str]], with_format: bool = False) -> dict[str, Any]:
+    """Return the request of a translation, the one the writer sends"""
+
+    schema = None
+    if with_format:
+        schema = TRANSLATION_SCHEMA
+    return build_body(settings, TRANSLATION_SYSTEM, translation_message(items), settings.ai_translation_max_tokens, schema)
 
 
 def _whole_number(value: object) -> int:

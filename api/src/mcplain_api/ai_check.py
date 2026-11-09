@@ -30,6 +30,8 @@ FILE_EXTENSIONS: frozenset[str] = frozenset(
     }
 )
 MOJIBAKE_PATTERN = re.compile("[\u00c3\u0102].|\u00c2\u00a0|\u00e2\u20ac|\ufffd", re.DOTALL)
+JSON_FENCE_START = "```json"
+FENCE = "```"
 URL_PATTERN = re.compile(r"(?:https?://|www\.)[^\s\"'<>`]+", re.IGNORECASE)
 URL_TRAILING = ".,;:!?)]}»"
 
@@ -105,11 +107,26 @@ class TranslationOutput(BaseModel):
     items: list[TranslationItem]
 
 
+def json_object_text(text: str) -> str:
+    """Return the JSON of an answer: the whole text, or the inside of one json fence around it; anything else is refused"""
+
+    stripped = text.strip()
+    if stripped.startswith(JSON_FENCE_START) and stripped.endswith(FENCE):
+        inner = stripped[len(JSON_FENCE_START) : -len(FENCE)]
+        if FENCE in inner:
+            raise OutputRejected(RejectReason.BAD_JSON)
+        stripped = inner.strip()
+    if not (stripped.startswith("{") and stripped.endswith("}")):
+        raise OutputRejected(RejectReason.BAD_JSON)
+    return stripped
+
+
 def _parse(text: str, model: type[BaseModel]) -> Any:
     """Check an answer against its model, on this side of the API"""
 
+    source = json_object_text(text)
     try:
-        return model.model_validate(json.loads(text))
+        return model.model_validate(json.loads(source))
     except (ValueError, ValidationError) as error:
         raise OutputRejected(RejectReason.BAD_JSON) from error
 
