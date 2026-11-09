@@ -4,13 +4,13 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mcplain.errors import InputError, McplainError
-from mcplain.i18n import SUPPORTED_LANGUAGES, load_catalog
+from mcplain.i18n import SUPPORTED_LANGUAGES
 from mcplain.inputs import parse_input, parse_selection
 from pydantic import BaseModel, ConfigDict, StrictStr, ValidationError
 from sqlalchemy import func, select, text
@@ -20,9 +20,11 @@ from sqlalchemy.orm import sessionmaker
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
+from mcplain_api.ai_view import LANGUAGES_BY_KIND, ask_text, full_catalog, read_text
 from mcplain_api.db import (
     INPUT_MAX_CHARS,
     SELECT_MAX_CHARS,
+    AiKind,
     Analysis,
     AnalysisState,
     as_utc,
@@ -47,6 +49,14 @@ class AnalysisRequest(BaseModel):
 
     input: StrictStr
     select: StrictStr | None = None
+
+
+class TextRequest(BaseModel):
+    """Class that describes the body of POST /api/analyses/{id}/notice and /translation"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lang: StrictStr
 
 
 class QueueFull(Exception):
@@ -142,7 +152,73 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
 
         if language not in SUPPORTED_LANGUAGES:
             return error_response(404, "api.unknown_language")
-        return JSONResponse(load_catalog(language), headers={"Cache-Control": MESSAGES_CACHE})
+        return JSONResponse(full_catalog(language), headers={"Cache-Control": MESSAGES_CACHE})
+
+    async def ask_ai_text(request: Request, analysis_id: str, kind: str) -> JSONResponse:
+        """Serve a text of the AI from the cache or queue it; these routes never count in a quota"""
+
+        media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+        if media_type != JSON_MEDIA_TYPE:
+            return error_response(415, "api.unsupported_media_type")
+        body = await _read_body(request, MAX_BODY_BYTES)
+        if body is None:
+            return error_response(413, "api.body_too_large", {"limit": str(MAX_BODY_BYTES)})
+        try:
+            payload = TextRequest.model_validate_json(body)
+        except ValidationError:
+            return error_response(400, "api.invalid_request")
+        if payload.lang not in LANGUAGES_BY_KIND[kind]:
+            return error_response(400, "api.invalid_request")
+        identifier = _analysis_uuid(analysis_id)
+        if identifier is None:
+            return error_response(404, "api.analysis_not_found")
+        answer = await run_in_threadpool(ask_text, sessions, identifier, kind, payload.lang, settings.ai_model)
+        if answer is None:
+            return error_response(404, "api.analysis_not_found")
+        status, content = answer
+        if status == 409:
+            return error_response(409, "api.analysis_not_finished")
+        return JSONResponse(content, status_code=status)
+
+    def read_ai_text(analysis_id: str, kind: str, lang: str) -> JSONResponse:
+        """Return the state and the result of a text of the AI, without asking for anything"""
+
+        if lang not in LANGUAGES_BY_KIND[kind]:
+            return error_response(400, "api.invalid_request")
+        identifier = _analysis_uuid(analysis_id)
+        if identifier is None:
+            return error_response(404, "api.analysis_not_found")
+        with sessions() as session:
+            row = session.get(Analysis, identifier)
+            if row is None:
+                return error_response(404, "api.analysis_not_found")
+            if row.state not in FINISHED_STATES:
+                return error_response(409, "api.analysis_not_finished")
+            return JSONResponse(read_text(session, row, kind, lang, settings.ai_model))
+
+    @app.post("/api/analyses/{analysis_id}/notice")
+    async def ask_notice(request: Request, analysis_id: str) -> JSONResponse:
+        """Ask for the notice of an analysis"""
+
+        return await ask_ai_text(request, analysis_id, AiKind.NOTICE.value)
+
+    @app.get("/api/analyses/{analysis_id}/notice")
+    def get_notice(analysis_id: str, lang: str = Query()) -> JSONResponse:
+        """Return the notice of an analysis"""
+
+        return read_ai_text(analysis_id, AiKind.NOTICE.value, lang)
+
+    @app.post("/api/analyses/{analysis_id}/translation")
+    async def ask_translation(request: Request, analysis_id: str) -> JSONResponse:
+        """Ask for the translation of the author descriptions of an analysis"""
+
+        return await ask_ai_text(request, analysis_id, AiKind.TRANSLATION.value)
+
+    @app.get("/api/analyses/{analysis_id}/translation")
+    def get_translation(analysis_id: str, lang: str = Query()) -> JSONResponse:
+        """Return the translation of the author descriptions of an analysis"""
+
+        return read_ai_text(analysis_id, AiKind.TRANSLATION.value, lang)
 
     @app.get("/api/health")
     def health() -> JSONResponse:
@@ -156,6 +232,15 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         return JSONResponse({"status": "ok"})
 
     return app
+
+
+def _analysis_uuid(analysis_id: str) -> uuid.UUID | None:
+    """Return the identifier of an analysis, or None for a text that is not one"""
+
+    try:
+        return uuid.UUID(analysis_id)
+    except ValueError:
+        return None
 
 
 async def _read_body(request: Request, limit: int) -> bytes | None:

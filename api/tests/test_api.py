@@ -15,6 +15,7 @@ from mcplain.models import AnalysisResult, VerdictColor
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from mcplain_api.ai_view import api_catalog, full_catalog
 from mcplain_api.app import create_app
 from mcplain_api.db import Analysis, AnalysisState, Base, make_engine, make_sessions
 from mcplain_api.outcomes import failure_result
@@ -269,11 +270,12 @@ def test_texts_from_analyzed_code_are_returned_as_they_are(client: TestClient, s
 
 @pytest.mark.parametrize("language", ["en", "fr"])
 def test_messages_are_the_engine_texts(client: TestClient, language: str) -> None:
-    """The site gets exactly the texts of the command line"""
+    """The site gets exactly the texts of the command line, and the few texts of the API"""
 
     response = client.get(f"/api/messages/{language}")
     assert response.status_code == 200
-    assert response.json() == load_catalog(language)
+    assert response.json() == {**load_catalog(language), **api_catalog(language)}
+    assert set(load_catalog(language)).isdisjoint(api_catalog(language))
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
@@ -299,8 +301,8 @@ def test_unknown_language_gives_404(client: TestClient) -> None:
 def test_every_api_code_has_texts() -> None:
     """Each api. and job. code written in the API code has a message in English and French"""
 
-    english = load_catalog("en")
-    french = load_catalog("fr")
+    english = full_catalog("en")
+    french = full_catalog("fr")
     codes = {code for path in SOURCE.rglob("*.py") for code in CODE_PATTERN.findall(path.read_text(encoding="utf-8"))}
     codes |= {f"job.{code}" for code in ("fetch_error", "internal_error", "interrupted", "atelier_timeout", "atelier_invalid_result", "atelier_error")}
     assert codes

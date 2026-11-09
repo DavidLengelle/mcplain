@@ -90,6 +90,40 @@ finally:
     admin.dispose()
 """
 
+LOCK_SCRIPT = """
+import json
+import uuid
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
+
+from mcplain_api.db import AiText, Base, make_engine, make_sessions
+from mcplain_api.redacteur import claim_waiting
+from mcplain_api.settings import Settings
+
+url = make_url(Settings().database_url)
+name = "mcplain_ai_lock_" + uuid.uuid4().hex[:12]
+admin = create_engine(url, isolation_level="AUTOCOMMIT")
+with admin.connect() as connection:
+    connection.execute(text('CREATE DATABASE "' + name + '"'))
+try:
+    engine = make_engine(url.set(database=name).render_as_string(hide_password=False))
+    Base.metadata.create_all(engine)
+    sessions = make_sessions(engine)
+    with sessions.begin() as session:
+        session.add(AiText(kind="notice", lang="fr", hash="0" * 64, prompt_version="v", model="m", status="pending"))
+    with sessions.begin() as first:
+        held = claim_waiting(first)
+        with sessions.begin() as second:
+            skipped = claim_waiting(second)
+    print(json.dumps([held is not None, skipped is None]))
+    engine.dispose()
+finally:
+    with admin.connect() as connection:
+        connection.execute(text('DROP DATABASE IF EXISTS "' + name + '" WITH (FORCE)'))
+    admin.dispose()
+"""
+
 REACH_SCRIPT = """
 const net = require("node:net");
 const targets = JSON.parse(process.argv[1]);
@@ -178,6 +212,32 @@ def test_two_dispatchers_never_claim_the_same_analysis(client: DockerClient) -> 
     assert len(first) + len(second) == CLAIM_COUNT
     assert len(set(first) | set(second)) == CLAIM_COUNT
     assert first and second
+
+
+def test_a_second_writer_skips_the_text_being_written(client: DockerClient) -> None:
+    """On the compose PostgreSQL, a text held by one writer is invisible to another: ten visitors make one call"""
+
+    api = compose_container(client, "api")
+    exit_code, (stdout, stderr) = api.exec_run(["python", "-c", LOCK_SCRIPT], demux=True)
+    assert exit_code == 0, stderr
+    assert json.loads(stdout) == [True, True]
+
+
+def test_the_writer_container_is_closed(client: DockerClient) -> None:
+    """The writer runs on the back network only, read-only, not root, without any mount; no other service has the key"""
+
+    writer = compose_container(client, "redacteur")
+    attrs = writer.attrs
+    assert [name.split("_")[-1] for name in attrs["NetworkSettings"]["Networks"]] == ["back"]
+    assert attrs["HostConfig"]["ReadonlyRootfs"] is True
+    assert attrs["HostConfig"]["CapDrop"] == ["ALL"]
+    assert attrs["Config"]["User"] == "10002:10002"
+    assert attrs["Mounts"] == [] or all(mount["Type"] == "tmpfs" for mount in attrs["Mounts"])
+    assert not attrs["HostConfig"]["PortBindings"]
+    assert "no-new-privileges:true" in attrs["HostConfig"]["SecurityOpt"]
+    for service in ("api", "dispatcher", "web", "postgres"):
+        environment = compose_container(client, service).attrs["Config"]["Env"]
+        assert not [item for item in environment if "ANTHROPIC" in item.upper()], service
 
 
 def network_address(container: Container, suffix: str) -> str:

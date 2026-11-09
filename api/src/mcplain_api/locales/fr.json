@@ -1,0 +1,8 @@
+{
+  "api.analysis_not_finished": "Cette analyse n'est pas encore terminée.",
+  "ai.notice.fallback.count": "MCPlain a reconnu {count} outil(s) dans ce serveur.",
+  "ai.notice.fallback.can": "Il peut {actions}.",
+  "ai.notice.fallback.nothing": "Son code n'allume aucun voyant.",
+  "ai.notice.fallback.unavailable": "MCPlain n'a pas pu écrire de résumé automatique pour ce serveur.",
+  "ai.notice.fallback.no_tools": "MCPlain n'a reconnu aucun outil dans ce serveur : il n'y a pas de résumé automatique."
+}

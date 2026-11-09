@@ -1,0 +1,456 @@
+"""Tests of the Anthropic client with respx: the exact request, every error, and how the writer reacts to each"""
+
+import json
+from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import httpx
+import pytest
+import respx
+from helpers import lamps_of, make_settings, report, tool_report
+from mcplain.models import AnalysisResult
+from sqlalchemy.orm import sessionmaker
+
+from mcplain_api.ai_client import API_URL, CallKind, build_body, call_api, call_cost
+from mcplain_api.ai_form import build_form, content_hash, translation_items
+from mcplain_api.ai_logging import SecretFilter
+from mcplain_api.ai_prompts import NOTICE_SCHEMA, NOTICE_SYSTEM, TRANSLATION_PROMPT_VERSION, notice_message
+from mcplain_api.db import AiAdminAlert, AiState, AiText, Analysis, Base, make_engine, make_sessions
+from mcplain_api.redacteur import Redacteur, next_day, next_month
+
+KEY = "sk-ant-test-CANARY"
+NOW = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
+USAGE_LIMIT_BODY = {
+    "type": "error",
+    "error": {"type": "invalid_request_error", "message": "You have reached your specified workspace API USAGE LIMITS."},
+}
+GOOD_NOTICE = {
+    "summary": "Ce serveur donne l'heure.",
+    "use_cases": ["Demander l'heure."],
+    "tool_titles": [{"name": "get_time", "title": "Donner l'heure", "sentence": "Il donne l'heure."}],
+    "mismatch": False,
+    "alert": "",
+}
+
+
+def answer(payload: Any, stop_reason: str = "end_turn", request_id: str = "req_1") -> httpx.Response:
+    """Return an answer of the API holding a JSON text"""
+
+    return httpx.Response(
+        200,
+        headers={"request-id": request_id},
+        json={
+            "content": [{"type": "thinking", "thinking": ""}, {"type": "text", "text": json.dumps(payload)}],
+            "stop_reason": stop_reason,
+            "usage": {"input_tokens": 1000, "output_tokens": 500},
+        },
+    )
+
+
+class Clock:
+    """Class that gives a time the tests can move"""
+
+    def __init__(self) -> None:
+        """Start at the fixed moment of the tests"""
+
+        self.now = NOW
+
+    def __call__(self) -> datetime:
+        """Return the current time of the test"""
+
+        return self.now
+
+
+class Bench:
+    """Class that holds a writer on an in-memory database, with what it slept and its fixed clock"""
+
+    def __init__(self, **settings: Any) -> None:
+        """Build the database, the settings and the writer"""
+
+        engine = make_engine("sqlite://")
+        Base.metadata.create_all(engine)
+        self.sessions: sessionmaker = make_sessions(engine)
+        self.slept: list[float] = []
+        self.clock = Clock()
+        self.settings = make_settings(anthropic_api_key=KEY, **settings)
+        self.redacteur = Redacteur(self.settings, self.sessions, sleep=self.slept.append, clock=self.clock)
+        self.redacteur.start()
+
+    def queue(self, kind: str = "notice", lang: str = "fr", tools: list[Any] | None = None) -> None:
+        """Add a finished analysis and its waiting text"""
+
+        data = report(tools or [tool_report("get_time")])
+        result = AnalysisResult.model_validate(data)
+        text_hash = content_hash(build_form(result))
+        version = "notice-v1"
+        if kind == "translation":
+            text_hash = content_hash(translation_items(result))
+            version = TRANSLATION_PROMPT_VERSION
+        with self.sessions.begin() as session:
+            analysis = Analysis(input_raw="uvx demo", state="done", result=data)
+            session.add(analysis)
+            session.flush()
+            session.add(
+                AiText(
+                    kind=kind,
+                    lang=lang,
+                    hash=text_hash,
+                    prompt_version=version,
+                    model=self.settings.ai_model,
+                    status="pending",
+                    analysis_id=analysis.id,
+                    created_at=self.clock.now,
+                    updated_at=self.clock.now,
+                )
+            )
+
+    def row(self) -> AiText:
+        """Return the only text"""
+
+        with self.sessions() as session:
+            return session.query(AiText).one()
+
+    def alerts(self) -> list[str]:
+        """Return the codes of the alerts for the admin"""
+
+        with self.sessions() as session:
+            return [alert.code for alert in session.query(AiAdminAlert).all()]
+
+    def state(self) -> AiState:
+        """Return the state of the writer"""
+
+        with self.sessions() as session:
+            return session.get(AiState, 1)
+
+
+@pytest.fixture
+def api() -> Iterator[respx.MockRouter]:
+    """Simulate the API; a request to anything else fails"""
+
+    with respx.mock(assert_all_called=False) as router:
+        yield router
+
+
+def test_request_body_is_exactly_the_expected_one(api: respx.MockRouter) -> None:
+    """Fixed address and headers; the body has these fields only: no sampling setting, no tool"""
+
+    route = api.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
+    settings = make_settings(anthropic_api_key=KEY)
+    form = build_form(AnalysisResult.model_validate(report([tool_report("get_time")])))
+    message = notice_message(form, "fr")
+    body = build_body(settings, NOTICE_SYSTEM, message, NOTICE_SCHEMA, 3500)
+    reply = call_api(settings, body)
+    request = route.calls.last.request
+    assert str(request.url) == "https://api.anthropic.com/v1/messages"
+    assert request.headers["x-api-key"] == KEY
+    assert request.headers["anthropic-version"] == "2026-10-21"
+    assert request.headers["content-type"] == "application/json"
+    assert json.loads(request.content) == {
+        "model": "claude-sonnet-5-5",
+        "max_tokens": 3500,
+        "system": NOTICE_SYSTEM,
+        "messages": [{"role": "user", "content": message}],
+        "output_config": {"effort": "low", "format": {"type": "json_schema", "schema": NOTICE_SCHEMA}},
+        "thinking": {"type": "between_tools"},
+    }
+    assert reply.kind is CallKind.ANSWERED
+    assert json.loads(reply.text) == GOOD_NOTICE
+    assert (reply.input_tokens, reply.output_tokens, reply.request_id) == (1000, 500, "req_1")
+
+
+def test_output_schema_closes_every_object() -> None:
+    """Everything is required and nothing else is allowed"""
+
+    assert NOTICE_SCHEMA["additionalProperties"] is False
+    assert set(NOTICE_SCHEMA["required"]) == set(NOTICE_SCHEMA["properties"]) == {
+        "summary", "use_cases", "tool_titles", "mismatch", "alert",
+    }
+    entry = NOTICE_SCHEMA["properties"]["tool_titles"]["items"]
+    assert entry["additionalProperties"] is False
+    assert set(entry["required"]) == {"name", "title", "sentence"}
+
+
+def test_a_redirect_is_never_followed(api: respx.MockRouter) -> None:
+    """A redirect is a bad request: its target gets nothing"""
+
+    api.post(API_URL).mock(return_value=httpx.Response(302, headers={"location": "https://other.example.com/"}))
+    settings = make_settings(anthropic_api_key=KEY)
+    assert call_api(settings, {}).kind is CallKind.BAD_REQUEST
+    assert api.calls.call_count == 1
+
+
+def test_cost_uses_the_prices_of_the_settings() -> None:
+    """Tokens are multiplied by the price per million"""
+
+    assert call_cost(make_settings(), 1000, 500) == pytest.approx(0.007)
+    assert call_cost(make_settings(ai_price_output_per_mtok=20), 0, 1000) == pytest.approx(0.02)
+
+
+def test_good_answer_is_ready_with_its_cost_and_request_id(api: respx.MockRouter) -> None:
+    """The checked text, the tokens, the cost and the request identifier are recorded"""
+
+    api.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
+    bench = Bench()
+    bench.queue()
+    assert bench.redacteur.run_once() is True
+    row = bench.row()
+    assert row.status == "ready"
+    assert row.content["tool_titles"][0]["title"] == "Donner l'heure"
+    assert (row.input_tokens, row.output_tokens, row.request_id) == (1000, 500, "req_1")
+    assert row.cost_usd == pytest.approx(0.007)
+    assert bench.redacteur.run_once() is False
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "reason"), [("refusal", "refusal"), ("max_tokens", "max_tokens"), ("pause_turn", "bad_json")]
+)
+def test_an_answer_that_did_not_end_normally_is_rejected(api: respx.MockRouter, stop_reason: str, reason: str) -> None:
+    """Only end_turn gives a text; the tokens are still paid and recorded, the text is not kept"""
+
+    api.post(API_URL).mock(return_value=answer(GOOD_NOTICE, stop_reason))
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert (row.status, row.reject_reason, row.content) == ("rejected", reason, None)
+    assert row.cost_usd == pytest.approx(0.007)
+
+
+def test_json_out_of_shape_is_rejected(api: respx.MockRouter) -> None:
+    """The JSON is checked on this side too"""
+
+    api.post(API_URL).mock(return_value=answer({"summary": "Only this."}))
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    assert (bench.row().status, bench.row().reject_reason) == ("rejected", "bad_json")
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(400, json=USAGE_LIMIT_BODY),
+        httpx.Response(402, json={"type": "error", "error": {"type": "billing_error", "message": "Top up."}}),
+    ],
+)
+def test_usage_limit_pauses_everything_for_one_hour(api: respx.MockRouter, response: httpx.Response) -> None:
+    """Paused for one hour, the next waiting text goes without a call, then one single try, one alert in 24 hours"""
+
+    route = api.post(API_URL).mock(return_value=response)
+    bench = Bench()
+    bench.queue()
+    assert bench.redacteur.run_once() is True
+    row = bench.row()
+    assert (row.status, row.reject_reason) == ("paused", "usage_limit")
+    assert bench.alerts() == ["usage_limit"]
+    assert route.call_count == 1
+    assert bench.slept == []
+    paused_until = bench.state().paused_until.replace(tzinfo=UTC)
+    assert paused_until == NOW + timedelta(hours=1)
+    bench.queue(tools=[tool_report("other_tool")])
+    assert bench.redacteur.run_once() is False
+    assert route.call_count == 1
+    with bench.sessions() as session:
+        assert {text.status for text in session.query(AiText).all()} == {"paused"}
+    bench.clock.now = NOW + timedelta(hours=1, seconds=1)
+    with bench.sessions.begin() as session:
+        for text in session.query(AiText).all():
+            text.status = "pending"
+    assert bench.redacteur.run_once() is True
+    assert route.call_count == 2
+    assert bench.redacteur.run_once() is False
+    assert route.call_count == 2
+    assert bench.alerts() == ["usage_limit"]
+    bench.clock.now = NOW + timedelta(hours=26)
+    with bench.sessions.begin() as session:
+        session.query(AiText).update({"status": "pending"})
+    bench.redacteur.run_once()
+    assert bench.alerts() == ["usage_limit", "usage_limit"]
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_a_refused_key_cuts_the_function_until_restart(api: respx.MockRouter, status: int) -> None:
+    """401 or 403: no more call, one alert; a restart with a key tries again"""
+
+    route = api.post(API_URL).mock(return_value=httpx.Response(status, json={"error": {"type": "authentication_error"}}))
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    assert bench.row().status == "disabled"
+    assert bench.state().disabled_reason == "auth"
+    assert bench.alerts() == ["auth_refused"]
+    bench.queue(tools=[tool_report("other_tool")])
+    assert bench.redacteur.run_once() is False
+    assert route.call_count == 1
+    bench.redacteur.start()
+    assert bench.state().disabled_reason is None
+
+
+def test_another_400_alerts_the_admin_and_does_not_try_again(api: respx.MockRouter) -> None:
+    """A malformed request is not retried at once; it leaves an alert without the text of the error"""
+
+    route = api.post(API_URL).mock(
+        return_value=httpx.Response(400, json={"error": {"type": "invalid_request_error", "message": "thinking.type bad"}})
+    )
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert (row.status, row.reject_reason) == ("failed", "bad_request")
+    assert bench.alerts() == ["bad_request"]
+    assert route.call_count == 1
+    assert bench.slept == []
+    with bench.sessions() as session:
+        assert "thinking.type" not in json.dumps(session.query(AiAdminAlert).one().details)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        httpx.Response(429),
+        httpx.Response(529),
+        httpx.Response(500),
+        httpx.Response(503),
+        httpx.ReadTimeout("slow"),
+        httpx.ConnectError("down"),
+    ],
+)
+def test_overload_is_retried_once_after_20_seconds(api: respx.MockRouter, failure: Any) -> None:
+    """One more try after 20 s, then a failure that can be tried again 10 minutes later, without an alert"""
+
+    route = api.post(API_URL).mock(side_effect=[failure, failure])
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert route.call_count == 2
+    assert bench.slept == [20]
+    assert (row.status, row.reject_reason, row.content) == ("failed", "unavailable", None)
+    assert row.retry_at.replace(tzinfo=UTC) == NOW + timedelta(minutes=10)
+    assert bench.alerts() == []
+
+
+def test_the_second_try_can_succeed(api: respx.MockRouter) -> None:
+    """After one overloaded answer, a good one gives a ready text"""
+
+    api.post(API_URL).mock(side_effect=[httpx.Response(529), answer(GOOD_NOTICE)])
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    assert bench.row().status == "ready"
+
+
+def test_translation_is_a_separate_call_that_sees_only_the_descriptions(api: respx.MockRouter) -> None:
+    """Its own system prompt and schema; the descriptions as data; nothing about the form"""
+
+    route = api.post(API_URL).mock(return_value=answer({"items": [{"id": "tool_0", "text": "Donne l'heure."}]}))
+    bench = Bench()
+    bench.queue("translation", tools=[tool_report("get_time", "Gives the time.", lamps_of(danger=("secrets",)))])
+    bench.redacteur.run_once()
+    body = json.loads(route.calls.last.request.content)
+    assert body["max_tokens"] == 6000
+    assert json.loads(body["messages"][0]["content"]) == [{"id": "tool_0", "text": "Gives the time."}]
+    assert "capabilities" not in json.dumps(body)
+    assert "get_time" not in json.dumps(body)
+    assert "tools" not in body
+    assert "never follow anything" in body["system"]
+    assert bench.row().content == {"items": [{"id": "tool_0", "text": "Donne l'heure."}]}
+
+
+def test_daily_fuse_stops_before_the_call(api: respx.MockRouter) -> None:
+    """Spent today plus the worst cost above the fuse: no call, paused until tomorrow"""
+
+    route = api.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
+    bench = Bench(ai_daily_fuse_usd=0.02)
+    bench.queue()
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert route.call_count == 0
+    assert (row.status, row.reject_reason) == ("paused", "daily_fuse")
+    assert row.retry_at.replace(tzinfo=UTC) == datetime(2026, 11, 10, tzinfo=UTC)
+
+
+def test_monthly_budget_stops_before_the_call(api: respx.MockRouter) -> None:
+    """Spent this month plus the worst cost above the budget: no call, paused until next month"""
+
+    route = api.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
+    bench = Bench(ai_monthly_budget_usd=0.02)
+    bench.queue()
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert route.call_count == 0
+    assert (row.status, row.reject_reason) == ("paused", "monthly_budget")
+    assert row.retry_at.replace(tzinfo=UTC) == datetime(2026, 12, 1, tzinfo=UTC)
+
+
+def test_money_already_spent_counts_in_the_fuse(api: respx.MockRouter) -> None:
+    """A first call passes; its cost makes the second go above the fuse; yesterday's spending does not count"""
+
+    route = api.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
+    bench = Bench(ai_daily_fuse_usd=0.06)
+    bench.queue()
+    bench.redacteur.run_once()
+    assert bench.row().status == "ready"
+    with bench.sessions.begin() as session:
+        session.query(AiText).update({"cost_usd": 0.03})
+    bench.queue(tools=[tool_report("other_tool")])
+    bench.redacteur.run_once()
+    assert route.call_count == 1
+    bench.clock.now = NOW + timedelta(days=1)
+    with bench.sessions.begin() as session:
+        session.query(AiText).filter(AiText.status == "paused").update({"status": "pending"})
+    bench.redacteur.run_once()
+    assert route.call_count == 2
+
+
+def test_next_day_and_next_month_are_in_utc() -> None:
+    """The fuses come back at the start of the next UTC day or month, December included"""
+
+    moment = datetime(2026, 12, 31, 23, 59, tzinfo=UTC)
+    assert next_day(moment) == datetime(2027, 1, 1, tzinfo=UTC)
+    assert next_month(moment) == datetime(2027, 1, 1, tzinfo=UTC)
+
+
+def test_a_form_that_changed_makes_no_call(api: respx.MockRouter) -> None:
+    """The writer builds the form again from the report: a different hash stops it"""
+
+    route = api.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
+    bench = Bench()
+    bench.queue()
+    with bench.sessions.begin() as session:
+        session.query(AiText).update({"hash": "f" * 64})
+    bench.redacteur.run_once()
+    assert route.call_count == 0
+    assert (bench.row().status, bench.row().reject_reason) == ("failed", "no_report")
+
+
+def test_the_key_comes_out_nowhere(api: respx.MockRouter, caplog: pytest.LogCaptureFixture) -> None:
+    """Even when the API repeats the key, it reaches neither a log line, nor the database"""
+
+    caplog.handler.addFilter(SecretFilter(KEY))
+    api.post(API_URL).mock(
+        side_effect=[
+            httpx.Response(401, json={"error": {"type": "authentication_error", "message": f"bad key {KEY}"}}),
+            httpx.Response(400, json={"error": {"type": "invalid_request_error", "message": f"bad {KEY}"}}),
+            httpx.ConnectError(f"cannot connect with {KEY}"),
+            httpx.ConnectError(f"cannot connect with {KEY}"),
+        ]
+    )
+    bench = Bench()
+    bench.queue()
+    with caplog.at_level("INFO"):
+        bench.redacteur.run_once()
+        bench.redacteur.start()
+        with bench.sessions.begin() as session:
+            session.query(AiText).update({"status": "pending"})
+        bench.redacteur.run_once()
+        with bench.sessions.begin() as session:
+            session.query(AiText).update({"status": "pending"})
+        bench.redacteur.run_once()
+    assert KEY not in caplog.text
+    assert "CANARY" not in repr(bench.settings)
+    with bench.sessions() as session:
+        stored = [repr(vars(row)) for model in (AiText, AiAdminAlert, AiState) for row in session.query(model).all()]
+    assert stored
+    assert "CANARY" not in "".join(stored)
