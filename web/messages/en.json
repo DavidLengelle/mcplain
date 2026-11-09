@@ -387,6 +387,19 @@
     "revision": "commit",
     "analyzedOn": "Analyzed on {date}"
   },
+  "aiNotice": {
+    "heading": "WHAT THIS SERVER IS FOR",
+    "automatic": "Automatic summary",
+    "disclaimer": "Written by an AI from what MCPlain found. The AI read neither the code nor the author's texts, and it never changes the verdict.",
+    "useCases": "What you could use it for",
+    "pending": "MCPlain is writing the summary...",
+    "alertLabel": "Opinion of the AI",
+    "paused": {
+      "tomorrow": "The automatic notice comes back tomorrow.",
+      "next_month": "The automatic notice comes back next month.",
+      "later": "The automatic notice comes back soon."
+    }
+  },
   "plain": {
     "heading": "IN PLAIN WORDS",
     "canDoLabel": "WHAT IT CAN DO",
@@ -467,7 +480,10 @@
     "incomplete": "Incomplete tracking:",
     "whereInCode": "Where in the code:",
     "nowhere": "No precise place was recorded for this tool.",
-    "morePlaces": "{count, plural, one {and # more place} other {and # more places}}"
+    "morePlaces": "{count, plural, one {and # more place} other {and # more places}}",
+    "translatedText": "Automatic translation of the author's text, not an opinion from MCPlain",
+    "showOriginal": "Show the original",
+    "showTranslation": "Show the translation"
   },
   "details": {
     "heading": "TECHNICAL DETAILS",

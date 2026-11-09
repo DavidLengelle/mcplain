@@ -1,3 +1,4 @@
+import type { AiKind } from "./ai-text";
 import { parseAnalysisView, parseErrorInfo, type AnalysisView } from "./analysis";
 
 export const ANALYSES_PATH = "/api/analyses";
@@ -86,4 +87,37 @@ export async function fetchAnalysis(id: string, signal?: AbortSignal): Promise<F
     return { kind: "invalid" };
   }
   return { kind: "found", analysis };
+}
+
+export async function askAiText(id: string, kind: AiKind, lang: string, signal?: AbortSignal): Promise<unknown> {
+  try {
+    const response = await fetch(`${ANALYSES_PATH}/${id}/${kind}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ lang }),
+      signal,
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return await readJson(response);
+  } catch {
+    return null;
+  }
+}
+
+export async function readAiText(id: string, kind: AiKind, lang: string, signal?: AbortSignal): Promise<unknown> {
+  try {
+    const response = await fetch(`${ANALYSES_PATH}/${id}/${kind}?lang=${encodeURIComponent(lang)}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal,
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return await readJson(response);
+  } catch {
+    return null;
+  }
 }

@@ -1,7 +1,9 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { useState } from "react";
 
+import { parseNoticeAnswer, parseTranslationAnswer, translationOfTool, withPlainTitles } from "@/lib/ai-text";
 import type { AnalysisResult, AnalysisView, Tool } from "@/lib/analysis";
 import { alertsOfTool, defaultToolIndex, firstServer } from "@/lib/report";
 
@@ -18,9 +20,11 @@ import { ReportEnd } from "./report-end";
 import { TechDetails } from "./tech-details";
 import { ToolGrid } from "./tool-grid";
 import { ToolSheet } from "./tool-sheet";
+import { useAiText } from "./use-ai-text";
 import { VerdictBlock } from "./verdict-block";
 
 const LINK_LIST = "link_list";
+const TRANSLATED_LOCALE = "fr";
 
 function toolsOf(result: AnalysisResult): Tool[] {
   const server = firstServer(result);
@@ -32,7 +36,17 @@ function toolsOf(result: AnalysisResult): Tool[] {
 
 function FullReport({ analysis, result }: { analysis: AnalysisView; result: AnalysisResult }) {
   const server = firstServer(result);
-  const tools = toolsOf(result);
+  const locale = useLocale();
+  const finished = analysis.state === "done";
+  const notice = useAiText("notice", analysis.id, locale, finished, parseNoticeAnswer);
+  const translation = useAiText(
+    "translation",
+    analysis.id,
+    TRANSLATED_LOCALE,
+    finished && locale === TRANSLATED_LOCALE,
+    parseTranslationAnswer,
+  );
+  const tools = withPlainTitles(toolsOf(result), notice.answer);
   const alerts = result.verdict.alerts;
   const [selected, setSelected] = useState(() => defaultToolIndex(tools, alerts));
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -43,14 +57,21 @@ function FullReport({ analysis, result }: { analysis: AnalysisView; result: Anal
       <IdentityLine analysis={analysis} source={result.source} />
       <VerdictBlock analysis={analysis} result={result} />
       {result.verdict.coverage !== null && <CoverageBlock coverage={result.verdict.coverage} color={result.verdict.color} />}
-      <AiNoticeSlot />
+      {finished && <AiNoticeSlot answer={notice.answer} waiting={notice.waiting} />}
       {server !== null && <PlainSummary result={result} server={server} />}
       {server !== null && <LampCluster server={server} />}
       {(server !== null || alerts.length > 0) && (
         <AlertPoints result={result} tools={tools} onPickTool={setSelected} onOpenDetails={() => setDetailsOpen(true)} />
       )}
       {server !== null && <ToolGrid tools={tools} selected={selected} onPick={setSelected} />}
-      {tool !== null && <ToolSheet tool={tool} index={selected} alerts={alertsOfTool(tool, alerts)} />}
+      {tool !== null && (
+        <ToolSheet
+          tool={tool}
+          index={selected}
+          alerts={alertsOfTool(tool, alerts)}
+          translated={translationOfTool(translation.answer, selected)}
+        />
+      )}
       <TechDetails
         analysis={analysis}
         result={result}

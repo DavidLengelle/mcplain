@@ -387,6 +387,19 @@
     "revision": "commit",
     "analyzedOn": "Analysé le {date}"
   },
+  "aiNotice": {
+    "heading": "À QUOI SERT CE SERVEUR",
+    "automatic": "Résumé automatique",
+    "disclaimer": "Écrit par une IA à partir de ce que MCPlain a trouvé. L'IA n'a lu ni le code ni les textes de l'auteur, et ne change jamais le verdict.",
+    "useCases": "À quoi il peut te servir",
+    "pending": "MCPlain écrit le résumé...",
+    "alertLabel": "Avis de l'IA",
+    "paused": {
+      "tomorrow": "La notice automatique revient demain.",
+      "next_month": "La notice automatique revient le mois prochain.",
+      "later": "La notice automatique revient bientôt."
+    }
+  },
   "plain": {
     "heading": "EN CLAIR",
     "canDoLabel": "CE QU'IL PEUT FAIRE",
@@ -467,7 +480,10 @@
     "incomplete": "Suivi incomplet :",
     "whereInCode": "Où dans le code :",
     "nowhere": "Aucun endroit précis n'a été relevé pour cet outil.",
-    "morePlaces": "{count, plural, one {et # autre endroit} other {et # autres endroits}}"
+    "morePlaces": "{count, plural, one {et # autre endroit} other {et # autres endroits}}",
+    "translatedText": "Traduction automatique du texte de l'auteur, pas un avis de MCPlain",
+    "showOriginal": "Voir l'original",
+    "showTranslation": "Voir la traduction"
   },
   "details": {
     "heading": "DÉTAILS TECHNIQUES",
