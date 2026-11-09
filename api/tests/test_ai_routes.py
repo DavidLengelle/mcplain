@@ -13,7 +13,8 @@ from fastapi.testclient import TestClient
 from helpers import lamps_of, make_settings, report, tool_report
 from sqlalchemy.orm import sessionmaker
 
-from mcplain_api.ai_client import API_URL
+from mcplain_api.ai_client import API_URL, build_body, call_api
+from mcplain_api.ai_prompts import NOTICE_SCHEMA, NOTICE_SYSTEM
 from mcplain_api.ai_view import _insert
 from mcplain_api.app import create_app
 from mcplain_api.db import AiState, AiText, Analysis, Base, make_engine, make_sessions, utc_now
@@ -434,3 +435,43 @@ def test_translation_route_full_path(client: TestClient, sessions: sessionmaker,
     body = client.get(f"/api/analyses/{identifier}/translation?lang=fr").json()
     assert body["content"] == {"items": [{"id": "tool_0", "text": "Donne l'heure."}]}
     assert (body["source"], body["kind"], body["fallback"]) == ("ai", "translation", None)
+
+
+FRENCH = "À l'été, ça coûte : « œuvre », hôtel, fenêtre."
+
+
+@pytest.mark.parametrize("content_type", ["application/json", "application/json; charset=iso-8859-1", "text/plain"])
+def test_french_text_crosses_the_chain_unchanged(
+    client: TestClient, sessions: sessionmaker, writer: Redacteur, content_type: str
+) -> None:
+    """UTF-8 bytes of the API reach the database and the public answer unchanged, whatever charset the header claims"""
+
+    payload = {**GOOD_NOTICE, "summary": FRENCH, "use_cases": [FRENCH], "mismatch": False, "alert": ""}
+    payload["tool_titles"] = [{"name": "get_time", "title": "Donner l'heure à Paris", "sentence": FRENCH}]
+    raw = json.dumps(
+        {"content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}], "stop_reason": "end_turn", "usage": {}},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    with respx.mock() as router:
+        router.post(API_URL).mock(return_value=httpx.Response(200, content=raw, headers={"content-type": content_type}))
+        identifier = add_analysis(sessions)
+        client.post(f"/api/analyses/{identifier}/notice", json={"lang": "fr"})
+        writer.run_once()
+    body = client.get(f"/api/analyses/{identifier}/notice?lang=fr").json()
+    assert body["status"] == "ready"
+    assert body["content"]["summary"] == FRENCH
+    assert body["content"]["tool_titles"][0]["title"] == "Donner l'heure à Paris"
+    with sessions() as session:
+        assert session.query(AiText).one().content["summary"] == FRENCH
+
+
+def test_the_request_carries_french_as_utf8(sessions: sessionmaker) -> None:
+    """The system prompt and the body leave as UTF-8 bytes, never in another encoding"""
+
+    with respx.mock() as router:
+        route = router.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
+        call_api(make_settings(anthropic_api_key=KEY), build_body(make_settings(), NOTICE_SYSTEM, FRENCH, NOTICE_SCHEMA, 10))
+    raw = route.calls.last.request.content
+    assert "sécurisé".encode("utf-8") in raw
+    assert FRENCH.encode("utf-8") in raw
+    assert json.loads(raw.decode("utf-8"))["messages"][0]["content"] == FRENCH

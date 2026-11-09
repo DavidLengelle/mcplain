@@ -29,6 +29,7 @@ FILE_EXTENSIONS: frozenset[str] = frozenset(
         "py", "sh", "sql", "toml", "ts", "tsx", "txt", "xml", "yaml", "yml",
     }
 )
+MOJIBAKE_PATTERN = re.compile("[\u00c3\u0102].|\u00c2\u00a0|\u00e2\u20ac|\ufffd", re.DOTALL)
 URL_PATTERN = re.compile(r"(?:https?://|www\.)[^\s\"'<>`]+", re.IGNORECASE)
 URL_TRAILING = ".,;:!?)]}»"
 
@@ -41,6 +42,7 @@ class RejectReason(StrEnum):
     LENGTH = "length"
     UNKNOWN_TOOL = "unknown_tool"
     INVISIBLE = "invisible"
+    ENCODING = "encoding"
     REFUSAL = "refusal"
     MAX_TOKENS = "max_tokens"
     BAD_JSON = "bad_json"
@@ -118,6 +120,12 @@ def has_invisible(text: str) -> bool:
     return INVISIBLE_PATTERN.search(text) is not None
 
 
+def has_mojibake(text: str) -> bool:
+    """Tell whether a text holds a sequence typical of UTF-8 read in another encoding, or the replacement character"""
+
+    return MOJIBAKE_PATTERN.search(text) is not None
+
+
 def _allowed_domain(domain: str, form_domains: list[str]) -> bool:
     """Tell whether a domain is one of the form or a parent of one of them"""
 
@@ -143,6 +151,8 @@ def _check_text(text: str, form_domains: list[str]) -> None:
     """Reject a text of the notice that holds an invisible character, a link or a reassuring word"""
 
     normalized = unicodedata.normalize("NFC", text)
+    if has_mojibake(normalized):
+        raise OutputRejected(RejectReason.ENCODING)
     if has_invisible(normalized):
         raise OutputRejected(RejectReason.INVISIBLE)
     if has_link(normalized, form_domains):
@@ -211,6 +221,8 @@ def _translation_problem(translated: str, original: str) -> RejectReason | None:
 
     if not translated.strip() or len(translated) > TRANSLATION_FACTOR * len(original) + TRANSLATION_MARGIN:
         return RejectReason.LENGTH
+    if has_mojibake(translated) and not has_mojibake(original):
+        return RejectReason.ENCODING
     if has_invisible(translated):
         return RejectReason.INVISIBLE
     if not _urls(translated) <= _urls(original):

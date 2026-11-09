@@ -4,7 +4,7 @@ from typing import Any
 
 from mcplain_api.ai_form import canonical_json
 
-NOTICE_PROMPT_VERSION = "notice-v1"
+NOTICE_PROMPT_VERSION = "notice-v2"
 TRANSLATION_PROMPT_VERSION = "translation-v1"
 NOTICE_SYSTEM = """You write a short notice about an MCP server for someone who has never used one. \
 An MCP server gives an AI assistant extra tools.

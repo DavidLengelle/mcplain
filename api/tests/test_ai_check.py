@@ -321,3 +321,44 @@ def test_nothing_accepted_rejects_the_translation() -> None:
     with pytest.raises(OutputRejected) as empty:
         check_translation(translated(), ITEMS)
     assert empty.value.reason is RejectReason.BAD_JSON
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        "Il donne l'heure \u0102\u00a0Paris.",
+        "Il donne la m\u0102\u00a9t\u0102\u00a9o.",
+        "Il donne la m\u00c3\u00a9t\u00c3\u00a9o.",
+        "Un prix de 10\u00c2\u00a0euros.",
+        "Il dit \u00e2\u20ac\u0153bonjour\u00e2\u20ac.",
+        "Un caract\ufffdre perdu.",
+    ],
+)
+def test_mojibake_rejects_the_notice(summary: str) -> None:
+    """UTF-8 read in another encoding, or the replacement character, rejects the whole notice"""
+
+    assert rejected(notice(summary=summary)) is RejectReason.ENCODING
+    assert rejected(notice(tool_titles=titled(summary[:40]))) is RejectReason.ENCODING
+
+
+def test_normal_french_is_not_mojibake() -> None:
+    """Accents, ligatures and French quotes pass"""
+
+    summary = "À l'été, ça coûte : « œuvre », hôtel, fenêtre, élève, garçon, où, Ève, Ça, naïf."
+    assert check_notice(notice(summary=summary), FORM).content["summary"] == summary
+
+
+def test_false_positive_accepted_text_about_encoding_is_rejected() -> None:
+    """Accepted by David: a text that itself quotes a broken accent gives the fallback notice"""
+
+    assert rejected(notice(summary="Il répare les accents cassés comme \u00ab \u00c3\u00a9 \u00bb.")) is RejectReason.ENCODING
+
+
+def test_mojibake_in_a_translation_drops_only_that_item() -> None:
+    """Unless the author wrote the same sequence"""
+
+    items = [{"id": "tool_0", "text": "Gives the weather."}, {"id": "tool_1", "text": "Fixes \u00c3\u00a9 into \u00e9."}]
+    text = translated(("tool_0", "Donne la m\u0102\u00a9t\u0102\u00a9o."), ("tool_1", "Corrige \u00c3\u00a9 en \u00e9."))
+    checked = check_translation(text, items)
+    assert [item["id"] for item in checked.content["items"]] == ["tool_1"]
+    assert checked.dropped is RejectReason.ENCODING
