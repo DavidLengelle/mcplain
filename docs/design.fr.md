@@ -148,6 +148,12 @@ lance des commandes, touche à tes secrets, texte caché.
 Les règles orange n'allument jamais de rouge. La table complète (capacités, règles) est dans
 `docs/rules.fr.md`, section « Les voyants ».
 
+## La notice de l'IA
+
+Le bloc de la notice est en `--panel`. L'avis d'alerte (« Avis de l'IA », icône d'information) est en `--panel2`, avec `--ink` et
+`--ink2`. Il n'utilise jamais une couleur de verdict (ni vert, ni cuivre, ni rouge), et il n'apparaît ni dans la jauge ni dans les
+voyants : c'est un avis, pas une décision du moteur. **Jetons ajoutés : aucun.**
+
 ## Contrastes
 
 Tous les textes respectent 4,5:1 sur leur fond, et 3:1 pour les gros titres. Un test Vitest

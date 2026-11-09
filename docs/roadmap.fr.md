@@ -1,8 +1,8 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter, 7 quater et 7 quinquies et le corpus partie 2 sont faits ; les parties « Protections » et « Adresses IP
-partagées » (séances 8 et 9) ne sont pas codées.
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies et 8 et le corpus partie 2 sont faits. Les parties « Protections » et
+« Adresses IP partagées » ne sont codées que pour ce qui concerne l'IA (voir séance 8).
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
 
@@ -136,6 +136,25 @@ Décisions du 3 novembre 2026, codées :
       volontairement étroite. À revoir si des signalements montrent des pièges passés en orange.
 - [ ] Défis 11 à 15 de DVMCP (identité, chaîne d'approvisionnement) : pas examinés.
 - [ ] DVMCP n'a pas de fichier LICENSE, son README annonce MIT : rien n'en est copié dans le dépôt.
+
+## SÉANCE 8 : L'IA (faite le 9 novembre 2026, moteur et règles inchangés)
+
+Guide : `docs/ai.fr.md`.
+
+- [x] Notice, titres en clair et avis d'alerte, écrits depuis un formulaire à cases. Traduction vers le français dans un appel séparé.
+- [x] Appel direct de l'API Messages avec httpx, service `redacteur` seul à recevoir la clé, aucune clé dans GitHub.
+- [x] Contrôle de sortie, cache (points 4 et 5 des protections), fusibles du jour et du mois (points 6 et 7), notice de secours.
+- [x] Plafond de la console : décision du 9 novembre, une heure de pause puis un seul essai (et non « aucun nouvel essai » comme écrit
+      plus bas), sans e-mail pour l'instant.
+
+À faire :
+
+- [ ] E-mail à l'admin (séance 9) : aujourd'hui, une ligne de `ai_admin_alerts` et une ligne de journal.
+- [ ] La dépense et le solde dans un tableau admin.
+- [ ] La traduction vers l'anglais.
+- [ ] ALTCHA (séance 9).
+- [ ] Décision sur httpx2 : le SDK anthropic actuel en dépend, respx ne l'intercepte pas, et Starlette le demande pour son client de test.
+- [ ] Les noms des dépendances directes dans le rapport : le champ `libraries` du formulaire reste vide tant que le moteur ne les garde pas.
 
 ## PLUS TARD
 

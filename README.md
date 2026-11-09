@@ -104,6 +104,13 @@ Version 1 of the rules has 20 rules: 12 red and 8 orange. Each rule, its sources
 false positive are listed in [docs/rules.md](docs/rules.md) (in French:
 [docs/rules.fr.md](docs/rules.fr.md)). `uv run mcplain --rules` prints the same catalog.
 
+An AI writes a plain summary and clear tool titles when a report is ready. It only gets a form built from the report, never the
+code nor a text from a third party, and it never changes the verdict; without it, you get a summary written by hand
+([docs/ai.fr.md](docs/ai.fr.md)).
+
+En français : une IA écrit un résumé et des titres clairs à partir d'un formulaire construit depuis le rapport. Elle ne lit ni le
+code ni les textes de tiers, et ne change jamais le verdict ; sans elle, le rapport affiche un résumé écrit à la main.
+
 ## What MCPlain cannot see
 
 Finding nothing does not prove that a server is safe. MCPlain cannot see:
