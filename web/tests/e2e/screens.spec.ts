@@ -7,7 +7,7 @@ import { ID, serveAnalysis } from "./fake-api";
 import { reportView, type ReportName } from "./reports";
 
 const SCREENS = join(__dirname, "..", "..", "test-results", "screens");
-const VERDICTS: ReportName[] = ["green", "orange", "red", "network", "partial"];
+const VERDICTS: ReportName[] = ["green", "orange", "orangePartial", "red", "network", "partial"];
 const THEMES = ["light", "dark"] as const;
 const WIDTHS = [1280, 390] as const;
 

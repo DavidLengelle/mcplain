@@ -1,7 +1,7 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter, 7 quater et 7 quinquies sont faites ; les parties « Protections » et « Adresses IP
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater et 7 quinquies et le corpus partie 2 sont faits, sauf DVMCP (voir sa partie) ; les parties « Protections » et « Adresses IP
 partagées » (séances 8 et 9) ne sont pas codées.
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
@@ -113,12 +113,27 @@ Décisions du 3 novembre 2026, codées :
       5 gris), jugés par `engine/tests/test_corpus.py` (OK, ACCEPTABLE, ÉCHEC). Guide : `docs/corpus.fr.md`.
 - [x] Corpus privé des pièges (`engine/tests/fixtures/corpus-private/`, hors de git) : `.gitignore`, test de garde,
       hook `.githooks/pre-commit`, rapport `bench/private/corpus.md`.
-- [ ] Partie 2 : les 5 pièges écrits en chat, déposés par David dans le dossier privé.
-- [ ] Écarts à revoir avec David (attendus inchangés, `known_gap`) : `green/slug-ts-class` sort gris
-      (`dynamic_descriptions`, outils rangés dans un champ de classe et enregistrés par `Object.entries`) ;
-      `gray/native-launcher` sort orange (O08 sur le `spawnSync` du lanceur l'emporte sur le gris du compilé) ;
-      `orange/echo-terminal` donne O08 sans O02 (la commande passe par `shlex.split`, le moteur perd l'étiquette).
+- [ ] Les 5 pièges écrits en chat, déposés par David dans le dossier privé.
+- [ ] Écart à revoir avec David (attendu inchangé, `known_gap`) : `green/slug-ts-class` sort gris
+      (`dynamic_descriptions`, outils rangés dans un champ de classe et enregistrés par `Object.entries`).
 - [ ] MCPTox (arXiv 2508.14925) : dépôt `github.com/zhiqiangwang4/MCPTox-Benchmark` sans licence, rien importé.
+
+## CORPUS, PARTIE 2 (9 novembre 2026, moteur 0.5.2, règles version 3)
+
+- [x] O02 : `shlex.split` et `str.split` en Python, `String.prototype.split` en JavaScript gardent l'étiquette, sur la
+      liste et sur un élément. Un texte qui commence par un mot écrit dans le code suivi d'une espace a un programme fixe :
+      pas d'O02, l'outil reste en O08. Sans shell, pas de R09. `orange/echo-terminal` donne O02 et O08.
+- [x] Un orange dont la lecture est incomplète porte `verdict.coverage`. Le site montre le bloc au même endroit que pour le
+      gris, avec une phrase à lui : sur un orange, « Rien de suspect » serait faux. `native-launcher` passe dans
+      `orange/` ; `gray/unit-notes` (honnête) le remplace, le test demande cinq gris.
+- [x] « Ce que MCPlain ne sait pas faire » : les attaques qui arrivent par les données, le serveur qui en imite un autre.
+- [x] Mesure du banc : 5 verts, 34 oranges, 1 rouge, 12 gris, 78,4 % (`docs/bench.fr.md`).
+- [ ] Référence du banc à décider avec David : sentry 0.49.0 sort gris (paquet empaqueté sans dépendance déclarée).
+      Tant qu'elle n'est pas changée, le banc du lundi échoue sur cet écart.
+- [ ] DVMCP (défis 1 à 10, commit `cdc4c6b`) : attendus, script et test sont sur la branche locale `dvmcp`, non poussée. Les
+      défis 4, 5, 7 et 10 sont en ÉCHEC. Une correction demande une décision de David (une nouvelle détection
+      demanderait une fixture qui imite une attaque). Les défis 11 à 15 ne sont pas encore examinés.
+- [ ] DVMCP n'a pas de fichier LICENSE, son README annonce MIT : rien n'en est copié dans le dépôt.
 
 ## PROTECTIONS CONTRE LES ROBOTS ET QUOTAS (décidé le 23 octobre 2026)
 

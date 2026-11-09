@@ -203,22 +203,22 @@ de ce dossier n'est décrit nulle part ailleurs.
 
 ## 8. Avant et après les séances 7
 
-Quatre mesures comptent. La première, faite avant toute correction (moteur 0.2.1). La mesure propre du
+Cinq mesures comptent. La première, faite avant toute correction (moteur 0.2.1). La mesure propre du
 3 novembre 2026 (moteur 0.4.0, règles version 2). La mesure propre du 3 novembre au soir (moteur 0.5.0, règles
-version 3, séance 7 quater), faite après les corrections décidées ce jour-là. Et la mesure du 4 novembre (moteur
-0.5.1, séance 7 quinquies), qui sert de référence publique (`bench/baseline.json`). Les mesures propres ont été faites sur une machine vérifiée avant de
+version 3, séance 7 quater), faite après les corrections décidées ce jour-là. La mesure du 4 novembre (moteur
+0.5.1, séance 7 quinquies), qui sert de référence publique (`bench/baseline.json`). Et la mesure du 9 novembre (moteur 0.5.2, corpus partie 2). Les mesures propres ont été faites sur une machine vérifiée avant de
 commencer (charge basse, aucun conteneur d'un autre projet), avec des images reconstruites et des analyses
 fraîches (aucune servie par le cache).
 
-| | Moteur 0.2.1 (29 octobre) | Moteur 0.4.0 (3 novembre) | Moteur 0.5.0 (3 novembre au soir) | Moteur 0.5.1 (4 novembre) |
-| --- | --- | --- | --- | --- |
-| Vert | 3 | 5 | 5 | 5 |
-| Orange | 30 | 30 | 36 | 35 |
-| Rouge | 7 | 7 | 1 | 1 |
-| Gris | 12 | 10 | 10 | 11 |
-| Délais dépassés | 0 | 0 | 0 | 0 |
-| Échecs à part | 0 | 0 | 0 | 0 |
-| Verdicts clairs | 78,4 % | 82,4 % | 82,4 % | 80,4 % |
+| | Moteur 0.2.1 (29 octobre) | Moteur 0.4.0 (3 novembre) | Moteur 0.5.0 (3 novembre au soir) | Moteur 0.5.1 (4 novembre) | Moteur 0.5.2 (9 novembre) |
+| --- | --- | --- | --- | --- | --- |
+| Vert | 3 | 5 | 5 | 5 | 5 |
+| Orange | 30 | 30 | 36 | 35 | 34 |
+| Rouge | 7 | 7 | 1 | 1 | 1 |
+| Gris | 12 | 10 | 10 | 11 | 12 |
+| Délais dépassés | 0 | 0 | 0 | 0 | 0 |
+| Échecs à part | 0 | 0 | 0 | 0 | 0 |
+| Verdicts clairs | 78,4 % | 82,4 % | 82,4 % | 80,4 % | 78,4 % |
 
 Ce qui a changé entre 0.2.1 et 0.4.0 (séances 7 et 7 bis) :
 
@@ -264,13 +264,22 @@ Ce qui a changé entre 0.5.0 et 0.5.1 (séance 7 quinquies, décisions du 3 nove
 
 La référence publique (`bench/baseline.json`) contient les 52 serveurs, aucun rouge laissé de côté.
 
+Ce qui a changé entre 0.5.1 et 0.5.2 (9 novembre) :
+
+- sentry passe d'orange à gris (`not_a_server`). La cause est le paquet, pas le moteur : la version 0.49.0 est empaquetée
+  en un seul fichier, sans dépendance déclarée. C'est une cause de gris déjà connue. La référence n'a pas été changée :
+  la décision revient à David, et le banc du lundi signale cet écart en attendant ;
+- fetch reste orange, avec O04 et O08 en plus : sa version 2026.11.4 ajoute un fichier qui écrit et lance un programme ;
+- la correction d'O02 (`shlex.split`, `split`) ne change la couleur d'aucun serveur ;
+- le bloc « Ce que MCPlain a pu lire » s'affiche maintenant sur 26 oranges sur 34 : ceux dont la lecture est incomplète.
+
 ## 9. Les causes de gris restantes
 
-Mesure 0.5.1, sans compter le témoin Go (ceux de 0.5.0, plus launchdarkly) :
+Mesure 0.5.2, sans compter le témoin Go (ceux de 0.5.0, plus launchdarkly et sentry) :
 
 | Cause | Serveurs | Pourquoi |
 | --- | --- | --- |
-| `not_a_server` | 3 | Le vrai code est dans une autre dépendance (deux enveloppes), ou tout est empaqueté sans dépendance déclarée. |
+| `not_a_server` | 4 | Le vrai code est dans une autre dépendance (deux enveloppes), ou tout est empaqueté sans dépendance déclarée. |
 | `no_tools_found` | 4 | Les outils sont dans des paquets séparés, ou déclarés d'une façon que MCPlain ne connaît pas encore. |
 | `incomplete_tracking` | 2 | Des objets reçus en paramètre (type inconnu), et du code exécuté dans le navigateur. |
 | `network_unresolved` | 1 | Un client réseau créé à un endroit et passé en paramètre ailleurs. |

@@ -1,19 +1,19 @@
 {
-  "id": "4b4c246c-b5a3-4d4b-a19e-a5892e7da847",
+  "id": "17492564-d3aa-4760-af46-64aeb25580a3",
   "input": "https://github.com/punkpeye/awesome-mcp-servers",
   "select": null,
   "state": "done",
-  "created_at": "2026-11-03T21:58:53.115232+00:00",
-  "finished_at": "2026-11-03T21:58:56.032649+00:00",
-  "analyzed_at": "2026-11-03T21:58:56.032649+00:00",
-  "from_cache": false,
+  "created_at": "2026-11-09T10:33:43.823672+00:00",
+  "finished_at": "2026-11-09T10:33:45.328266+00:00",
+  "analyzed_at": "2026-11-09T10:33:05.111480+00:00",
+  "from_cache": true,
   "result": {
     "error": null,
     "notes": [
       "note.mostly_documentation"
     ],
     "source": {
-      "url": "https://github.com/punkpeye/awesome-mcp-servers/tree/29f2d490cc02468e7c9d87b0cf68d40d3041e7ef",
+      "url": "https://github.com/punkpeye/awesome-mcp-servers/tree/f431a5cd95cebf038e587715635b9d1a0a4d0c02",
       "kind": "github",
       "name": "punkpeye/awesome-mcp-servers",
       "origin": "github_code",
@@ -21,8 +21,8 @@
       "subdir": null,
       "version": null,
       "artifact": "github_tarball",
-      "revision": "29f2d490cc02468e7c9d87b0cf68d40d3041e7ef",
-      "integrity": "sha256:6fcf2a18a3b0c5e5f94c823527971608ff31209a52cdc125c1c53c0c0f8465d0",
+      "revision": "f431a5cd95cebf038e587715635b9d1a0a4d0c02",
+      "integrity": "sha256:730a9bcf9c327e62d15695aeebc92f843b76c2d6d601ac228a0d4fc45d153494",
       "reference": "main",
       "repository": null,
       "requested_version": null

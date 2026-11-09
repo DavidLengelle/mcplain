@@ -42,7 +42,7 @@ function FullReport({ analysis, result }: { analysis: AnalysisView; result: Anal
     <div className="flex flex-col gap-7" data-report="">
       <IdentityLine analysis={analysis} source={result.source} />
       <VerdictBlock analysis={analysis} result={result} />
-      {result.verdict.coverage !== null && <CoverageBlock coverage={result.verdict.coverage} />}
+      {result.verdict.coverage !== null && <CoverageBlock coverage={result.verdict.coverage} color={result.verdict.color} />}
       <AiNoticeSlot />
       {server !== null && <PlainSummary result={result} server={server} />}
       {server !== null && <LampCluster server={server} />}

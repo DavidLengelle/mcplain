@@ -26,6 +26,7 @@ const FAILED = "npm-not-found.view";
 const MULTIPLE = "modelcontextprotocol-servers.view";
 const NETWORK = "network-unresolved.result";
 const PARTIAL = "partial-tracking.result";
+const ORANGE_PARTIAL = "orange-partial.result";
 const INSTALL_COMMAND = "install-command.result";
 const INSTALL_REQUEST = "install-request.result";
 const TRAP_MARK = "TRAP";
@@ -221,9 +222,33 @@ describe("partial gray", () => {
     expect(container.querySelector("[data-coverage]")?.textContent).toContain("… et 44 autres points.");
   });
 
-  it.each([ORANGE, RED, GREEN_DOMAINS, FAILED])("shows no coverage block for %s", (file) => {
+  it.each([INSTALL_COMMAND, RED, GREEN_DOMAINS, FAILED])("shows no coverage block for %s", (file) => {
     const { container } = renderWithIntl(<ReportView analysis={loadView(file)} />);
     expect(container.querySelector("[data-coverage]")).toBeNull();
+  });
+});
+
+describe("orange read in part", () => {
+  it("shows the coverage block after the verdict, with the sentence about what the verdict covers", () => {
+    const { container } = renderWithIntl(<ReportView analysis={loadView(ORANGE_PARTIAL)} />, "fr");
+    const verdict = container.querySelector("[data-verdict]");
+    expect(verdict?.getAttribute("data-verdict")).toBe("orange");
+    const coverage = container.querySelector("[data-coverage]");
+    expect(coverage).not.toBeNull();
+    expect(verdict?.nextElementSibling).toBe(coverage);
+    const checked = coverage?.querySelector('[data-coverage-part="checked"]');
+    expect(checked?.textContent).toContain(
+      "Une partie de ce serveur n'a pas pu être lue en entier. Le verdict ne porte que sur ce qui a été vérifié.",
+    );
+    expect(coverage?.textContent).not.toContain("Rien de suspect");
+    expect(coverage?.querySelector('[data-coverage-item="tools"]')).not.toBeNull();
+  });
+
+  it("speaks English on the English page", () => {
+    const { container } = renderWithIntl(<ReportView analysis={loadView(ORANGE_PARTIAL)} />);
+    const coverage = container.querySelector("[data-coverage]");
+    expect(coverage?.textContent).toContain("Part of this server could not be read in full. The verdict only covers what was checked.");
+    expect(coverage?.textContent).not.toContain("Nothing suspicious");
   });
 });
 

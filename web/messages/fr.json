@@ -257,6 +257,14 @@
             "title": "Voir ce qui arrive après l'installation",
             "text": "Il lit le code qu'on lui donne, sans le lancer. Si le serveur télécharge autre chose plus tard, il ne le voit pas."
           },
+          "dataTraps": {
+            "title": "Voir une attaque qui arrive par les données",
+            "text": "Un piège peut arriver plus tard, dans une page, un document ou une réponse qu'un outil lit. MCPlain lit le code, pas ces données."
+          },
+          "imitation": {
+            "title": "Voir un serveur qui en imite un autre",
+            "text": "Quand plusieurs serveurs sont branchés, l'un peut se faire passer pour un autre. MCPlain analyse un serveur à la fois."
+          },
           "detours": {
             "title": "Suivre tous les détours",
             "text": "Un code très tordu peut cacher son chemin. Quand MCPlain s'en rend compte, il le dit (verdict gris). Sinon, il peut le rater."

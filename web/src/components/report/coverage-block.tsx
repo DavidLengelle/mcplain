@@ -1,12 +1,19 @@
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import type { Coverage, CoverageItem } from "@/lib/analysis";
+import type { Coverage, CoverageItem, VerdictColor } from "@/lib/analysis";
 
 import { EngineText } from "../engine-text";
 import { RawText } from "../raw-text";
 
 export const COVERAGE_HEADING_ID = "coverage-heading";
+
+function conclusionCode(color: VerdictColor): string {
+  if (color === "orange") {
+    return "coverage.partial_verdict";
+  }
+  return "coverage.nothing_found";
+}
 
 function placeOf(item: CoverageItem): string | null {
   if (item.file === null) {
@@ -62,7 +69,7 @@ function NotCheckedItem({ item }: { item: CoverageItem }) {
   );
 }
 
-export function CoverageBlock({ coverage }: { coverage: Coverage }) {
+export function CoverageBlock({ coverage, color }: { coverage: Coverage; color: VerdictColor }) {
   const t = useTranslations("coverage");
   const more = coverage.not_checked_count - coverage.not_checked.length;
   const counts = {
@@ -83,7 +90,7 @@ export function CoverageBlock({ coverage }: { coverage: Coverage }) {
             <EngineText code="coverage.checked" params={counts} />
           </p>
           <p className="mt-2 text-lg leading-[1.45]">
-            <EngineText code="coverage.nothing_found" />
+            <EngineText code={conclusionCode(color)} />
           </p>
         </Panel>
         <Panel label={t("notCheckedLabel")} testId="not-checked">

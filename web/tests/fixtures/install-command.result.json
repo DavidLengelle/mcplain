@@ -90,7 +90,8 @@
           "url_kind": null,
           "url_host": null,
           "sends": null,
-          "plain": false
+          "plain": false,
+          "unused_library": null
         },
         {
           "capability": "fs_write",
@@ -107,7 +108,8 @@
           "url_kind": null,
           "url_host": null,
           "sends": null,
-          "plain": false
+          "plain": false,
+          "unused_library": null
         }
       ],
       "domains": [],

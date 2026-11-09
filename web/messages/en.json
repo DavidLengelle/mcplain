@@ -257,6 +257,14 @@
             "title": "See what comes after installation",
             "text": "It reads the code it is given, without running it. If the server downloads something else later, it does not see it."
           },
+          "dataTraps": {
+            "title": "See an attack that arrives through data",
+            "text": "A trap can arrive later, in a page, a document or an answer that a tool reads. MCPlain reads the code, not that data."
+          },
+          "imitation": {
+            "title": "See a server that imitates another",
+            "text": "When several servers are plugged in, one can pretend to be another. MCPlain analyzes one server at a time."
+          },
           "detours": {
             "title": "Follow every detour",
             "text": "Very twisted code can hide its path. When MCPlain notices it, it says so (gray verdict). Otherwise, it can miss it."

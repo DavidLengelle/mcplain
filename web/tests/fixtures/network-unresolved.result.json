@@ -52,7 +52,8 @@
               "url_kind": "unknown",
               "url_host": null,
               "sends": false,
-              "plain": true
+              "plain": true,
+              "unused_library": null
             }
           ],
           "gaps": [],

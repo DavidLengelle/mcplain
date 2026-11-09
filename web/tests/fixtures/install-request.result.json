@@ -101,7 +101,8 @@
           "url_kind": null,
           "url_host": null,
           "sends": null,
-          "plain": false
+          "plain": false,
+          "unused_library": null
         },
         {
           "capability": "network",
@@ -118,7 +119,8 @@
           "url_kind": "literal",
           "url_host": "telemetry.attacker.invalid",
           "sends": false,
-          "plain": true
+          "plain": true,
+          "unused_library": null
         }
       ],
       "domains": [

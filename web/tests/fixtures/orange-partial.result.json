@@ -1,0 +1,160 @@
+{
+  "status": "compiled",
+  "source": null,
+  "local_path": "tests/fixtures/corpus/orange/native-launcher",
+  "reputation": {
+    "status": "not_checked",
+    "queried": 0,
+    "packages": []
+  },
+  "ignored_arguments": [],
+  "servers": [
+    {
+      "path": ".",
+      "name": "notes-native",
+      "language": "javascript",
+      "sdk": "@modelcontextprotocol/sdk",
+      "tools": [],
+      "findings": [
+        {
+          "capability": "process_exec",
+          "file": "bin/launcher.js",
+          "line": 12,
+          "column": 18,
+          "snippet": "const result = spawnSync(binaryPath(), process.argv.slice(2), { stdio: \"inherit\" });",
+          "function": "launch",
+          "location_kind": "server_code",
+          "detail": "child_process.spawnSync",
+          "call_chain": [],
+          "shared_by_tools": false,
+          "outside": "never_called",
+          "url_kind": null,
+          "url_host": null,
+          "sends": null,
+          "plain": false,
+          "unused_library": null
+        }
+      ],
+      "domains": [],
+      "sensitive_paths": [],
+      "install_scripts": [],
+      "install_commands": [],
+      "invisible_unicode": [],
+      "flows": [],
+      "text_matches": [],
+      "copy_recipients": [],
+      "compiled_files": [],
+      "minified_files": [],
+      "parse_errors": [],
+      "skipped_files": [],
+      "network_imports": [],
+      "files_analyzed": 1,
+      "lamps": [
+        {
+          "id": "files_read",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "files_write",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "internet",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "commands",
+          "state": "on",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "secrets",
+          "state": "off",
+          "rules": [],
+          "note": null
+        },
+        {
+          "id": "hidden_text",
+          "state": "off",
+          "rules": [],
+          "note": null
+        }
+      ],
+      "internet_domains": null,
+      "network_not_followed": []
+    }
+  ],
+  "available_servers": [],
+  "available_servers_truncated": false,
+  "language": null,
+  "compiled_files": [],
+  "notes": [
+    "note.platform_binary_dependencies",
+    "note.partially_compiled"
+  ],
+  "error": null,
+  "verdict": {
+    "color": "orange",
+    "alerts": [
+      {
+        "rule": "O08",
+        "color": "orange",
+        "kind": "power_to_know",
+        "tool": null,
+        "shared_by_tools": false,
+        "outside": "never_called",
+        "file": "bin/launcher.js",
+        "line": 12,
+        "function": "launch",
+        "source": null,
+        "steps": [],
+        "quote": "const result = spawnSync(binaryPath(), process.argv.slice(2), { stdio: \"inherit\" });",
+        "detail": "process_exec",
+        "title": null,
+        "params": {}
+      }
+    ],
+    "reasons": [
+      "status.compiled",
+      "caveat.partially_compiled",
+      "caveat.no_tools_found"
+    ],
+    "rules_version": "3",
+    "rules_count": 23,
+    "contacted_domains": [],
+    "gray_case": null,
+    "title": {
+      "code": "rule.O08.plain_title",
+      "params": {}
+    },
+    "summary": {
+      "code": "rule.O08.plain_found",
+      "params": {}
+    },
+    "coverage": {
+      "tools_total": 0,
+      "tools_followed": 0,
+      "files_total": 1,
+      "files_read": 1,
+      "not_checked": [
+        {
+          "kind": "tools",
+          "reason": "no_tools_found",
+          "name": null,
+          "file": null,
+          "line": null,
+          "snippet": null
+        }
+      ],
+      "not_checked_count": 1
+    },
+    "cleared": []
+  }
+}

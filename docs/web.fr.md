@@ -250,7 +250,7 @@ affichent.
 | --- | --- | --- | --- |
 | 1 | `identity-line.tsx` | la vue et la source | paquet, version, origine, date `analyzed_at` |
 | 2 | `verdict-block.tsx` (+ `gauge.tsx`) | la vue et le résultat | la jauge, le mot, le titre et la phrase du moteur, « Relancer » si besoin |
-| 2 bis | `coverage-block.tsx` | `verdict.coverage` | seulement pour un gris partiel : VÉRIFIÉ, puis PAS VÉRIFIÉ (voir plus bas) |
+| 2 bis | `coverage-block.tsx` | `verdict.coverage` | pour un gris partiel ou un orange lu en partie : VÉRIFIÉ, puis PAS VÉRIFIÉ (voir plus bas) |
 | 3 | `ai-notice-slot.tsx` | rien | rien pour l'instant (notice de l'IA, séance 8) |
 | 4 | `plain-summary.tsx` | le résultat et le serveur | EN CLAIR : ce qu'il peut faire, ce qu'on a trouvé, ce que tu peux faire |
 | 5 | `lamp-cluster.tsx` | le serveur | les six voyants, leur état écrit, le compteur |
@@ -280,7 +280,7 @@ Pense à un contrôle technique : le garagiste te dit ce qu'il a contrôlé, pui
 | Partie | Ce qu'elle affiche | D'où vient le texte |
 | --- | --- | --- |
 | Titre | CE QUE MCPLAIN A PU LIRE | `messages/*.json`, clé `coverage.heading` |
-| VÉRIFIÉ | « Outils entièrement suivis : 1 sur 2. Fichiers lus : 1 sur 1. » puis « Rien de suspect dans ce qui a été lu. » | moteur : `coverage.checked`, `coverage.nothing_found` |
+| VÉRIFIÉ | « Outils entièrement suivis : 1 sur 2. Fichiers lus : 1 sur 1. » puis « Rien de suspect dans ce qui a été lu. » | moteur : `coverage.checked`, `coverage.nothing_found`. Sur un orange, la deuxième phrase est « Une partie de ce serveur n'a pas pu être lue en entier. Le verdict ne porte que sur ce qui a été vérifié. » (`coverage.partial_verdict`) |
 | PAS VÉRIFIÉ | une ligne par point : le type (appel, description, fichier, bibliothèque réseau, outils), le nom, l'emplacement `fichier:ligne`, la raison, et la ligne de code | moteur : `coverage.kind.*`, `coverage.reason.*` ; nom, emplacement et ligne de code par `RawText` |
 | Fin de liste | « … et 44 autres points. » quand le moteur a coupé la liste (30 points au plus) | moteur : `coverage.more` |
 

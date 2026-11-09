@@ -157,7 +157,32 @@ test("a call not followed shows its line of code as raw text", async ({ page }) 
   await expect(item.locator("[data-raw-text]")).toHaveCount(3);
 });
 
-for (const name of ["green", "orange", "red", "failed", "multiple", "network", "partial"] as const) {
+for (const theme of ["light", "dark"] as const) {
+  test(`the orange read in part in the ${theme} theme says what the verdict covers, right after the verdict`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: theme });
+    await serveAnalysis(page, [reportView("orangePartial")]);
+    await page.goto(`/fr/analyses/${ID}`);
+    await expect(page.locator('[data-verdict-word="orange"]')).toBeVisible();
+    const coverage = page.locator("[data-coverage]");
+    await expect(page.locator("[data-verdict] + [data-coverage]")).toBeVisible();
+    await expect(coverage.locator('[data-coverage-part="checked"]')).toContainText(
+      "Une partie de ce serveur n'a pas pu être lue en entier. Le verdict ne porte que sur ce qui a été vérifié.",
+    );
+    await expect(coverage).not.toContainText("Rien de suspect");
+    await expect(coverage.locator('[data-coverage-item="tools"]')).toBeVisible();
+    expect(await pageColor(page)).toBe(PAGE_COLORS[theme]);
+  });
+}
+
+test("the orange read in part speaks English on the English page", async ({ page }) => {
+  await serveAnalysis(page, [reportView("orangePartial")]);
+  await page.goto(`/analyses/${ID}`);
+  await expect(page.locator('[data-coverage-part="checked"]')).toContainText(
+    "Part of this server could not be read in full. The verdict only covers what was checked.",
+  );
+});
+
+for (const name of ["green", "orange", "orangePartial", "red", "failed", "multiple", "network", "partial"] as const) {
   test(`the ${name} report fits a 390 pixel wide phone`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await serveAnalysis(page, [reportView(name)]);

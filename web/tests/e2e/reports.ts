@@ -19,6 +19,7 @@ export const REPORTS = {
   awesome: "awesome-mcp-servers.view",
   network: "network-unresolved.result",
   partial: "partial-tracking.result",
+  orangePartial: "orange-partial.result",
 } as const;
 
 export type ReportName = keyof typeof REPORTS;

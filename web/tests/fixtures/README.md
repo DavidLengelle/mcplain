@@ -16,6 +16,7 @@ enters the repository.
 | `fixed-domains.result.json` | green, fixed domains | command line, from `engine/`: `uv run mcplain --local tests/fixtures/rules/O01/near_miss --json` |
 | `network-unresolved.result.json` | gray, network library not followed, with coverage | command line, from `engine/`: `uv run mcplain --local tests/fixtures/python_network_elsewhere --json` |
 | `partial-tracking.result.json` | gray, a call not followed, with coverage | command line, from `engine/`: `uv run mcplain --local tests/fixtures/python_partial_tracking --json` |
+| `orange-partial.result.json` | orange, O08, read in part, with coverage | command line, from `engine/`: `uv run mcplain --local tests/fixtures/corpus/orange/native-launcher --json` |
 | `install-command.result.json` | orange, O10 with the client name | command line, from `engine/`: `uv run mcplain --local tests/fixtures/rules/O10/positive --json` |
 | `install-request.result.json` | orange, O11 with the domain | command line, from `engine/`: `uv run mcplain --local tests/fixtures/rules/O11/positive --json` |
 

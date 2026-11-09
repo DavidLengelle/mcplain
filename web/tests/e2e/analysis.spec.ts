@@ -21,7 +21,7 @@ test("typing, then following, then an orange report", async ({ page }) => {
   await expect(page.locator('[data-verdict-word="orange"]')).toHaveText("TO CHECK");
   await expect(page.locator('[data-gauge="orange"]')).toHaveAttribute("aria-label", "Verdict gauge: TO CHECK");
   await expect(page.locator('[data-lamp="files_write"]')).toHaveAttribute("data-state", "on");
-  await expect(page.getByRole("heading", { name: "THE 14 TOOLS" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "THE 16 TOOLS" })).toBeVisible();
 });
 
 test("the header field starts an analysis from any page", async ({ page }) => {

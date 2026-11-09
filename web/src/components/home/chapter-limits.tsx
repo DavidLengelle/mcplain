@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { MinusCircleIcon } from "../icons";
 import { Chapter, ChapterHeading, LEAD, STRONG_LINE } from "./guide-parts";
 
-const ITEMS = ["languages", "remote", "later", "detours", "nextVersion"] as const;
+const ITEMS = ["languages", "remote", "later", "dataTraps", "imitation", "detours", "nextVersion"] as const;
 
 export function ChapterLimits() {
   const t = useTranslations("home.chapters.limites");

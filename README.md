@@ -110,8 +110,10 @@ Finding nothing does not prove that a server is safe. MCPlain cannot see:
 
 - **Changes after the analysis** (rug pull): a server can change its code or its tool
   descriptions after MCPlain read them. MCPlain analyzes one version, at one moment.
-- **Traps read at runtime**: a web page, a file or an API answer that a tool reads can carry
-  instructions for the AI. MCPlain reads the code, not the data the tools will read.
+- **Attacks that arrive later through data**: a web page, a file or an API answer that a tool reads
+  can carry instructions for the AI. MCPlain reads the code, not the data the tools will read.
+- **A server that imitates another**: when several servers are plugged in, one can pretend to be
+  another. MCPlain analyzes one server at a time.
 - **The code of the dependencies**: only their reputation on OSV.dev is checked (the analyzed
   package at its exact version, its direct dependencies by name).
 - **Remote MCP servers**: a server reached over the network has no code to download.
