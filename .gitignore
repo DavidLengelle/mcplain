@@ -41,3 +41,4 @@ var/
 /bench/private/
 
 /engine/tests/fixtures/corpus-private/
+/engine/tests/fixtures/external/
