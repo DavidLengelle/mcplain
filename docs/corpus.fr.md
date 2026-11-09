@@ -127,3 +127,54 @@ uv run pytest tests/test_corpus.py -k private -rs
 Le test analyse chaque piège et écrit `bench/private/corpus.md` (hors de git) : le nom du piège, la couleur
 attendue, la couleur obtenue et le classement. Jamais son code, ses descriptions ni ses règles. Ce test n'échoue
 pas sur un ÉCHEC : il rapporte seulement. Sans dossier privé (en CI, chez quelqu'un d'autre), il est ignoré.
+
+## DVMCP : un entraînement sur des failles connues
+
+Damn Vulnerable MCP Server (DVMCP) est un projet éducatif public. Ses serveurs sont troués exprès, pour apprendre à
+reconnaître les failles des MCP. C'est comme un mur d'escalade d'entraînement : les prises sont connues, et on regarde
+si MCPlain les trouve. MCPlain s'en sert pour vérifier qu'il voit des failles qu'il n'a pas écrites lui-même.
+
+Le dépôt épingle un commit précis de DVMCP. Pour le récupérer, depuis la racine du dépôt :
+
+```bash
+scripts/fetch-dvmcp.sh
+```
+
+Le script clone ce commit dans `engine/tests/fixtures/external/dvmcp/` et vérifie son identifiant. Puis, depuis
+`engine/` :
+
+```bash
+uv run pytest tests/test_dvmcp.py
+```
+
+Sans clone, le test est sauté. Avec `MCPLAIN_REQUIRE_DVMCP=1`, comme en CI, il échoue.
+
+### Pourquoi il n'est jamais lancé
+
+DVMCP n'est pas inerte. Lancer ses serveurs ouvrirait de vraies failles sur ton ordinateur : l'un d'eux exécute ce qu'on
+lui envoie. On ne l'installe donc jamais, on ne le construit jamais, on n'importe aucun de ses modules. Le moteur le lit
+comme du texte, comme tout le code qu'il analyse.
+
+### Pourquoi il n'est pas copié dans le dépôt
+
+Le code de DVMCP appartient à son auteur, et son dépôt ne contient pas de fichier de licence, même si son README annonce
+MIT. Sans ce fichier, on évite de le recopier. Le dossier `external/` est dans `.gitignore`, et un test échoue si un de ses
+fichiers est suivi par git. Les réponses attendues (`engine/tests/data/dvmcp.toml`) ne citent que des chemins, des couleurs
+et des identifiants de règles.
+
+### Lire le résultat
+
+Pour chaque défi, le test donne un classement :
+
+- **OK** : la couleur et les règles attendues.
+- **ACCEPTABLE** : une autre couleur de la liste `accept`, par exemple gris quand MCPlain avoue qu'il n'a pas tout lu.
+- **HORS PORTÉE** : ce défi vise une chose que MCPlain ne peut pas voir en lisant le code. Le défi d'injection indirecte,
+  par exemple, arrive plus tard, dans un document que l'outil lit. La couleur est notée, mais elle ne compte pas. Ce n'est
+  pas une réussite : c'est une limite écrite noir sur blanc, à retrouver dans « Ce que MCPlain ne sait pas faire ».
+- **ÉCHEC** : le reste. Un vert sur un défi dans la portée est toujours un échec. On ne change jamais la réponse attendue
+  pour faire passer le test.
+
+Le test public dit seulement si chaque défi passe ou échoue. Le détail (règles, classement) va dans `bench/private/dvmcp.md`,
+hors de git. Le test analyse les défis 1 à 10 ; le dépôt épinglé contient aussi les défis 11 à 15, pas encore examinés.
+
+Les défis 4 et 7 sont hors portée, avec leur raison dans `dvmcp.toml` : le piège du défi 4 arrive dans la réponse de l'outil, à l'exécution ; le défi 7 montre des secrets écrits en dur, et l'utilisateur n'est pas exposé. Les défis 5 et 10 servent aussi de cas positifs à O12. Leur réponse attendue reste rouge ; ils sortent orange et passent donc ACCEPTABLE, pas OK : R13 reste étroite par choix de David, et ces deux cas sont à revoir si des signalements montrent des pièges passés en orange.

@@ -1,7 +1,7 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter, 7 quater et 7 quinquies et le corpus partie 2 sont faits, sauf DVMCP (voir sa partie) ; les parties « Protections » et « Adresses IP
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater et 7 quinquies et le corpus partie 2 sont faits ; les parties « Protections » et « Adresses IP
 partagées » (séances 8 et 9) ne sont pas codées.
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
@@ -131,9 +131,9 @@ Décisions du 3 novembre 2026, codées :
 - [x] Décisions de David (moteur 0.6.0, règles version 4, 25 règles) : O12 et R13, consignes cachées dans une description,
       sans fixture d'attaque ; défis 4 et 7 hors portée, avec leurs limites sur l'accueil et dans le README ; un paquet présenté
       comme serveur MCP sans outil reconnu donne `no_tools_found` ; référence du banc avec sentry en gris.
-- [ ] DVMCP (commit `cdc4c6b`) : `scripts/fetch-dvmcp.sh` est sur main, la CI lit les cas positifs d'O12 et R13. Attendus et
-      classement restent sur la branche locale `dvmcp`, non poussée : les défis 5 et 10 sont en ÉCHEC, orange au lieu de rouge.
-      Leurs blocs n'ont aucun signal de R13. Décision de David attendue.
+- [x] DVMCP (défis 1 à 10, commit `cdc4c6b`) : attendus, test et CI sur main. Défis 1, 4, 6 et 7 hors portée.
+- [ ] Défis 5 et 10 de DVMCP : cas ACCEPTABLE (décidé par David le 9 novembre), leur attendu reste rouge. R13 reste
+      volontairement étroite. À revoir si des signalements montrent des pièges passés en orange.
 - [ ] Défis 11 à 15 de DVMCP (identité, chaîne d'approvisionnement) : pas examinés.
 - [ ] DVMCP n'a pas de fichier LICENSE, son README annonce MIT : rien n'en est copié dans le dépôt.
 
