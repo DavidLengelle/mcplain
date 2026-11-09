@@ -289,12 +289,15 @@ def compute_verdict(result: AnalysisResult, registry: RuleRegistry = DEFAULT_REG
         reasons.append(f"status.{result.status.value}")
     elif not result.servers or all(server.files_analyzed == 0 for server in result.servers):
         reasons.append("nothing_analyzable")
-    reasons.extend(incomplete_reading(result))
+    reading = incomplete_reading(result)
+    reasons.extend(reading)
     if not alerts and reasons:
         verdict.color = VerdictColor.GRAY
         verdict.gray_case = gray_case(result, reasons)
         if verdict.gray_case in READING_CASES:
             verdict.coverage = coverage(result)
+    if verdict.color is VerdictColor.ORANGE and reading:
+        verdict.coverage = coverage(result)
     unknown = False
     if verdict.color is VerdictColor.GREEN:
         domains, unknown = network_domains(result)

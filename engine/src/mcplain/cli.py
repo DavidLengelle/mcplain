@@ -678,11 +678,11 @@ def _render_verdict(result: AnalysisResult, t: Translator, lines: list[str]) -> 
         params = {key: _safe(value) for key, value in message.params.items()}
         lines.append(f"{INDENT}- {t(message.code, **params)}")
     if verdict.coverage is not None:
-        _render_coverage(verdict.coverage, t, lines)
+        _render_coverage(verdict.coverage, verdict.color, t, lines)
     lines.append(f"{INDENT}{t('cli.verdict.disclaimer')}")
 
 
-def _render_coverage(coverage: Coverage, t: Translator, lines: list[str]) -> None:
+def _render_coverage(coverage: Coverage, color: VerdictColor, t: Translator, lines: list[str]) -> None:
     """Show what was checked in a server read only in part, then what was not"""
 
     checked = t(
@@ -692,7 +692,10 @@ def _render_coverage(coverage: Coverage, t: Translator, lines: list[str]) -> Non
         read=coverage.files_read,
         files=coverage.files_total,
     )
-    lines.append(f"{INDENT}{checked} {t('coverage.nothing_found')}")
+    conclusion = t("coverage.nothing_found")
+    if color is VerdictColor.ORANGE:
+        conclusion = t("coverage.partial_verdict")
+    lines.append(f"{INDENT}{checked} {conclusion}")
     lines.append(f"{INDENT}{t('coverage.not_checked')}")
     for item in coverage.not_checked:
         place = ":".join(_safe(part) for part in (item.file, item.line) if part is not None)

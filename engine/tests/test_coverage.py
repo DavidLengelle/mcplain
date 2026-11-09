@@ -140,7 +140,7 @@ def build(index):
 
 @pytest.mark.parametrize("fixture", ["python_fastmcp_clean", "official_fetch_like", "postmark_like", "go_server"])
 def test_green_orange_red_and_other_grays_have_no_coverage(fixtures: Path, fixture: str) -> None:
-    """Only a gray for a reading in part says what was checked"""
+    """A code fully read says nothing about coverage, and a red never does"""
 
     result = analyze_directory(fixtures / fixture)
     assert result.verdict.coverage is None
@@ -159,7 +159,7 @@ def test_every_kind_and_reason_has_a_text(language: str) -> None:
     reasons += ["network_unresolved", "no_tools_found"]
     expected = [f"coverage.kind.{kind.value}" for kind in CoverageKind]
     expected += [f"coverage.reason.{reason}" for reason in reasons]
-    expected += ["coverage.checked", "coverage.nothing_found", "coverage.not_checked", "coverage.more"]
+    expected += ["coverage.checked", "coverage.nothing_found", "coverage.partial_verdict", "coverage.not_checked", "coverage.more"]
     assert [key for key in expected if key not in keys] == []
 
 
@@ -171,3 +171,64 @@ def test_the_command_line_shows_the_coverage(fixtures: Path) -> None:
     assert "Not checked:" in text
     assert "- Network library httpx clients.py:1: MCPlain did not see where it is used" in text
     assert "This does not mean this MCP is safe" in text
+
+
+ORANGE_PARTIAL_BODY = '''
+class Index:
+    def search(self, text):
+        return text
+
+
+def build(index):
+    @mcp.tool()
+    def find(text: str) -> str:
+        """Find text"""
+        subprocess.run(["echo", text])
+        return index.search(text)
+'''
+
+
+def test_orange_read_in_part_has_a_coverage(tmp_path: Path) -> None:
+    """An orange verdict with an incomplete reading says what was not checked, like a partial gray"""
+
+    result = analyze_directory(server(tmp_path, ORANGE_PARTIAL_BODY))
+    assert result.verdict.color is VerdictColor.ORANGE
+    assert result.verdict.gray_case is None
+    coverage = result.verdict.coverage
+    assert coverage is not None
+    assert coverage.not_checked_count >= 1
+    assert any(item.kind is CoverageKind.CALL for item in coverage.not_checked)
+
+
+def test_orange_fully_read_has_no_coverage(tmp_path: Path) -> None:
+    """An orange verdict whose code was fully read and followed has no coverage block"""
+
+    body = '\n@mcp.tool()\ndef act(value: str) -> str:\n    """Act"""\n    subprocess.run(["echo", value])\n    return value\n'
+    result = analyze_directory(server(tmp_path, body))
+    assert result.verdict.color is VerdictColor.ORANGE
+    assert result.verdict.coverage is None
+
+
+def test_red_read_in_part_has_no_coverage(tmp_path: Path) -> None:
+    """A red verdict keeps its report as it was, even with an incomplete reading"""
+
+    body = ORANGE_PARTIAL_BODY + '\n\n@mcp.tool()\ndef paste(value: str) -> str:\n    """Paste"""\n    subprocess.run(f"echo {value}", shell=True)\n    return value\n'
+    result = analyze_directory(server(tmp_path, body))
+    assert result.verdict.color is VerdictColor.RED
+    assert result.verdict.coverage is None
+
+
+@pytest.mark.parametrize(
+    ("lang", "sentence", "other"),
+    [
+        ("fr", "n'a pas pu être lue en entier", "Rien de suspect"),
+        ("en", "could not be read in full", "Nothing suspicious"),
+    ],
+)
+def test_orange_coverage_does_not_say_nothing_was_found(tmp_path: Path, lang: str, sentence: str, other: str) -> None:
+    """The command line says that the verdict only covers what was checked, never that nothing suspicious was found"""
+
+    result = analyze_directory(server(tmp_path, ORANGE_PARTIAL_BODY))
+    text = render(result, Translator(lang))
+    assert sentence in text
+    assert other not in text

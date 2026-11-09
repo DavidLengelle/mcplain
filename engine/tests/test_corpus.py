@@ -305,3 +305,27 @@ def test_private_corpus_report() -> None:
         lines.append(report_line(folder.name, expected.color, analyze(expected)))
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def corpus_entry(name: str) -> Expected:
+    """Return one server of the public corpus by its name"""
+
+    return next(entry for entry in PUBLIC_CORPUS if entry.name == name)
+
+
+def test_echo_terminal_gets_its_whole_answer() -> None:
+    """A command split with shlex keeps the label: the terminal gives O02 and O08, no R09"""
+
+    judgement = analyze(corpus_entry("orange/echo-terminal"))
+    assert judgement.grade is Grade.OK
+    assert judgement.rules == ["O02", "O08"]
+
+
+def test_native_launcher_is_orange_and_says_what_it_could_not_read() -> None:
+    """The launcher gives O08, and the report says that the rest of the server could not be read"""
+
+    entry = corpus_entry("orange/native-launcher")
+    assert analyze(entry).grade is Grade.OK
+    coverage = analyze_directory(entry.folder, reputation=not_checked()).verdict.coverage
+    assert coverage is not None
+    assert coverage.not_checked

@@ -1,0 +1,6 @@
+color = "gray"
+accept = ["gray"]
+rules = []
+gray_case = "parse_errors"
+style = "Python, FastMCP decorator, one unit conversion tool, and a second file of the server that does not parse."
+tests = "A file with a syntax error cannot be read in full: gray, even if the tool itself has no power."
