@@ -30,18 +30,21 @@ def test_migrations_build_the_models(tmp_path: Path) -> None:
     engine = make_engine(url)
     with engine.connect() as connection:
         assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
+    assert {"ai_texts", "ai_admin_alerts", "ai_state"} <= set(inspect(engine).get_table_names())
+    constraints = {item["name"]: item["column_names"] for item in inspect(engine).get_unique_constraints("ai_texts")}
+    assert constraints == {"ai_texts_cache_key": ["kind", "lang", "hash", "prompt_version", "model"]}
     indexes = {index["name"]: index["column_names"] for index in inspect(engine).get_indexes("analyses")}
     assert indexes == {"ix_analyses_state_created_at": ["state", "created_at"], "ix_analyses_source_key": ["source_key"]}
     engine.dispose()
 
 
 def test_migrations_go_back_down(tmp_path: Path) -> None:
-    """downgrade base removes the table"""
+    """downgrade base removes the tables"""
 
     url = f"sqlite:///{tmp_path / 'mcplain.db'}"
     config = alembic_config(url)
     command.upgrade(config, "head")
     command.downgrade(config, "base")
     engine = make_engine(url)
-    assert "analyses" not in inspect(engine).get_table_names()
+    assert not {"analyses", "ai_texts", "ai_admin_alerts", "ai_state"} & set(inspect(engine).get_table_names())
     engine.dispose()

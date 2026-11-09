@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgresql+psycopg://mcplain:${POSTGRES_PASSWORD}@postgres:5432/mcplain
       MCPLAIN_MAX_QUEUED: ${MCPLAIN_MAX_QUEUED:-100}
       MCPLAIN_CORS_ORIGINS: ${MCPLAIN_CORS_ORIGINS:-http://localhost:3000}
+      MCPLAIN_AI_MODEL: ${MCPLAIN_AI_MODEL:-claude-sonnet-5-5}
     ports:
       - "127.0.0.1:8000:8000"
     networks:
@@ -72,6 +73,42 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${MCPLAIN_JOBS_DIR}:${MCPLAIN_JOBS_DIR}
+    networks:
+      - back
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # This service alone holds the Anthropic key. It has no Docker socket and no
+  # mount, it never reads third-party code, and it only reads validated reports
+  # from the database. Its only way out is the fixed address in ai_client.py.
+  redacteur:
+    image: mcplain-api:dev
+    pull_policy: never
+    command: ["mcplain-redacteur"]
+    user: "10002:10002"
+    environment:
+      DATABASE_URL: postgresql+psycopg://mcplain:${POSTGRES_PASSWORD}@postgres:5432/mcplain
+      MCPLAIN_ANTHROPIC_API_KEY: ${MCPLAIN_ANTHROPIC_API_KEY:-}
+      MCPLAIN_AI_MODEL: ${MCPLAIN_AI_MODEL:-claude-sonnet-5-5}
+      MCPLAIN_AI_EFFORT: ${MCPLAIN_AI_EFFORT:-low}
+      MCPLAIN_AI_THINKING: ${MCPLAIN_AI_THINKING:-between_tools}
+      MCPLAIN_AI_MAX_TOKENS: ${MCPLAIN_AI_MAX_TOKENS:-3500}
+      MCPLAIN_AI_TRANSLATION_MAX_TOKENS: ${MCPLAIN_AI_TRANSLATION_MAX_TOKENS:-6000}
+      MCPLAIN_AI_API_VERSION: ${MCPLAIN_AI_API_VERSION:-2026-10-21}
+      MCPLAIN_AI_TIMEOUT_S: ${MCPLAIN_AI_TIMEOUT_S:-60}
+      MCPLAIN_AI_PRICE_INPUT_PER_MTOK: ${MCPLAIN_AI_PRICE_INPUT_PER_MTOK:-2}
+      MCPLAIN_AI_PRICE_OUTPUT_PER_MTOK: ${MCPLAIN_AI_PRICE_OUTPUT_PER_MTOK:-10}
+      MCPLAIN_AI_MONTHLY_BUDGET_USD: ${MCPLAIN_AI_MONTHLY_BUDGET_USD:-10}
+      MCPLAIN_AI_DAILY_FUSE_USD: ${MCPLAIN_AI_DAILY_FUSE_USD:-}
     networks:
       - back
     read_only: true

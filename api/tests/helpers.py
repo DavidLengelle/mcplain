@@ -24,6 +24,7 @@ from mcplain_api.settings import Settings
 
 ENGINE_FIXTURES = Path(__file__).resolve().parents[2] / "engine" / "tests" / "fixtures"
 REPUTATION_FILE = "reputation.json"
+LAMP_IDS: tuple[str, ...] = ("files_read", "files_write", "internet", "commands", "secrets", "hidden_text")
 FOLDER_MODE = 0o755
 PACKAGE_SOURCE = AnalyzedSource(
     kind=SourceKind.NPM,
@@ -88,3 +89,43 @@ def build_job(job_dir: Path, fixture: Path) -> JobFile:
     )
     write_job(job_dir, job, fixture_reputation(fixture))
     return job
+
+
+def lamps_of(*lit: str, danger: tuple[str, ...] = ()) -> list[dict[str, object]]:
+    """Return the six lamps of a report, with some of them on or in danger"""
+
+    lamps: list[dict[str, object]] = []
+    for lamp in LAMP_IDS:
+        state = "off"
+        if lamp in lit:
+            state = "on"
+        if lamp in danger:
+            state = "danger"
+        lamps.append({"id": lamp, "state": state})
+    return lamps
+
+
+def tool_report(name: str, description: str = "Says what it does.", lamps: list[dict[str, object]] | None = None) -> dict[str, object]:
+    """Return one tool of a report, as the engine stores it"""
+
+    return {
+        "name": name,
+        "description": description,
+        "description_is_dynamic": False,
+        "file": "server.py",
+        "line": 1,
+        "declaration": "decorator",
+        "location_kind": "server_code",
+        "lamps": lamps or lamps_of(),
+    }
+
+
+def report(tools: list[dict[str, object]], **server: object) -> dict[str, object]:
+    """Return a stored report of one server holding some tools"""
+
+    return {
+        "status": "ok",
+        "source": PACKAGE_SOURCE.model_dump(mode="json"),
+        "servers": [{"path": ".", "language": "python", "tools": tools, "lamps": lamps_of(), **server}],
+        "verdict": {"color": "orange", "rules_version": RULES_VERSION, "rules_count": 25},
+    }
