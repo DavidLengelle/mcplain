@@ -214,3 +214,25 @@ def test_the_smoke_script_never_shows_the_key() -> None:
     assert "grep -Eq '^MCPLAIN_ANTHROPIC_API_KEY=.+' .env" in text
     for shown in ("cat .env", ". .env", "source .env", "$MCPLAIN_ANTHROPIC_API_KEY", "set -x", "x-api-key"):
         assert shown not in text
+
+
+def test_the_diagnosis_script_never_shows_the_key_nor_writes() -> None:
+    """It reads the key in Python, hides it in what it prints, and never touches the AI tables"""
+
+    text = (REPOSITORY / "scripts" / "notice-diagnose.sh").read_text(encoding="utf-8")
+    assert "grep -Eq '^MCPLAIN_ANTHROPIC_API_KEY=.+' .env" in text
+    assert 'replace(KEY, "[hidden]")' in text
+    for shown in ("cat .env", ". .env", "source .env", "$MCPLAIN_ANTHROPIC_API_KEY", "set -x", "print(KEY", "ai_texts", "INSERT", "UPDATE"):
+        assert shown not in text
+    assert "Redacteur" not in text
+
+
+def test_the_smoke_script_stops_on_an_old_image() -> None:
+    """It shows the prompt versions and the image commit, and stops when the image is not built from the last commit"""
+
+    smoke = (REPOSITORY / "scripts" / "notice-smoke.sh").read_text(encoding="utf-8")
+    assert smoke.index('scripts/image-commit.sh"') < smoke.index("python3 -")
+    assert "NOTICE_PROMPT_VERSION" in smoke
+    check = (REPOSITORY / "scripts" / "image-commit.sh").read_text(encoding="utf-8")
+    assert "older than the last commit" in check
+    assert "exit 1" in check

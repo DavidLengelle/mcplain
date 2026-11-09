@@ -13,12 +13,14 @@ COPY api/pyproject.toml api/uv.lock api/.python-version /src/api/
 WORKDIR /src/api
 RUN uv sync --frozen --no-dev --no-editable --no-install-project
 COPY api/src /src/api/src
-RUN uv sync --frozen --no-dev --no-editable
+RUN uv sync --frozen --no-dev --no-editable \
+    && /opt/mcplain-api/bin/python -m mcplain_api.source_tree /src > /src/source-tree.txt
 
 FROM python:3.12-slim@sha256:02108f5d322dd89f1c9e552442c25acb0543dfdbc455693a5599624f20d9155d
 RUN groupadd --system --gid 10002 mcplain \
     && useradd --system --uid 10002 --gid 10002 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin mcplain
 COPY --from=build /opt/mcplain-api /opt/mcplain-api
+COPY --from=build /src/source-tree.txt /app/source-tree.txt
 COPY api/alembic.ini /app/alembic.ini
 COPY api/migrations /app/migrations
 WORKDIR /app

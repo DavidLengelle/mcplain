@@ -189,3 +189,12 @@ change aussi `MCPLAIN_AI_THINKING` : `between_tools` n'existe que sur Sonnet 5.5
 `scripts/notice-smoke.sh` demande la notice en français et en anglais, et la traduction, pour `uvx mcp-server-fetch`. Il affiche le
 résultat contrôlé, le code de raison en cas de rejet, les jetons et le coût. Il dépense de vrais jetons : au plus 0,20 dollar
 environ. Lui seul appelle vraiment l'API. C'est toi qui le lances, jamais les tests.
+
+`scripts/notice-smoke.sh` affiche la version des prompts et le commit de l'image qui tourne (`scripts/image-commit.sh`, qui compare
+l'empreinte du code Python rangée dans l'image avec les 50 derniers commits). Il s'arrête si l'image n'est pas construite depuis le
+dernier commit.
+
+`scripts/notice-diagnose.sh` envoie deux fois la notice française d'une analyse déjà en base : A avec `output_config.format`, B sans,
+le prompt demandant alors du JSON. Il affiche le texte brut, chaque caractère non ASCII avec son code, les jetons et le coût (environ
+1,2 centime en tout). Il n'écrit rien en base, rien dans le cache, et ne compte pas dans le fusible. C'est toi qui le lances.
+

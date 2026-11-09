@@ -15,6 +15,8 @@ if ! grep -Eq '^MCPLAIN_ANTHROPIC_API_KEY=.+' .env; then
 fi
 
 docker compose up -d redacteur >/dev/null
+"$ROOT/scripts/image-commit.sh"
+docker compose exec -T redacteur python -c "from mcplain_api.ai_prompts import NOTICE_PROMPT_VERSION, TRANSLATION_PROMPT_VERSION; print('prompts:', NOTICE_PROMPT_VERSION, TRANSLATION_PROMPT_VERSION)"
 
 python3 - "$API" "$INPUT" <<'PY'
 import json
