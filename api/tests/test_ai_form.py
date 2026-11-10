@@ -1,6 +1,7 @@
 """Tests of the form given to the AI: only what the validated report says, filtered, and no text of a third party"""
 
 import json
+import re
 
 import pytest
 from helpers import lamps_of, make_settings, report, tool_report
@@ -150,3 +151,41 @@ def test_translation_receives_the_descriptions_only_until_the_limit() -> None:
     items = translation_items(result_of(tools))
     assert [item["id"] for item in items] == ["tool_0", "tool_2"]
     assert sum(len(item["text"]) for item in items) == MAX_TRANSLATION_CHARS
+
+
+def with_parameters(name: str, description: str, *parameters: tuple[str, str | None]) -> dict[str, object]:
+    """Return a tool of a report with its parameters"""
+
+    return {**tool_report(name, description), "parameters": [{"name": key, "description": text} for key, text in parameters]}
+
+
+def test_parameter_descriptions_get_ids_made_of_positions() -> None:
+    """tool_<i>_param_<j>; a parameter without description is not sent, and no name ever is"""
+
+    tools = [
+        with_parameters("fetch", "Fetches a URL.", ("url", "URL to fetch"), ("raw", None), ("max_length", "Maximum number of characters")),
+        with_parameters("other", "", ("query", "  "), ("CANARY-7f3a-name", "What to look for")),
+    ]
+    items = translation_items(result_of(tools))
+    assert items == [
+        {"id": "tool_0", "text": "Fetches a URL."},
+        {"id": "tool_0_param_0", "text": "URL to fetch"},
+        {"id": "tool_0_param_2", "text": "Maximum number of characters"},
+        {"id": "tool_1_param_1", "text": "What to look for"},
+    ]
+    for item in items:
+        assert re.fullmatch(r"tool_\d+(?:_param_\d+)?", item["id"])
+    assert "CANARY" not in json.dumps(items)
+
+
+def test_tool_descriptions_come_first_under_the_limit() -> None:
+    """Every tool description is sent before any parameter; what does not fit stays in the original"""
+
+    tools = [
+        with_parameters("a", "x" * 5000, ("p", "first parameter " * 10)),
+        with_parameters("b", "y" * 5000, ("q", "z" * 1500)),
+        with_parameters("c", "w" * 1000, ("r", "never sent")),
+    ]
+    items = translation_items(result_of(tools))
+    assert [item["id"] for item in items] == ["tool_0", "tool_1", "tool_2", "tool_0_param_0"]
+    assert sum(len(item["text"]) for item in items) <= MAX_TRANSLATION_CHARS

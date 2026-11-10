@@ -26,6 +26,7 @@ LAMP_OFF = "off"
 NAME_REJECTED = re.compile(r"[^A-Za-z0-9_]+")
 DOMAIN_ALLOWED = re.compile(r"^[a-z0-9.-]+$")
 TOOL_ID_PREFIX = "tool_"
+PARAMETER_ID_PART = "_param_"
 
 
 def first_server(result: AnalysisResult) -> ServerAnalysis | None:
@@ -113,19 +114,31 @@ def content_hash(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
+def parameter_id(tool_index: int, parameter_index: int) -> str:
+    """Return the identifier MCPlain gives to a parameter description: positions only, never a name"""
+
+    return f"{TOOL_ID_PREFIX}{tool_index}{PARAMETER_ID_PART}{parameter_index}"
+
+
 def translation_items(result: AnalysisResult) -> list[dict[str, str]]:
-    """Return the author descriptions to translate, until the total limit; the others stay in their original language"""
+    """Return the author descriptions to translate: every tool first, then the parameters in tool order, until the limit"""
 
     server = first_server(result)
     if server is None:
         return []
+    candidates: list[tuple[str, str]] = []
+    for index, tool in enumerate(server.tools):
+        if tool.description.strip():
+            candidates.append((f"{TOOL_ID_PREFIX}{index}", tool.description))
+    for index, tool in enumerate(server.tools):
+        for position, parameter in enumerate(tool.parameters):
+            if parameter.description is not None and parameter.description.strip():
+                candidates.append((parameter_id(index, position), parameter.description))
     items: list[dict[str, str]] = []
     total = 0
-    for index, tool in enumerate(server.tools):
-        if not tool.description.strip():
-            continue
-        total += len(tool.description)
+    for identifier, text in candidates:
+        total += len(text)
         if total > MAX_TRANSLATION_CHARS:
             break
-        items.append({"id": f"{TOOL_ID_PREFIX}{index}", "text": tool.description})
+        items.append({"id": identifier, "text": text})
     return items

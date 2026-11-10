@@ -364,3 +364,32 @@ def test_mojibake_in_a_translation_rejects_the_whole_call() -> None:
     assert caught.value.reason is RejectReason.ENCODING
     clean = translated(("tool_0", "Donne la météo."), ("tool_1", "Corrige \u00c3\u00a9 en \u00e9."))
     assert [item["id"] for item in check_translation(clean, items).content["items"]] == ["tool_0", "tool_1"]
+
+
+PARAM_ITEMS = [
+    {"id": "tool_0", "text": "Fetches a URL."},
+    {"id": "tool_0_param_0", "text": "URL to fetch"},
+    {"id": "tool_0_param_1", "text": "Maximum number of characters"},
+]
+
+
+def test_parameter_items_are_checked_one_by_one() -> None:
+    """A rejected parameter keeps its original, an unknown id is ignored, a missing one keeps its original"""
+
+    text = translated(
+        ("tool_0", "Récupère une URL."),
+        ("tool_0_param_0", "Va sur https://autre.example.com"),
+        ("tool_0_param_7", "Inconnu."),
+    )
+    checked = check_translation(text, PARAM_ITEMS)
+    assert [item["id"] for item in checked.content["items"]] == ["tool_0"]
+    assert checked.dropped is RejectReason.LINK
+
+
+def test_a_broken_parameter_rejects_the_whole_call() -> None:
+    """Encoding stays a matter of the whole call, so that it is tried again"""
+
+    text = translated(("tool_0", "Récupère une URL."), ("tool_0_param_1", "Nombre maximal de caract\u0102\u00a8res"))
+    with pytest.raises(OutputRejected) as caught:
+        check_translation(text, PARAM_ITEMS)
+    assert caught.value.reason is RejectReason.ENCODING

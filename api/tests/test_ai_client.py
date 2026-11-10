@@ -170,7 +170,7 @@ def test_request_body_is_exactly_the_expected_one(api: respx.MockRouter) -> None
 def test_versions_leave_the_broken_texts_out_of_the_cache() -> None:
     """Without the imposed output, the prompts changed: new versions"""
 
-    assert (NOTICE_PROMPT_VERSION, TRANSLATION_PROMPT_VERSION) == ("notice-v3", "translation-v2")
+    assert (NOTICE_PROMPT_VERSION, TRANSLATION_PROMPT_VERSION) == ("notice-v3", "translation-v3")
 
 
 def test_with_format_only_adds_the_schema() -> None:
@@ -669,3 +669,37 @@ def test_every_call_is_logged_even_without_an_answer(api: respx.MockRouter) -> N
     bench.queue()
     bench.redacteur.run_once()
     assert calls(bench) == [("unavailable", None)]
+
+
+def test_translation_sends_parameters_and_never_their_names(api: respx.MockRouter) -> None:
+    """The body holds ids made by MCPlain and the descriptions, not the names; a rejected parameter keeps its original"""
+
+    route = api.post(API_URL).mock(
+        return_value=answer(
+            {
+                "items": [
+                    {"id": "tool_0", "text": "Donne l'heure."},
+                    {"id": "tool_0_param_0", "text": "Fuseau horaire"},
+                    {"id": "tool_0_param_1", "text": "x" * 300},
+                    {"id": "tool_9_param_0", "text": "Inconnu"},
+                ]
+            }
+        )
+    )
+    tool = {
+        **tool_report("get_time", "Gives the time."),
+        "parameters": [{"name": "timezone_CANARY", "description": "Time zone"}, {"name": "format_CANARY", "description": "Format"}],
+    }
+    bench = Bench()
+    bench.queue("translation", tools=[tool])
+    bench.redacteur.run_once()
+    sent = route.calls.last.request.content.decode("utf-8")
+    assert "CANARY" not in sent
+    assert json.loads(json.loads(sent)["messages"][0]["content"]) == [
+        {"id": "tool_0", "text": "Gives the time."},
+        {"id": "tool_0_param_0", "text": "Time zone"},
+        {"id": "tool_0_param_1", "text": "Format"},
+    ]
+    row = bench.row()
+    assert (row.status, row.reject_reason) == ("ready", "length")
+    assert row.content == {"items": [{"id": "tool_0", "text": "Donne l'heure."}, {"id": "tool_0_param_0", "text": "Fuseau horaire"}]}
