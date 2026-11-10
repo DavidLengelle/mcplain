@@ -36,8 +36,14 @@ Un test (`test_canary_never_reaches_the_request_body`) place le mot `CANARY-7f3a
 jamais dans la requête.
 
 **La traduction est un appel séparé.** Elle reçoit seulement les descriptions de l'auteur, présentées comme des données à
-traduire. Elle ne voit ni le formulaire ni les voyants. Le rapport n'a pas de description du serveur : seules celles des outils
-sont traduites, 12 000 caractères au total. Les suivantes restent en langue d'origine.
+traduire. Elle ne voit ni le formulaire ni les voyants. Le rapport n'a pas de description du serveur : on traduit les descriptions
+des outils, puis celles de leurs paramètres, 12 000 caractères au total. Ordre : d'abord toutes les descriptions d'outils, puis les
+paramètres dans l'ordre des outils. Ce qui dépasse reste en langue d'origine. Un paramètre sans description n'est pas envoyé.
+
+Chaque texte porte un `id` fabriqué par MCPlain avec des positions seulement : `tool_<i>` pour un outil, `tool_<i>_param_<j>` pour
+un paramètre. Jamais le nom d'un paramètre (`url`, `max_length`...) ni un autre texte de l'auteur : les noms ne sont ni envoyés ni
+traduits. Les contrôles s'appliquent élément par élément ; un élément rejeté, absent ou inconnu garde son original. Sur le site, le
+bouton « Voir l'original » bascule toute la carte « Ce qu'il annonce » d'un coup, description et paramètres.
 
 Le prompt interdit à l'IA de juger la sécurité, et d'inventer une fonction que les noms ne suggèrent pas. Un nom d'outil reste
 écrit par un inconnu : c'est pourquoi la sortie est contrôlée après coup.
@@ -53,7 +59,7 @@ Le prompt interdit à l'IA de juger la sécurité, et d'inventer une fonction qu
 ```
 
 `name` est le nom filtré du formulaire. La traduction rend `{ "items": [{ "id": "tool_0", "text": "..." }] }`, avec les mêmes `id`
-qu'en entrée (`tool_` suivi de la position de l'outil dans le rapport).
+qu'en entrée (`tool_<i>` pour un outil, `tool_<i>_param_<j>` pour un paramètre).
 
 **Ce que l'API publique renvoie au site** (`content`, après contrôle) :
 
@@ -117,7 +123,7 @@ Faux positifs acceptés par David, avec un test à leur nom :
 insécable à la place de « à », et « Ă© » à la place de « é » : les octets UTF-8 lus en Windows-1250. Le code de MCPlain est en
 UTF-8 de bout en bout, et un test le vérifie (`test_french_text_crosses_the_chain_unchanged`) : ces caractères étaient déjà dans le
 texte rendu par l'IA. La règle les arrête. C'est un défaut intermittent (voir 4 bis). Les prompts sont en `notice-v3` et
-`translation-v2`.
+`translation-v3`.
 
 ## 4 bis. Le défaut d'encodage est intermittent, et la parade
 
