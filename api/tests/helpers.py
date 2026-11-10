@@ -2,6 +2,7 @@
 
 import hashlib
 import io
+import re
 import tarfile
 from pathlib import Path
 
@@ -22,7 +23,9 @@ from mcplain.verdict import RULES_VERSION
 
 from mcplain_api.settings import Settings
 
-ENGINE_FIXTURES = Path(__file__).resolve().parents[2] / "engine" / "tests" / "fixtures"
+REPOSITORY = Path(__file__).resolve().parents[2]
+ENGINE_FIXTURES = REPOSITORY / "engine" / "tests" / "fixtures"
+SERVICE_LINE = re.compile(r"^  ([a-z_]+):\s*$")
 REPUTATION_FILE = "reputation.json"
 LAMP_IDS: tuple[str, ...] = ("files_read", "files_write", "internet", "commands", "secrets", "hidden_text")
 FOLDER_MODE = 0o755
@@ -129,3 +132,29 @@ def report(tools: list[dict[str, object]], **server: object) -> dict[str, object
         "servers": [{"path": ".", "language": "python", "tools": tools, "lamps": lamps_of(), **server}],
         "verdict": {"color": "orange", "rules_version": RULES_VERSION, "rules_count": 25},
     }
+
+
+def compose_services() -> dict[str, str]:
+    """Return the text of every service of compose.yaml, cut at its two-space indented name"""
+
+    services: dict[str, list[str]] = {}
+    inside = False
+    current = None
+    for line in (REPOSITORY / "compose.yaml").read_text(encoding="utf-8").splitlines():
+        if line and not line.startswith(" "):
+            inside = line == "services:"
+            current = None
+            continue
+        match = SERVICE_LINE.match(line)
+        if inside and match is not None:
+            current = match.group(1)
+            services[current] = []
+        elif current is not None:
+            services[current].append(line)
+    return {name: "\n".join(lines) for name, lines in services.items()}
+
+
+def uncommented(block: str) -> str:
+    """Remove the comment lines of a service"""
+
+    return "\n".join(line for line in block.splitlines() if not line.strip().startswith("#"))

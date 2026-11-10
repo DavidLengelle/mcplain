@@ -3,6 +3,7 @@
 import json
 import os
 import time
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -332,3 +333,77 @@ def test_second_request_is_served_from_the_cache(http: httpx.Client, client: Doc
     assert created == []
     logs = compose_container(client, "dispatcher").logs(since=int(start) - 1).decode("utf-8", errors="replace")
     assert f"analysis {second['id']}: served from the cache" in logs
+
+
+def test_the_counter_and_the_postman_are_closed(client: DockerClient) -> None:
+    """Counter, postman and Mailpit: read-only, no capability, not root, no socket, their networks, and no foreign secret"""
+
+    expected = {"guichet": ["back", "front"], "facteur": ["back"], "mailpit": ["back"]}
+    for service, networks in expected.items():
+        attrs = compose_container(client, service).attrs
+        assert sorted(name.split("_")[-1] for name in attrs["NetworkSettings"]["Networks"]) == networks, service
+        assert attrs["HostConfig"]["ReadonlyRootfs"] is True, service
+        assert attrs["HostConfig"]["CapDrop"] == ["ALL"], service
+        assert "no-new-privileges:true" in attrs["HostConfig"]["SecurityOpt"], service
+        assert attrs["Config"]["User"] not in ("", "0", "root"), service
+        assert all("docker.sock" not in mount.get("Source", "") for mount in attrs["Mounts"]), service
+    secrets = {"BETTER_AUTH_SECRET": "guichet", "MCPLAIN_ALTCHA_HMAC_KEY": "api", "MCPLAIN_SMTP_PASSWORD": "facteur"}
+    for service in ("api", "dispatcher", "redacteur", "web", "guichet", "facteur", "postgres"):
+        names = {item.split("=", 1)[0] for item in compose_container(client, service).attrs["Config"]["Env"]}
+        for secret, owner in secrets.items():
+            assert (secret in names) == (service == owner), (service, secret)
+    mailpit = compose_container(client, "mailpit").attrs["HostConfig"]["PortBindings"]
+    assert all(binding["HostIp"] == "127.0.0.1" for bindings in mailpit.values() for binding in bindings)
+
+
+def sign_up_through_the_site(email: str, fake_address: str) -> int:
+    """Ask the site for a sign-up with a solved ALTCHA and a fake X-Forwarded-For, as a browser could"""
+
+    from altcha import Challenge, Payload, solve_challenge
+
+    base = f"http://localhost:{web_port()}"
+    with httpx.Client(base_url=base, timeout=30) as site:
+        challenge = Challenge.from_dict(site.get("/api/altcha/challenge").json())
+        solution = solve_challenge(challenge)
+        assert solution is not None
+        response = site.post(
+            "/api/auth/sign-up/email",
+            json={"email": email, "password": "test only password 0123", "name": ""},
+            headers={
+                "Origin": base,
+                "x-altcha": Payload(challenge, solution).to_base64(),
+                "X-Forwarded-For": fake_address,
+                "x-mcplain-lang": "en",
+            },
+        )
+    return response.status_code
+
+
+def postgres_lines(client: DockerClient, statement: str) -> list[str]:
+    """Run one statement as the owner of the database, inside the PostgreSQL container"""
+
+    exit_code, (stdout, stderr) = compose_container(client, "postgres").exec_run(
+        ["psql", "-U", "mcplain", "-d", "mcplain", "-At", "-c", statement], demux=True
+    )
+    assert exit_code == 0, stderr
+    return (stdout or b"").decode("utf-8").splitlines()
+
+
+def test_a_fake_forwarded_for_from_the_browser_does_not_change_the_counted_network(client: DockerClient) -> None:
+    """Two sign-ups with two fake addresses count for the one real network: one fingerprint, two sign-ups"""
+
+    today = "signup_counts WHERE day = (now() AT TIME ZONE 'utc')::date"
+    before = dict(line.split("|") for line in postgres_lines(client, f"SELECT ip_hash, count FROM {today}"))
+    stamp = uuid.uuid4().hex[:10]
+    emails = [f"ip-check-{stamp}-{index}@example.com" for index in range(2)]
+    try:
+        assert sign_up_through_the_site(emails[0], "198.51.100.1") == 200
+        assert sign_up_through_the_site(emails[1], "198.51.100.2, 198.51.100.3") == 200
+        after = dict(line.split("|") for line in postgres_lines(client, f"SELECT ip_hash, count FROM {today}"))
+    finally:
+        postgres_lines(client, "DELETE FROM auth.\"user\" WHERE email LIKE 'ip-check-%@example.com'")
+        postgres_lines(client, "DELETE FROM mail_outbox WHERE recipient LIKE 'ip-check-%@example.com'")
+    changed = {key: int(value) - int(before.get(key, "0")) for key, value in after.items() if value != before.get(key)}
+    assert list(changed.values()) == [2]
+    stored = " ".join(postgres_lines(client, "SELECT ip_hash FROM signup_counts"))
+    assert "198.51.100" not in stored

@@ -18,6 +18,31 @@ services:
       retries: 30
     restart: unless-stopped
 
+  # One-shot service: the only one with the owner password of the database. It applies the migrations, creates the
+  # roles of the services and gives them their passwords, then stops. Every other service uses its own role.
+  migrate:
+    image: mcplain-api:dev
+    pull_policy: never
+    command: ["mcplain-migrate"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://mcplain:${POSTGRES_PASSWORD}@postgres:5432/mcplain
+      MCPLAIN_APP_DB_PASSWORD: ${MCPLAIN_APP_DB_PASSWORD:?run scripts/init-secrets.sh}
+      MCPLAIN_GUICHET_DB_PASSWORD: ${MCPLAIN_GUICHET_DB_PASSWORD:?run scripts/init-secrets.sh}
+      MCPLAIN_FACTEUR_DB_PASSWORD: ${MCPLAIN_FACTEUR_DB_PASSWORD:?run scripts/init-secrets.sh}
+    networks:
+      - back
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build:
       context: .
@@ -25,10 +50,16 @@ services:
     image: mcplain-api:dev
     command: ["mcplain-api"]
     environment:
-      DATABASE_URL: postgresql+psycopg://mcplain:${POSTGRES_PASSWORD}@postgres:5432/mcplain
+      DATABASE_URL: postgresql+psycopg://mcplain_app:${MCPLAIN_APP_DB_PASSWORD:?run scripts/init-secrets.sh}@postgres:5432/mcplain
       MCPLAIN_MAX_QUEUED: ${MCPLAIN_MAX_QUEUED:-100}
       MCPLAIN_CORS_ORIGINS: ${MCPLAIN_CORS_ORIGINS:-http://localhost:3000}
       MCPLAIN_AI_MODEL: ${MCPLAIN_AI_MODEL:-claude-sonnet-5-5}
+      MCPLAIN_ALTCHA_HMAC_KEY: ${MCPLAIN_ALTCHA_HMAC_KEY:?run scripts/init-secrets.sh}
+      MCPLAIN_ALTCHA_COST: ${MCPLAIN_ALTCHA_COST:-2000}
+      MCPLAIN_TRUSTED_PROXY_HOPS: ${MCPLAIN_TRUSTED_PROXY_HOPS:-1}
+      MCPLAIN_SIGNUPS_PER_IP_PER_DAY: ${MCPLAIN_SIGNUPS_PER_IP_PER_DAY:-30}
+      MCPLAIN_GUICHET_URL: http://guichet:3100
+      MCPLAIN_AUTH_GUARD_PEERS: guichet
     ports:
       - "127.0.0.1:8000:8000"
     networks:
@@ -49,6 +80,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   # This service holds the Docker socket, so it holds the keys of the machine:
@@ -62,7 +95,7 @@ services:
     group_add:
       - "${DOCKER_GID:?set DOCKER_GID in .env}"
     environment:
-      DATABASE_URL: postgresql+psycopg://mcplain:${POSTGRES_PASSWORD}@postgres:5432/mcplain
+      DATABASE_URL: postgresql+psycopg://mcplain_app:${MCPLAIN_APP_DB_PASSWORD:?run scripts/init-secrets.sh}@postgres:5432/mcplain
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       MCPLAIN_JOBS_DIR: ${MCPLAIN_JOBS_DIR:?set MCPLAIN_JOBS_DIR in .env}
       MCPLAIN_ATELIER_IMAGE: ${MCPLAIN_ATELIER_IMAGE:-mcplain-atelier:dev}
@@ -96,7 +129,7 @@ services:
     command: ["mcplain-redacteur"]
     user: "10002:10002"
     environment:
-      DATABASE_URL: postgresql+psycopg://mcplain:${POSTGRES_PASSWORD}@postgres:5432/mcplain
+      DATABASE_URL: postgresql+psycopg://mcplain_app:${MCPLAIN_APP_DB_PASSWORD:?run scripts/init-secrets.sh}@postgres:5432/mcplain
       MCPLAIN_ANTHROPIC_API_KEY: ${MCPLAIN_ANTHROPIC_API_KEY:-}
       MCPLAIN_AI_MODEL: ${MCPLAIN_AI_MODEL:-claude-sonnet-5-5}
       MCPLAIN_AI_EFFORT: ${MCPLAIN_AI_EFFORT:-low}
@@ -123,8 +156,94 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # The website only talks to the API: it is on the front network only, so it
-  # can reach neither PostgreSQL nor the dispatcher, and it has no Docker socket.
+  # The counter (guichet) holds the accounts: Better Auth, its own role and its own schema auth (password hashes).
+  # It alone receives BETTER_AUTH_SECRET. It sends no mail: it leaves a row in mail_outbox for the postman.
+  guichet:
+    build:
+      context: .
+      dockerfile: docker/auth.Dockerfile
+    image: mcplain-guichet:dev
+    user: "10004:10004"
+    environment:
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?run scripts/init-secrets.sh}
+      BETTER_AUTH_TELEMETRY: "0"
+      MCPLAIN_GUICHET_DATABASE_URL: postgres://mcplain_guichet:${MCPLAIN_GUICHET_DB_PASSWORD:?run scripts/init-secrets.sh}@postgres:5432/mcplain
+      MCPLAIN_PUBLIC_URL: ${MCPLAIN_PUBLIC_URL:-http://localhost:${MCPLAIN_WEB_PORT:-3000}}
+      MCPLAIN_API_INTERNAL_URL: http://api:8000
+      MCPLAIN_TRUSTED_PROXY_HOPS: ${MCPLAIN_TRUSTED_PROXY_HOPS:-1}
+    networks:
+      - front
+      - back
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health').then((response) => { if (!response.ok) process.exit(1); }, () => process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # The postman (facteur) alone holds the SMTP credentials. It reads and deletes mail_outbox, and mails the admin
+  # alerts of the writer; same protections as the writer, with its own role.
+  facteur:
+    image: mcplain-api:dev
+    pull_policy: never
+    command: ["mcplain-facteur"]
+    user: "10002:10002"
+    environment:
+      DATABASE_URL: postgresql+psycopg://mcplain_facteur:${MCPLAIN_FACTEUR_DB_PASSWORD:?run scripts/init-secrets.sh}@postgres:5432/mcplain
+      MCPLAIN_SMTP_HOST: ${MCPLAIN_SMTP_HOST:-mailpit}
+      MCPLAIN_SMTP_PORT: ${MCPLAIN_SMTP_PORT:-1025}
+      MCPLAIN_SMTP_USER: ${MCPLAIN_SMTP_USER:-}
+      MCPLAIN_SMTP_PASSWORD: ${MCPLAIN_SMTP_PASSWORD:-}
+      MCPLAIN_SMTP_FROM: ${MCPLAIN_SMTP_FROM:-MCPlain <no-reply@mcplain.localhost>}
+      MCPLAIN_SMTP_STARTTLS: ${MCPLAIN_SMTP_STARTTLS:-false}
+      MCPLAIN_ADMIN_EMAIL: ${MCPLAIN_ADMIN_EMAIL:-}
+    networks:
+      - back
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Development only: catches every mail of the postman, readable on http://127.0.0.1:8025.
+  mailpit:
+    image: axllent/mailpit:v1.33.0@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231
+    profiles:
+      - dev
+    user: "10005:10005"
+    environment:
+      MP_MAX_MESSAGES: "500"
+    ports:
+      - "127.0.0.1:${MCPLAIN_MAILPIT_PORT:-8025}:8025"
+    networks:
+      - back
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  # The website only talks to the API and to the counter: it is on the front network only, so it can reach neither
+  # PostgreSQL nor the dispatcher, and it has no Docker socket and no secret.
   web:
     build:
       context: .
@@ -132,6 +251,7 @@ services:
     image: mcplain-web:dev
     environment:
       MCPLAIN_API_URL: http://api:8000
+      MCPLAIN_GUICHET_URL: http://guichet:3100
     ports:
       - "127.0.0.1:${MCPLAIN_WEB_PORT:-3000}:3000"
     networks:
@@ -148,6 +268,8 @@ services:
       retries: 20
     depends_on:
       api:
+        condition: service_healthy
+      guichet:
         condition: service_healthy
     restart: unless-stopped
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from helpers import make_settings, report, tool_report
+from helpers import compose_services, make_settings, report, tool_report, uncommented
 from mcplain.models import AnalysisResult
 from pydantic import ValidationError
 from sqlalchemy.orm import sessionmaker
@@ -21,36 +21,8 @@ from mcplain_api.redacteur import NO_KEY, Redacteur
 from mcplain_api.settings import Settings
 
 REPOSITORY = Path(__file__).resolve().parents[2]
-SERVICE_LINE = re.compile(r"^  ([a-z_]+):\s*$")
 KEY_ONLY_SERVICE = "redacteur"
-EVERY_OTHER_SERVICE: tuple[str, ...] = ("postgres", "api", "dispatcher", "web", "atelier")
 CANARY_KEY = "sk-ant-test-CANARY"
-
-
-def compose_services() -> dict[str, str]:
-    """Return the text of every service of compose.yaml, cut at its two-space indented name"""
-
-    services: dict[str, list[str]] = {}
-    inside = False
-    current = None
-    for line in (REPOSITORY / "compose.yaml").read_text(encoding="utf-8").splitlines():
-        if line and not line.startswith(" "):
-            inside = line == "services:"
-            current = None
-            continue
-        match = SERVICE_LINE.match(line)
-        if inside and match is not None:
-            current = match.group(1)
-            services[current] = []
-        elif current is not None:
-            services[current].append(line)
-    return {name: "\n".join(lines) for name, lines in services.items()}
-
-
-def uncommented(block: str) -> str:
-    """Remove the comment lines of a service"""
-
-    return "\n".join(line for line in block.splitlines() if not line.strip().startswith("#"))
 
 
 def test_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -112,8 +84,10 @@ def test_only_the_writer_receives_the_key() -> None:
     """No other compose service receives a variable holding ANTHROPIC, and no service reads a whole env file"""
 
     services = compose_services()
-    assert set(EVERY_OTHER_SERVICE) | {KEY_ONLY_SERVICE} <= set(services)
-    for name in EVERY_OTHER_SERVICE:
+    assert KEY_ONLY_SERVICE in services
+    others = [name for name in services if name != KEY_ONLY_SERVICE]
+    assert {"postgres", "api", "dispatcher", "web", "atelier", "guichet", "facteur", "migrate", "mailpit"} <= set(others)
+    for name in others:
         assert "ANTHROPIC" not in uncommented(services[name]).upper(), name
     assert "MCPLAIN_ANTHROPIC_API_KEY" in services[KEY_ONLY_SERVICE]
     for block in services.values():
