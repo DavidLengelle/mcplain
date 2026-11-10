@@ -1,6 +1,6 @@
 ARG TARGETARCH
 
-FROM node:24.22.0-trixie-slim@sha256:a6155384446670e9719bdc4fd0ebe4d4b29fb32a8d6aa523da3547a6cfbcf22c AS base
+FROM node:24.22.1-trixie-slim@sha256:89c5244bc22a9bc3287d89ebc7e49b9cb5bb84cd40e6175ac3421d5a9f68b95a AS base
 
 FROM base AS pnpm-amd64
 ADD --checksum=sha256:786ad4802b199a255e21c135538c39745ee9d0e4e77da641c7726c60b03f5bc1 \
