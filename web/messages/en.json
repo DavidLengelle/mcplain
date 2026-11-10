@@ -2,7 +2,8 @@
   "metadata": {
     "title": "MCPlain",
     "description": "MCP servers, explained before you install.",
-    "analysisTitle": "Analysis report, MCPlain"
+    "analysisTitle": "Analysis report, MCPlain",
+    "accountTitle": "My account"
   },
   "a11y": {
     "skipToContent": "Skip to content"
@@ -532,5 +533,91 @@
     "title": "Page not found",
     "body": "This page does not exist, or the analysis was not found.",
     "home": "Back to the home page"
+  },
+  "account": {
+    "menu": {
+      "signIn": "Sign in",
+      "account": "My account",
+      "signOut": "Sign out",
+      "menuLabel": "Account menu"
+    },
+    "common": {
+      "email": "Email address",
+      "password": "Password",
+      "passwordHelp": "10 to 128 characters.",
+      "busy": "PLEASE WAIT…",
+      "backToAccount": "Go to my account",
+      "loading": "Loading…"
+    },
+    "signUp": {
+      "metaTitle": "Create an account",
+      "title": "Create a free account",
+      "intro": "With an account, you get your own analyses each day, whatever the network you use.",
+      "submit": "CREATE MY ACCOUNT",
+      "done": "Check your mailbox: if this address can be used, a confirmation link has been sent to:",
+      "doneNext": "Open the link to confirm your address. It works for one hour.",
+      "haveAccount": "Already have an account?",
+      "signInLink": "Sign in"
+    },
+    "signIn": {
+      "metaTitle": "Sign in",
+      "title": "Sign in",
+      "submit": "SIGN IN",
+      "forgot": "Forgot your password?",
+      "noAccount": "No account yet?",
+      "signUpLink": "Create a free account"
+    },
+    "forgot": {
+      "metaTitle": "Forgot password",
+      "title": "Forgot your password?",
+      "intro": "Write the address of your account. We send you a link to choose a new password.",
+      "submit": "SEND THE LINK",
+      "done": "If an account exists for this address, an email has been sent. The link works for one hour.",
+      "backToSignIn": "Back to sign in"
+    },
+    "newPassword": {
+      "metaTitle": "New password",
+      "title": "Choose a new password",
+      "label": "New password",
+      "submit": "SAVE THE PASSWORD",
+      "done": "Your password has changed. You can sign in with it now.",
+      "signInLink": "Sign in",
+      "invalidLink": "This link does not work any more. Ask for a new one.",
+      "askAgain": "Ask for a new link"
+    },
+    "verified": {
+      "metaTitle": "Email address",
+      "okTitle": "Your address is confirmed",
+      "ok": "Your account is ready.",
+      "errorTitle": "This link does not work",
+      "error": "It may have expired, or it was already used. Sign in: if your address is not confirmed yet, a new link is sent.",
+      "signInLink": "Sign in"
+    },
+    "page": {
+      "metaTitle": "My account",
+      "title": "My account",
+      "emailLabel": "Email address",
+      "signedOut": "No account is signed in on this browser.",
+      "signInLink": "Sign in",
+      "deleteTitle": "Delete my account",
+      "deleteIntro": "Your account and its sessions are deleted at once. This cannot be undone.",
+      "deleteStart": "DELETE MY ACCOUNT",
+      "deleteConfirmIntro": "To confirm, write your password.",
+      "deleteConfirm": "YES, DELETE FOR GOOD",
+      "deleteCancel": "Cancel",
+      "deleted": "Your account is deleted."
+    },
+    "errors": {
+      "invalidCredentials": "Email or password incorrect.",
+      "emailNotVerified": "Your address is not confirmed yet. A new confirmation link has been sent by email.",
+      "passwordLength": "The password must have 10 to 128 characters.",
+      "altcha": "The automatic check failed. Try again.",
+      "signupLimit": "Too many accounts were created from this network today. Try again tomorrow, or from another network (the 4G of your phone, for example).",
+      "tooMany": "Too many tries in a short time. Wait a minute, then try again.",
+      "invalidToken": "This link does not work any more. Ask for a new one.",
+      "wrongPassword": "Wrong password.",
+      "invalidEmail": "This email address does not look valid.",
+      "unavailable": "The accounts do not answer right now. Try again in a moment."
+    }
   }
 }

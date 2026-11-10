@@ -28,6 +28,7 @@ describe("security headers", () => {
     expect(policy.get("img-src")).toBe("'self' data:");
     expect(policy.get("font-src")).toBe("'self'");
     expect(policy.get("connect-src")).toBe("'self'");
+    expect(policy.get("worker-src")).toBe("'self'");
     expect(policy.get("object-src")).toBe("'none'");
     expect(policy.get("base-uri")).toBe("'self'");
     expect(policy.get("form-action")).toBe("'self'");
@@ -45,5 +46,13 @@ describe("security headers", () => {
 
   it("turn off camera, microphone and location", () => {
     expect(SECURITY_HEADERS["Permissions-Policy"]).toBe("camera=(), microphone=(), geolocation=()");
+  });
+
+  it("lets the ALTCHA worker come from the site only, with nothing else added for it", () => {
+    const policy = contentSecurityPolicy("abc", false);
+    expect(directives(policy).get("worker-src")).toBe("'self'");
+    expect(policy).not.toContain("blob:");
+    expect(policy).not.toContain("wasm");
+    expect(policy).not.toMatch(/https?:\/\//);
   });
 });

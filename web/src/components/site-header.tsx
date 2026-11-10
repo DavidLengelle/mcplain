@@ -2,6 +2,7 @@ import { useTranslations } from "next-intl";
 
 import { Link } from "@/i18n/navigation";
 
+import { AccountMenu } from "./account/account-menu";
 import { HeaderField } from "./header-field";
 import { HeaderHeight } from "./header-height";
 import { LocaleSwitcher } from "./locale-switcher";
@@ -24,6 +25,7 @@ export function SiteHeader() {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
           <ThemeSwitcher />
           <LocaleSwitcher />
+          <AccountMenu />
         </div>
       </div>
     </header>

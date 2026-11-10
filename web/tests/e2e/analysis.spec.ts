@@ -125,7 +125,9 @@ test("an unknown analysis is a 404 page", async ({ page }) => {
 test("a malformed identifier is a 404 without any call to the API", async ({ page }) => {
   let calls = 0;
   await page.route("**/api/**", async (route) => {
-    calls += 1;
+    if (!new URL(route.request().url()).pathname.startsWith("/api/auth/")) {
+      calls += 1;
+    }
     await route.abort();
   });
   const response = await page.goto("/analyses/not-a-uuid");

@@ -24,7 +24,8 @@ COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm --version \
     && pnpm install --frozen-lockfile
 COPY web/ ./
-ENV MCPLAIN_API_URL=http://api:8000
+ENV MCPLAIN_API_URL=http://api:8000 \
+    MCPLAIN_GUICHET_URL=http://guichet:3100
 RUN pnpm build
 
 FROM base
@@ -34,10 +35,12 @@ WORKDIR /app
 COPY --from=build /src/web/.next/standalone ./
 COPY --from=build /src/web/.next/static ./.next/static
 COPY --from=build /src/web/public ./public
+COPY --from=build /src/web/client-ip.js ./client-ip.js
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3000 \
-    MCPLAIN_API_URL=http://api:8000
+    MCPLAIN_API_URL=http://api:8000 \
+    MCPLAIN_GUICHET_URL=http://guichet:3100
 USER 10003:10003
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "--require", "./client-ip.js", "server.js"]

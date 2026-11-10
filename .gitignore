@@ -16,6 +16,7 @@ htmlcov/
 
 node_modules/
 .next/
+/web/public/altcha/
 npm-debug.log*
 
 .env

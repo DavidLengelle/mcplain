@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
-import { apiBaseUrl } from "./src/lib/api-url";
+import { relayRewrites } from "./src/lib/api-url";
 import { SECURITY_HEADERS } from "./src/lib/security-headers";
 
 const withNextIntl = createNextIntlPlugin();
@@ -22,12 +22,7 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${apiBaseUrl()}/api/:path*`,
-      },
-    ];
+    return relayRewrites();
   },
 };
 

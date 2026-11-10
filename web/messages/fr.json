@@ -2,7 +2,8 @@
   "metadata": {
     "title": "MCPlain",
     "description": "Les serveurs MCP, expliqués avant de les installer.",
-    "analysisTitle": "Rapport d'analyse, MCPlain"
+    "analysisTitle": "Rapport d'analyse, MCPlain",
+    "accountTitle": "Mon compte"
   },
   "a11y": {
     "skipToContent": "Aller au contenu"
@@ -532,5 +533,91 @@
     "title": "Page introuvable",
     "body": "Cette page n'existe pas, ou l'analyse est introuvable.",
     "home": "Retour à l'accueil"
+  },
+  "account": {
+    "menu": {
+      "signIn": "Se connecter",
+      "account": "Mon compte",
+      "signOut": "Se déconnecter",
+      "menuLabel": "Menu du compte"
+    },
+    "common": {
+      "email": "Adresse e-mail",
+      "password": "Mot de passe",
+      "passwordHelp": "De 10 à 128 caractères.",
+      "busy": "UN INSTANT…",
+      "backToAccount": "Aller à mon compte",
+      "loading": "Chargement…"
+    },
+    "signUp": {
+      "metaTitle": "Créer un compte",
+      "title": "Crée un compte gratuit",
+      "intro": "Avec un compte, tu as tes propres analyses chaque jour, quel que soit le réseau que tu utilises.",
+      "submit": "CRÉER MON COMPTE",
+      "done": "Regarde ta boîte mail : si cette adresse peut servir, un lien de confirmation est parti à :",
+      "doneNext": "Ouvre le lien pour confirmer ton adresse. Il marche pendant une heure.",
+      "haveAccount": "Tu as déjà un compte ?",
+      "signInLink": "Se connecter"
+    },
+    "signIn": {
+      "metaTitle": "Se connecter",
+      "title": "Se connecter",
+      "submit": "SE CONNECTER",
+      "forgot": "Mot de passe oublié ?",
+      "noAccount": "Pas encore de compte ?",
+      "signUpLink": "Créer un compte gratuit"
+    },
+    "forgot": {
+      "metaTitle": "Mot de passe oublié",
+      "title": "Mot de passe oublié ?",
+      "intro": "Écris l'adresse de ton compte. On t'envoie un lien pour choisir un nouveau mot de passe.",
+      "submit": "ENVOYER LE LIEN",
+      "done": "Si un compte existe pour cette adresse, un e-mail est parti. Le lien marche pendant une heure.",
+      "backToSignIn": "Revenir à la connexion"
+    },
+    "newPassword": {
+      "metaTitle": "Nouveau mot de passe",
+      "title": "Choisis un nouveau mot de passe",
+      "label": "Nouveau mot de passe",
+      "submit": "ENREGISTRER LE MOT DE PASSE",
+      "done": "Ton mot de passe a changé. Tu peux te connecter avec lui.",
+      "signInLink": "Se connecter",
+      "invalidLink": "Ce lien ne marche plus. Demandes-en un nouveau.",
+      "askAgain": "Demander un nouveau lien"
+    },
+    "verified": {
+      "metaTitle": "Adresse e-mail",
+      "okTitle": "Ton adresse est confirmée",
+      "ok": "Ton compte est prêt.",
+      "errorTitle": "Ce lien ne marche pas",
+      "error": "Il a peut-être expiré, ou il a déjà servi. Connecte-toi : si ton adresse n'est pas encore confirmée, un nouveau lien part.",
+      "signInLink": "Se connecter"
+    },
+    "page": {
+      "metaTitle": "Mon compte",
+      "title": "Mon compte",
+      "emailLabel": "Adresse e-mail",
+      "signedOut": "Aucun compte n'est connecté sur ce navigateur.",
+      "signInLink": "Se connecter",
+      "deleteTitle": "Supprimer mon compte",
+      "deleteIntro": "Ton compte et ses connexions sont supprimés tout de suite. Impossible de revenir en arrière.",
+      "deleteStart": "SUPPRIMER MON COMPTE",
+      "deleteConfirmIntro": "Pour confirmer, écris ton mot de passe.",
+      "deleteConfirm": "OUI, SUPPRIMER POUR DE BON",
+      "deleteCancel": "Annuler",
+      "deleted": "Ton compte est supprimé."
+    },
+    "errors": {
+      "invalidCredentials": "E-mail ou mot de passe incorrect.",
+      "emailNotVerified": "Ton adresse n'est pas encore confirmée. Un nouveau lien de confirmation est parti par e-mail.",
+      "passwordLength": "Le mot de passe doit faire de 10 à 128 caractères.",
+      "altcha": "La vérification automatique a échoué. Réessaie.",
+      "signupLimit": "Trop de comptes ont été créés depuis ce réseau aujourd'hui. Réessaie demain, ou depuis un autre réseau (la 4G de ton téléphone, par exemple).",
+      "tooMany": "Trop d'essais en peu de temps. Attends une minute, puis réessaie.",
+      "invalidToken": "Ce lien ne marche plus. Demandes-en un nouveau.",
+      "wrongPassword": "Mot de passe incorrect.",
+      "invalidEmail": "Cette adresse e-mail ne semble pas valide.",
+      "unavailable": "Les comptes ne répondent pas pour le moment. Réessaie dans un instant."
+    }
   }
 }

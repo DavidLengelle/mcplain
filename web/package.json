@@ -4,16 +4,18 @@
   "private": true,
   "license": "AGPL-3.0-only",
   "scripts": {
-    "dev": "next dev --hostname localhost",
-    "build": "next build",
+    "dev": "node scripts/copy-altcha-worker.mjs && next dev --hostname localhost",
+    "build": "node scripts/copy-altcha-worker.mjs && next build",
     "start": "next start --hostname localhost",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "next build && playwright test",
+    "test:e2e": "pnpm build && playwright test",
     "test:stack": "playwright test --config playwright.stack.config.ts"
   },
   "dependencies": {
+    "altcha": "3.5.0",
+    "better-auth": "1.7.15",
     "cn": "0.5.0",
     "next": "16.4.3",
     "next-intl": "4.14.9",
