@@ -75,7 +75,8 @@ qu'en entrée (`tool_` suivi de la position de l'outil dans le rapport).
 L'API sait imposer un schéma JSON à la réponse (`output_config.format`). MCPlain ne s'en sert pas. Le 9 novembre 2026, en
 français, la sortie imposée a cassé les accents au début du texte (« Ă » suivi d'un caractère à la place de « à » ou « é »), deux
 fois de suite avec la même entrée (request-id `req_011Cgsjjrio3ZYG4SZuNTuMH`). La même requête sans sortie imposée, le prompt
-demandant juste du JSON, était propre, avec 190 jetons d'entrée en moins.
+demandant juste du JSON, était propre, avec 190 jetons d'entrée en moins. La matrice du 10 novembre a ensuite montré que la sortie
+imposée n'était pas la seule cause : le défaut revient aussi sans elle (voir 4 bis). La décision de ne pas l'utiliser reste.
 
 Le prompt système décrit donc l'objet JSON attendu et demande de répondre par cet objet seul. MCPlain accepte seulement le texte
 entier comme un objet JSON, ou entouré d'un seul bloc ```` ```json ````. Tout le reste (une phrase avant ou après, deux objets, un
@@ -115,8 +116,37 @@ Faux positifs acceptés par David, avec un test à leur nom :
 **Pourquoi la règle `encoding`.** Au premier vrai essai (9 novembre 2026), la notice française contenait « Ă » suivi d'une espace
 insécable à la place de « à », et « Ă© » à la place de « é » : les octets UTF-8 lus en Windows-1250. Le code de MCPlain est en
 UTF-8 de bout en bout, et un test le vérifie (`test_french_text_crosses_the_chain_unchanged`) : ces caractères étaient déjà dans le
-texte rendu par l'IA. La règle les arrête. Le diagnostic a ensuite montré que la sortie imposée en était la cause (voir 3 bis). Les
-prompts sont maintenant en `notice-v3` et `translation-v2`.
+texte rendu par l'IA. La règle les arrête. C'est un défaut intermittent (voir 4 bis). Les prompts sont en `notice-v3` et
+`translation-v2`.
+
+## 4 bis. Le défaut d'encodage est intermittent, et la parade
+
+Avec la même requête, la notice française est sortie cassée 4 fois sur 5 le 9 novembre au soir, puis propre 3 fois sur 3 le
+10 novembre. Matrice du 10 novembre 2026 (`scripts/notice-diagnose.sh --matrix`, 15 appels, 0,071 dollar) :
+
+| Variante | Cassées | Jetons entrée | Jetons sortie | Coût moyen |
+| --- | --- | --- | --- | --- |
+| V1 requête actuelle | 0/3 | 857 | 280 | 0,0045 |
+| V2 sans la liste des mots interdits | 1/3 | 809 | 297 | 0,0046 |
+| V3 effort `medium` | 0/3 | 857 | 283 | 0,0045 |
+| V4 sans `thinking` | 0/3 | 858 | 303 | 0,0047 |
+| V5 ancien mode B | 0/3 | 1011 | 314 | 0,0052 |
+
+Aucune variante ne supprime le défaut à coup sûr : il vient de l'API ou du modèle, pas de notre requête. MCPlain garde la requête
+actuelle (V1) et s'en protège :
+
+- **Un rejet `encoding` donne un nouvel appel tout de suite, une seule fois.** Si le second est propre, il est gardé.
+- **Deux rejets `encoding` de suite** : notice de secours, état `failed` (pas `rejected`), nouvel essai possible une heure plus tard,
+  quand la notice est redemandée.
+- **Au plus 4 appels par jour UTC pour une même clé de cache**, tous motifs confondus. Au-delà : notice de secours jusqu'au
+  lendemain (état `paused`, code `daily_text_cap`, le site dit « demain »). Un appel compte une fois, même quand une API surchargée
+  le fait réessayer après 20 s.
+- **Chaque essai passe d'abord par le fusible** (pire coût), le second comme le premier.
+- Pour la traduction, une seule description cassée fait rejeter tout l'appel, qui est réessayé de la même façon.
+- Les autres rejets restent définitifs pour cette version du prompt.
+
+Chaque appel est noté dans la table `ai_calls` : date, type, langue, issue, code de rejet, jetons, coût, `request-id`, jamais le
+texte. Elle sert au plafond, aux fusibles, et au futur tableau admin (taux de rejets `encoding`).
 
 Sont aussi rejetés : un domaine écrit par l'IA qui n'est pas dans le formulaire, comme `ASP.NET`. Les noms de fichiers courants
 (`package.json`, `Node.js`) passent.
@@ -139,7 +169,7 @@ est le SHA-256 du formulaire en JSON canonique.
   `SELECT ... FOR UPDATE SKIP LOCKED`.
 - Un échec n'est jamais gardé comme prêt.
 - Un texte rejeté reste rejeté : on ne paie pas deux fois. Pour réessayer, on change la version du prompt
-  (`NOTICE_PROMPT_VERSION`, `TRANSLATION_PROMPT_VERSION`).
+  (`NOTICE_PROMPT_VERSION`, `TRANSLATION_PROMPT_VERSION`). Seule exception : l'encodage cassé (voir 4 bis).
 
 Pas d'appel non plus sans outil reconnu, pour une analyse échouée, ou sans description à traduire. Le banc ne demande jamais
 de notice : un test le vérifie.
@@ -147,7 +177,7 @@ de notice : un test le vérifie.
 ## 7. Les fusibles
 
 Avant chaque appel, le rédacteur calcule le **pire coût** : l'entrée estimée (taille de la requête en octets, divisée par 2)
-plus tout `max_tokens` au prix de sortie. Il ajoute la dépense déjà enregistrée :
+plus tout `max_tokens` au prix de sortie. Il ajoute la dépense déjà enregistrée dans `ai_calls` :
 
 - au-delà du **budget du mois** (`MCPLAIN_AI_MONTHLY_BUDGET_USD`, 10 dollars) : pas d'appel, retour le mois prochain ;
 - au-delà du **fusible du jour** (`MCPLAIN_AI_DAILY_FUSE_USD`, sinon 1/20 du budget, donc 0,50 dollar) : pas d'appel, retour demain.

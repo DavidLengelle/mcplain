@@ -159,6 +159,9 @@ Guide : `docs/ai.fr.md`.
       prompt `notice-v2`, httpx déclaré comme dépendance directe de `api/`.
 - [x] Diagnostic (9 novembre) : la sortie imposée (`output_config.format`) cassait les accents. Elle est retirée, le prompt décrit le
       JSON et notre contrôle le relit ; prompts `notice-v3` et `translation-v2`.
+- [x] Matrice du 10 novembre : l'encodage cassé est un défaut intermittent. Nouvel essai sur rejet `encoding`, 4 appels par jour au plus
+      pour une même notice, journal des appels `ai_calls`.
+- [ ] Surveiller le taux de rejets encoding dans le tableau admin ; si un jour il reste à 0, retirer le nouvel essai.
 - [ ] Mise en ligne : vrai filtre de sortie réseau (pare-feu ou proxy) pour le chef d'atelier et le rédacteur.
 - [ ] Séance 9 : bouton admin pour relancer une notice rejetée.
 
