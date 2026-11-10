@@ -4,7 +4,7 @@ import socket
 
 import pytest
 
-OPEN_MARKERS: tuple[str, ...] = ("network", "docker")
+OPEN_MARKERS: tuple[str, ...] = ("network", "docker", "postgres")
 
 
 def _refuse_network(*args: object, **kwargs: object) -> None:

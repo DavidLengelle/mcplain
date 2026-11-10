@@ -1,8 +1,11 @@
 """HTTP API: receives analysis requests, gives back their state and result as language-free JSON"""
 
+import socket
+import time
 import uuid
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, Query, Request
 from fastapi.concurrency import run_in_threadpool
@@ -12,7 +15,7 @@ from fastapi.responses import JSONResponse
 from mcplain.errors import InputError, McplainError
 from mcplain.i18n import SUPPORTED_LANGUAGES
 from mcplain.inputs import parse_input, parse_selection
-from pydantic import BaseModel, ConfigDict, StrictStr, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError
 from sqlalchemy import func, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -21,6 +24,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from mcplain_api.ai_view import LANGUAGES_BY_KIND, ask_text, full_catalog, read_text
+from mcplain_api.altcha_gate import PAYLOAD_MAX_CHARS, new_challenge
+from mcplain_api.auth_guard import GuardAction, check_action
 from mcplain_api.db import (
     INPUT_MAX_CHARS,
     SELECT_MAX_CHARS,
@@ -30,6 +35,7 @@ from mcplain_api.db import (
     as_utc,
     make_engine,
     make_sessions,
+    utc_now,
 )
 from mcplain_api.outcomes import stored_failure
 from mcplain_api.settings import Settings
@@ -40,6 +46,12 @@ ALLOWED_METHODS: list[str] = ["GET", "POST"]
 ALLOWED_HEADERS: list[str] = ["Content-Type"]
 MESSAGES_CACHE = "public, max-age=300"
 FINISHED_STATES: tuple[str, ...] = (AnalysisState.DONE.value, AnalysisState.FAILED.value)
+NO_STORE = "no-store"
+GUARD_BODY_MAX_BYTES = 8192
+IP_HEADER_MAX_CHARS = 1024
+IP_HEADERS_MAX = 8
+PEER_CACHE_SECONDS = 60.0
+REFUSAL_STATUS: dict[str, int] = {"altcha_invalid": 403, "signup_limit": 429}
 
 
 class AnalysisRequest(BaseModel):
@@ -59,6 +71,52 @@ class TextRequest(BaseModel):
     lang: StrictStr
 
 
+class GuardRequest(BaseModel):
+    """Class that describes the body of POST /internal/auth-guard, sent by the counter (guichet) only"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["sign_up", "sign_in", "request_password_reset"]
+    altcha: StrictStr | None = Field(default=None, max_length=PAYLOAD_MAX_CHARS)
+    ip_headers: dict[StrictStr, StrictStr] = Field(default_factory=dict, max_length=IP_HEADERS_MAX)
+
+
+def resolve_peers(names: list[str]) -> set[str]:
+    """Return every address of the host names allowed to call the guard, as the internal DNS of compose gives them"""
+
+    addresses: set[str] = set()
+    for name in names:
+        try:
+            for item in socket.getaddrinfo(name, None, proto=socket.IPPROTO_TCP):
+                addresses.add(str(item[4][0]))
+        except OSError:
+            continue
+    return addresses
+
+
+class PeerCheck:
+    """Class that tells whether a connection comes from the counter, with the addresses resolved again every minute"""
+
+    def __init__(self, names: list[str], resolver: Callable[[list[str]], set[str]]) -> None:
+        """Keep the allowed names and the resolver, without any address yet"""
+
+        self.names = names
+        self.resolver = resolver
+        self.addresses: set[str] = set()
+        self.until = 0.0
+
+    def allows(self, peer: str | None) -> bool:
+        """Tell whether the peer address is one of the counter"""
+
+        if peer is None:
+            return False
+        now = time.monotonic()
+        if now >= self.until or peer not in self.addresses:
+            self.addresses = self.resolver(self.names)
+            self.until = now + PEER_CACHE_SECONDS
+        return peer in self.addresses
+
+
 class QueueFull(Exception):
     """Class for a request refused because too many analyses are waiting"""
 
@@ -69,7 +127,11 @@ def error_response(status: int, code: str, params: dict[str, str] | None = None)
     return JSONResponse({"error": {"code": code, "params": params or {}}}, status_code=status)
 
 
-def create_app(settings: Settings | None = None, engine: Engine | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    engine: Engine | None = None,
+    peer_resolver: Callable[[list[str]], set[str]] = resolve_peers,
+) -> FastAPI:
     """Build the API application, its database access and its CORS policy"""
 
     if settings is None:
@@ -77,6 +139,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     if engine is None:
         engine = make_engine(settings.database_url)
     sessions = make_sessions(engine)
+    guard_peers = PeerCheck(settings.auth_guard_peer_list(), peer_resolver)
     app = FastAPI(title="MCPlain API", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(
         CORSMiddleware,
@@ -219,6 +282,44 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         """Return the translation of the author descriptions of an analysis"""
 
         return read_ai_text(analysis_id, AiKind.TRANSLATION.value, lang)
+
+    @app.get("/api/altcha/challenge")
+    def altcha_challenge() -> JSONResponse:
+        """Return a new ALTCHA challenge, signed, valid five minutes, never cached"""
+
+        challenge = new_challenge(settings, utc_now())
+        if challenge is None:
+            return error_response(503, "api.altcha_unavailable")
+        return JSONResponse(challenge, headers={"Cache-Control": NO_STORE})
+
+    @app.post("/internal/auth-guard")
+    async def auth_guard(request: Request) -> JSONResponse:
+        """Check an action of the counter: only the counter may call it, and the website relay never forwards /internal"""
+
+        peer = None
+        if request.client is not None:
+            peer = request.client.host
+        allowed = await run_in_threadpool(guard_peers.allows, peer)
+        if not allowed:
+            return error_response(404, "api.not_found")
+        body = await _read_body(request, GUARD_BODY_MAX_BYTES)
+        if body is None:
+            return error_response(413, "api.body_too_large", {"limit": str(GUARD_BODY_MAX_BYTES)})
+        try:
+            payload = GuardRequest.model_validate_json(body)
+        except ValidationError:
+            return error_response(400, "api.invalid_request")
+        headers = {name: value[:IP_HEADER_MAX_CHARS] for name, value in payload.ip_headers.items()}
+        answer = await run_in_threadpool(
+            check_action, sessions, settings, GuardAction(payload.action), payload.altcha, headers, utc_now()
+        )
+        if answer.ok:
+            return JSONResponse({"ok": True}, headers={"Cache-Control": NO_STORE})
+        return JSONResponse(
+            {"ok": False, "code": answer.code},
+            status_code=REFUSAL_STATUS.get(answer.code or "", 403),
+            headers={"Cache-Control": NO_STORE},
+        )
 
     @app.get("/api/health")
     def health() -> JSONResponse:

@@ -7,6 +7,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DISPATCHER_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$"
 DAILY_FUSE_SHARE_OF_BUDGET = 20
+MAX_PROXY_HOPS = 5
+DEFAULT_ALTCHA_COST = 2000
+MAX_ALTCHA_COST = 1_000_000
 
 
 class Settings(BaseSettings):
@@ -36,8 +39,15 @@ class Settings(BaseSettings):
     ai_price_output_per_mtok: float = Field(default=10, ge=0, validation_alias="MCPLAIN_AI_PRICE_OUTPUT_PER_MTOK")
     ai_monthly_budget_usd: float = Field(default=10, ge=0, validation_alias="MCPLAIN_AI_MONTHLY_BUDGET_USD")
     ai_daily_fuse_usd: float | None = Field(default=None, ge=0, validation_alias="MCPLAIN_AI_DAILY_FUSE_USD")
+    trusted_proxy_hops: int = Field(default=1, ge=0, le=MAX_PROXY_HOPS, validation_alias="MCPLAIN_TRUSTED_PROXY_HOPS")
+    altcha_hmac_key: SecretStr | None = Field(default=None, validation_alias="MCPLAIN_ALTCHA_HMAC_KEY")
+    altcha_cost: int = Field(default=DEFAULT_ALTCHA_COST, ge=1, le=MAX_ALTCHA_COST, validation_alias="MCPLAIN_ALTCHA_COST")
+    altcha_lifetime_s: int = Field(default=300, ge=10, le=3600, validation_alias="MCPLAIN_ALTCHA_LIFETIME_S")
+    signups_per_ip_per_day: int = Field(default=30, ge=1, validation_alias="MCPLAIN_SIGNUPS_PER_IP_PER_DAY")
+    guichet_url: str = Field(default="http://guichet:3100", validation_alias="MCPLAIN_GUICHET_URL")
+    auth_guard_peers: str = Field(default="guichet", validation_alias="MCPLAIN_AUTH_GUARD_PEERS")
 
-    @field_validator("github_token", "anthropic_api_key", "ai_daily_fuse_usd", mode="before")
+    @field_validator("github_token", "anthropic_api_key", "ai_daily_fuse_usd", "altcha_hmac_key", mode="before")
     @classmethod
     def empty_value_is_none(cls, value: object) -> object:
         """Treat an empty variable, as compose passes it when unset, as no value"""
@@ -61,6 +71,11 @@ class Settings(BaseSettings):
         if self.ai_daily_fuse_usd is not None:
             return self.ai_daily_fuse_usd
         return self.ai_monthly_budget_usd / DAILY_FUSE_SHARE_OF_BUDGET
+
+    def auth_guard_peer_list(self) -> list[str]:
+        """Return the host names allowed to call the internal auth guard, given as a comma separated list"""
+
+        return [name.strip() for name in self.auth_guard_peers.split(",") if name.strip()]
 
     def cors_origin_list(self) -> list[str]:
         """Return the allowed CORS origins, given as a comma separated list"""

@@ -4,5 +4,6 @@
   "ai.notice.fallback.can": "It can {actions}.",
   "ai.notice.fallback.nothing": "Its code turns on no lamp.",
   "ai.notice.fallback.unavailable": "MCPlain could not write an automatic summary for this server.",
-  "ai.notice.fallback.no_tools": "MCPlain recognized no tool in this server, so it has no automatic summary."
+  "ai.notice.fallback.no_tools": "MCPlain recognized no tool in this server, so it has no automatic summary.",
+  "api.altcha_unavailable": "The automatic check of robots is not available right now. Try again in a moment."
 }

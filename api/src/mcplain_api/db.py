@@ -1,7 +1,7 @@
-"""Database: the analyses table, which is also the job queue"""
+"""Database: the analyses table, which is also the job queue, the tables of the AI and those of the accounts"""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -9,10 +9,12 @@ from sqlalchemy import (
     JSON,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Float,
     Index,
     Integer,
+    PrimaryKeyConstraint,
     String,
     UniqueConstraint,
     Uuid,
@@ -28,6 +30,8 @@ INPUT_MAX_CHARS = 500
 SELECT_MAX_CHARS = 500
 SOURCE_KEY_MAX_CHARS = 600
 SHA256_HEX_CHARS = 64
+EMAIL_MAX_CHARS = 320
+LINK_MAX_CHARS = 2048
 SQLITE_PREFIX = "sqlite"
 MEMORY_SQLITE_URLS: frozenset[str] = frozenset({"sqlite://", "sqlite:///:memory:"})
 
@@ -168,6 +172,7 @@ class AiAdminAlert(Base):
     code: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     details: Mapped[dict[str, Any] | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    emailed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AiState(Base):
@@ -178,6 +183,75 @@ class AiState(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=AI_STATE_ROW)
     paused_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     disabled_reason: Mapped[str | None] = mapped_column(String(32))
+
+
+class MailKind(StrEnum):
+    """Class that lists the mails the counter (guichet) leaves in the outbox"""
+
+    VERIFY_EMAIL = "verify_email"
+    RESET_PASSWORD = "reset_password"
+
+
+MAIL_KIND_CHECK = "kind IN ('verify_email', 'reset_password')"
+MAIL_LANG_CHECK = "lang IN ('en', 'fr')"
+
+
+class MailOutbox(Base):
+    """Class that maps one mail waiting for the postman (facteur); the row and its link are deleted once handled"""
+
+    __tablename__ = "mail_outbox"
+    __table_args__ = (
+        CheckConstraint(MAIL_KIND_CHECK, name="mail_outbox_kind_valid"),
+        CheckConstraint(MAIL_LANG_CHECK, name="mail_outbox_lang_valid"),
+        Index("ix_mail_outbox_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    kind: Mapped[str] = mapped_column(String(32))
+    lang: Mapped[str] = mapped_column(String(8))
+    recipient: Mapped[str] = mapped_column(String(EMAIL_MAX_CHARS))
+    link: Mapped[str] = mapped_column(String(LINK_MAX_CHARS))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class IpSalt(Base):
+    """Class that maps the random salt of one UTC day, used to fingerprint addresses and deleted after two days"""
+
+    __tablename__ = "ip_salts"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    salt: Mapped[str] = mapped_column(String(SHA256_HEX_CHARS))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class AltchaUse(Base):
+    """Class that maps one ALTCHA solution already accepted, kept until its challenge expires"""
+
+    __tablename__ = "altcha_uses"
+    __table_args__ = (Index("ix_altcha_uses_expires_at", "expires_at"),)
+
+    signature_hash: Mapped[str] = mapped_column(String(SHA256_HEX_CHARS), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SignupCount(Base):
+    """Class that maps the number of accounts asked from one address fingerprint during one UTC day"""
+
+    __tablename__ = "signup_counts"
+    __table_args__ = (PrimaryKeyConstraint("day", "ip_hash", name="signup_counts_pkey"),)
+
+    day: Mapped[date] = mapped_column(Date)
+    ip_hash: Mapped[str] = mapped_column(String(SHA256_HEX_CHARS))
+    count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class SignupRefusal(Base):
+    """Class that maps how many sign-ups were refused for too many accounts from one network, per UTC day, without address"""
+
+    __tablename__ = "signup_refusals"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 def make_engine(url: str) -> Engine:

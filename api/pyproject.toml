@@ -9,6 +9,7 @@ license = "AGPL-3.0-only"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.0",
+    "altcha>=2.3.0,<3",
     "docker>=7.2.0",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
@@ -23,6 +24,8 @@ dependencies = [
 mcplain-api = "mcplain_api.server:main"
 mcplain-dispatcher = "mcplain_api.dispatcher:main"
 mcplain-redacteur = "mcplain_api.redacteur:main"
+mcplain-migrate = "mcplain_api.migrate:main"
+mcplain-facteur = "mcplain_api.facteur:main"
 
 [build-system]
 requires = ["uv_build>=0.11.31,<0.14.0"]
@@ -37,10 +40,11 @@ mcplain = { path = "../engine", editable = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-m 'not network and not docker'"
+addopts = "-m 'not network and not docker and not postgres'"
 markers = [
     "network: tests that reach real registries, disabled by default",
     "docker: tests that need Docker and the atelier image, disabled by default",
+    "postgres: tests that need a PostgreSQL owner URL in MCPLAIN_TEST_POSTGRES_URL, disabled by default",
 ]
 
 [dependency-groups]
