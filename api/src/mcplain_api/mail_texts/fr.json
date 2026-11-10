@@ -1,0 +1,14 @@
+{
+  "verify_email": {
+    "subject": "Confirme ton adresse e-mail sur MCPlain",
+    "body": "Bonjour,\n\nPour confirmer ton adresse e-mail sur MCPlain, ouvre ce lien :\n{link}\n\nLe lien marche pendant une heure. Une fois l'adresse confirmée, la connexion se fait toute seule.\n\nTu n'as pas créé de compte ? Ignore ce message : il ne se passera rien.\n\nMCPlain"
+  },
+  "reset_password": {
+    "subject": "Choisis un nouveau mot de passe sur MCPlain",
+    "body": "Bonjour,\n\nQuelqu'un a demandé à changer le mot de passe de ton compte MCPlain. Pour en choisir un nouveau, ouvre ce lien :\n{link}\n\nLe lien marche pendant une heure.\n\nTu n'as rien demandé ? Ignore ce message : ton mot de passe ne change pas.\n\nMCPlain"
+  },
+  "admin_alert": {
+    "subject": "MCPlain : alerte admin {code}",
+    "body": "Bonjour,\n\nMCPlain a noté l'alerte {code} {count} fois.\nPremière : {first} (UTC)\nDernière : {last} (UTC)\n\nLes détails sont dans la table ai_admin_alerts. Tu reçois au plus un e-mail par code d'alerte toutes les 24 heures.\n\nMCPlain"
+  }
+}

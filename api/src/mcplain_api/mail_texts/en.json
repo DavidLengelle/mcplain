@@ -1,0 +1,14 @@
+{
+  "verify_email": {
+    "subject": "Confirm your email address on MCPlain",
+    "body": "Hello,\n\nTo confirm your email address on MCPlain, open this link:\n{link}\n\nThe link works for one hour. Once it is confirmed, you are signed in.\n\nYou did not create an account? Ignore this message: nothing will happen.\n\nMCPlain"
+  },
+  "reset_password": {
+    "subject": "Choose a new password on MCPlain",
+    "body": "Hello,\n\nSomeone asked to change the password of your MCPlain account. To choose a new one, open this link:\n{link}\n\nThe link works for one hour.\n\nYou did not ask for it? Ignore this message: your password stays the same.\n\nMCPlain"
+  },
+  "admin_alert": {
+    "subject": "MCPlain: admin alert {code}",
+    "body": "Hello,\n\nMCPlain recorded the alert {code} {count} time(s).\nFirst one: {first} (UTC)\nLast one: {last} (UTC)\n\nThe details are in the table ai_admin_alerts. You get at most one mail per alert code every 24 hours.\n\nMCPlain"
+  }
+}
