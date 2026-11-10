@@ -354,11 +354,13 @@ def test_false_positive_accepted_text_about_encoding_is_rejected() -> None:
     assert rejected(notice(summary="Il répare les accents cassés comme \u00ab \u00c3\u00a9 \u00bb.")) is RejectReason.ENCODING
 
 
-def test_mojibake_in_a_translation_drops_only_that_item() -> None:
-    """Unless the author wrote the same sequence"""
+def test_mojibake_in_a_translation_rejects_the_whole_call() -> None:
+    """One broken item is enough to refuse the call, so that it is tried again; the author's own sequence is not a break"""
 
     items = [{"id": "tool_0", "text": "Gives the weather."}, {"id": "tool_1", "text": "Fixes \u00c3\u00a9 into \u00e9."}]
-    text = translated(("tool_0", "Donne la m\u0102\u00a9t\u0102\u00a9o."), ("tool_1", "Corrige \u00c3\u00a9 en \u00e9."))
-    checked = check_translation(text, items)
-    assert [item["id"] for item in checked.content["items"]] == ["tool_1"]
-    assert checked.dropped is RejectReason.ENCODING
+    broken = translated(("tool_0", "Donne la m\u0102\u00a9t\u0102\u00a9o."), ("tool_1", "Corrige \u00c3\u00a9 en \u00e9."))
+    with pytest.raises(OutputRejected) as caught:
+        check_translation(broken, items)
+    assert caught.value.reason is RejectReason.ENCODING
+    clean = translated(("tool_0", "Donne la météo."), ("tool_1", "Corrige \u00c3\u00a9 en \u00e9."))
+    assert [item["id"] for item in check_translation(clean, items).content["items"]] == ["tool_0", "tool_1"]

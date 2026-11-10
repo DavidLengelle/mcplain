@@ -25,6 +25,7 @@ from mcplain_api.ai_logging import install_secret_filter
 from mcplain_api.db import (
     AI_STATE_ROW,
     AiAdminAlert,
+    AiCall,
     AiKind,
     AiState,
     AiStatus,
@@ -43,6 +44,9 @@ IDLE_SECONDS = 1.0
 LIMIT_PAUSE = timedelta(hours=1)
 FAILURE_WAIT = timedelta(minutes=10)
 ALERT_SPACING = timedelta(hours=24)
+ENCODING_WAIT = timedelta(hours=1)
+CALLS_PER_TEXT_PER_DAY = 4
+ATTEMPTS_ON_ENCODING = 2
 BYTES_PER_TOKEN_ESTIMATE = 2
 END_TURN = "end_turn"
 NO_KEY = "no_key"
@@ -53,6 +57,7 @@ REASON_MONTHLY_BUDGET = "monthly_budget"
 REASON_UNAVAILABLE = "unavailable"
 REASON_BAD_REQUEST = "bad_request"
 REASON_NO_REPORT = "no_report"
+REASON_DAILY_TEXT_CAP = "daily_text_cap"
 REASON_INTERNAL = "internal"
 ALERT_USAGE_LIMIT = "usage_limit"
 ALERT_AUTH = "auth_refused"
@@ -227,7 +232,7 @@ class Redacteur:
     def _spent_since(self, session: Session, start: datetime) -> float:
         """Return what the calls recorded since a moment cost"""
 
-        total = session.scalar(select(func.coalesce(func.sum(AiText.cost_usd), 0.0)).where(AiText.updated_at >= start))
+        total = session.scalar(select(func.coalesce(func.sum(AiCall.cost_usd), 0.0)).where(AiCall.created_at >= start))
         return float(total or 0.0)
 
     def _budget_reason(self, session: Session, worst: float, now: datetime) -> tuple[str, datetime] | None:
@@ -241,8 +246,17 @@ class Redacteur:
             return REASON_DAILY_FUSE, next_day(now)
         return None
 
+    def _calls_today(self, session: Session, row: AiText, now: datetime) -> int:
+        """Return how many calls this text made since the start of the UTC day"""
+
+        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        count = session.scalar(
+            select(func.count()).select_from(AiCall).where(AiCall.text_id == row.id).where(AiCall.created_at >= day_start)
+        )
+        return int(count or 0)
+
     def _process(self, session: Session, state: AiState, row: AiText) -> None:
-        """Check the budget, call the API once and record what happens, in the same transaction as the lock"""
+        """Call the API, and once more at once when the text came back with broken encoding, in the transaction of the lock"""
 
         now = self.clock()
         result = validated_report(session, row)
@@ -252,15 +266,55 @@ class Redacteur:
         if prepared is None:
             self._finish(row, AiStatus.FAILED, REASON_NO_REPORT, now + FAILURE_WAIT)
             return
+        for attempt in range(1, ATTEMPTS_ON_ENCODING + 1):
+            if not self._may_call(session, row, prepared):
+                return
+            reply = call_api(self.settings, prepared.body, self.transport, self.sleep)
+            rejected = self._record_reply(session, state, row, reply, prepared)
+            if rejected is not RejectReason.ENCODING:
+                return
+            LOGGER.warning("text %s: broken encoding, try %d of %d", row.id, attempt, ATTEMPTS_ON_ENCODING)
+        self._finish(row, AiStatus.FAILED, RejectReason.ENCODING.value, self.clock() + ENCODING_WAIT)
+
+    def _may_call(self, session: Session, row: AiText, prepared: Prepared) -> bool:
+        """Check the cap of calls of this text today, then the fuses with the worst cost; pause the text otherwise"""
+
+        now = self.clock()
+        if self._calls_today(session, row, now) >= CALLS_PER_TEXT_PER_DAY:
+            LOGGER.warning("text %s: not sent, %s", row.id, REASON_DAILY_TEXT_CAP)
+            self._finish(row, AiStatus.PAUSED, REASON_DAILY_TEXT_CAP, next_day(now))
+            return False
         refused = self._budget_reason(session, self.worst_cost(prepared.body), now)
         if refused is not None:
             reason, back_at = refused
             LOGGER.warning("text %s: not sent, %s", row.id, reason)
             self._finish(row, AiStatus.PAUSED, reason, back_at)
-            return
-        reply = call_api(self.settings, prepared.body, self.transport, self.sleep)
-        row.request_id = reply.request_id
+            return False
+        return True
+
+    def _record_reply(
+        self, session: Session, state: AiState, row: AiText, reply: Reply, prepared: Prepared
+    ) -> RejectReason | None:
+        """Log the call, then give the text its state; return why its text was refused, if it was"""
+
         now = self.clock()
+        cost = call_cost(self.settings, reply.input_tokens, reply.output_tokens)
+        row.request_id = reply.request_id
+        row.input_tokens += reply.input_tokens
+        row.output_tokens += reply.output_tokens
+        row.cost_usd += cost
+        call = AiCall(
+            text_id=row.id,
+            kind=row.kind,
+            lang=row.lang,
+            outcome=reply.kind.value,
+            input_tokens=reply.input_tokens,
+            output_tokens=reply.output_tokens,
+            cost_usd=cost,
+            request_id=reply.request_id,
+            created_at=now,
+        )
+        session.add(call)
         if reply.kind is CallKind.LIMIT:
             state.paused_until = now + LIMIT_PAUSE
             self._alert(session, ALERT_USAGE_LIMIT, row, reply, now)
@@ -275,27 +329,30 @@ class Redacteur:
         elif reply.kind is CallKind.UNAVAILABLE:
             self._finish(row, AiStatus.FAILED, REASON_UNAVAILABLE, now + FAILURE_WAIT)
         else:
-            self._record_answer(row, reply, prepared)
-        row.updated_at = now
+            rejected = self._record_answer(row, reply, prepared)
+            call.reject_reason = None
+            if rejected is not None:
+                call.reject_reason = rejected.value
+            return rejected
+        return None
 
-    def _record_answer(self, row: AiText, reply: Reply, prepared: Prepared) -> None:
-        """Record the cost of an answer, then its checked text; a rejected text only leaves its reason code"""
+    def _record_answer(self, row: AiText, reply: Reply, prepared: Prepared) -> RejectReason | None:
+        """Record the checked text; a rejected text only leaves its reason code, broken encoding is left to the caller"""
 
-        row.input_tokens = reply.input_tokens
-        row.output_tokens = reply.output_tokens
-        row.cost_usd = call_cost(self.settings, reply.input_tokens, reply.output_tokens)
         try:
             checked = self._read_answer(reply, prepared)
         except OutputRejected as rejected:
             LOGGER.warning("text %s: rejected, %s", row.id, rejected.reason.value)
-            self._finish(row, AiStatus.REJECTED, rejected.reason.value, None)
-            return
+            if rejected.reason is not RejectReason.ENCODING:
+                self._finish(row, AiStatus.REJECTED, rejected.reason.value, None)
+            return rejected.reason
         row.content = checked.content
         reason = None
         if checked.dropped is not None:
             reason = checked.dropped.value
         self._finish(row, AiStatus.READY, reason, None)
         LOGGER.info("text %s: ready, %d tokens in, %d tokens out", row.id, reply.input_tokens, reply.output_tokens)
+        return None
 
     def _read_answer(self, reply: Reply, prepared: Prepared) -> Checked:
         """Refuse an answer that did not end normally, then check its text"""

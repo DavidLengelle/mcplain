@@ -135,6 +135,29 @@ class AiText(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class AiCall(Base):
+    """Class that maps one call to the AI: what it cost, how it ended, and why its text was refused; never the text"""
+
+    __tablename__ = "ai_calls"
+    __table_args__ = (
+        Index("ix_ai_calls_text_id_created_at", "text_id", "created_at"),
+        Index("ix_ai_calls_created_at", "created_at"),
+        Index("ix_ai_calls_reject_reason_created_at", "reject_reason", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    text_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    kind: Mapped[str] = mapped_column(String(16))
+    lang: Mapped[str] = mapped_column(String(8))
+    outcome: Mapped[str] = mapped_column(String(16))
+    reject_reason: Mapped[str | None] = mapped_column(String(32))
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    request_id: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class AiAdminAlert(Base):
     """Class that maps one alert for the admin; its details never hold the key nor a text of a third party"""
 

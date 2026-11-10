@@ -22,6 +22,7 @@ RESUME_BY_REASON: dict[str, str] = {
     "daily_fuse": "tomorrow",
     "monthly_budget": "next_month",
     "usage_limit": "later",
+    "daily_text_cap": "tomorrow",
 }
 RESUME_LATER = "later"
 STATUS_TEMPLATE = "template"

@@ -23,7 +23,7 @@ from mcplain_api.ai_prompts import (
     TRANSLATION_SCHEMA,
     notice_message,
 )
-from mcplain_api.db import AiAdminAlert, AiState, AiText, Analysis, Base, make_engine, make_sessions
+from mcplain_api.db import AiAdminAlert, AiCall, AiState, AiText, Analysis, Base, make_engine, make_sessions
 from mcplain_api.redacteur import Redacteur, next_day, next_month
 
 KEY = "sk-ant-test-CANARY"
@@ -216,7 +216,7 @@ CLEAN_FRENCH = {**GOOD_NOTICE, "summary": "Il lit à l'été, ça, très « simp
         ("```\n" + json.dumps(GOOD_NOTICE) + "\n```", "rejected", "bad_json"),
         (json.dumps(GOOD_NOTICE)[:-20], "rejected", "bad_json"),
         ("[" + json.dumps(GOOD_NOTICE) + "]", "rejected", "bad_json"),
-        (json.dumps({**GOOD_NOTICE, "summary": "Il lit \u0102\u00a0Paris."}, ensure_ascii=False), "rejected", "encoding"),
+        (json.dumps({**GOOD_NOTICE, "summary": "Il lit \u0102\u00a0Paris."}, ensure_ascii=False), "failed", "encoding"),
     ],
 )
 def test_reading_the_answer_without_imposed_output(api: respx.MockRouter, text: str, status: str, reason: str | None) -> None:
@@ -466,7 +466,7 @@ def test_money_already_spent_counts_in_the_fuse(api: respx.MockRouter) -> None:
     bench.redacteur.run_once()
     assert bench.row().status == "ready"
     with bench.sessions.begin() as session:
-        session.query(AiText).update({"cost_usd": 0.03})
+        session.query(AiCall).update({"cost_usd": 0.03})
     bench.queue(tools=[tool_report("other_tool")])
     bench.redacteur.run_once()
     assert route.call_count == 1
@@ -524,6 +524,148 @@ def test_the_key_comes_out_nowhere(api: respx.MockRouter, caplog: pytest.LogCapt
     assert KEY not in caplog.text
     assert "CANARY" not in repr(bench.settings)
     with bench.sessions() as session:
-        stored = [repr(vars(row)) for model in (AiText, AiAdminAlert, AiState) for row in session.query(model).all()]
+        stored = [repr(vars(row)) for model in (AiText, AiAdminAlert, AiState, AiCall) for row in session.query(model).all()]
     assert stored
     assert "CANARY" not in "".join(stored)
+
+
+BROKEN_NOTICE = {**GOOD_NOTICE, "summary": "Ce serveur donne \u0102\u00a0ton assistant l'heure."}
+
+
+def calls(bench: Bench) -> list[tuple[str, str | None]]:
+    """Return the outcome and the rejection code of every logged call, oldest first"""
+
+    with bench.sessions() as session:
+        return [(call.outcome, call.reject_reason) for call in session.query(AiCall).order_by(AiCall.created_at).all()]
+
+
+def requeue(bench: Bench) -> None:
+    """Ask the text again, as the API does when a visitor opens the report"""
+
+    with bench.sessions.begin() as session:
+        session.query(AiText).update({"status": "pending", "retry_at": None})
+
+
+def test_encoding_then_clean_gives_a_ready_text_in_two_calls(api: respx.MockRouter) -> None:
+    """A broken answer is retried at once, and the clean second one is kept; both calls are logged and paid"""
+
+    route = api.post(API_URL).mock(side_effect=[answer(BROKEN_NOTICE), answer(GOOD_NOTICE)])
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert route.call_count == 2
+    assert (row.status, row.reject_reason) == ("ready", None)
+    assert row.content["summary"] == GOOD_NOTICE["summary"]
+    assert row.cost_usd == pytest.approx(0.014)
+    assert calls(bench) == [("answered", "encoding"), ("answered", None)]
+    assert bench.slept == []
+
+
+def test_encoding_twice_fails_for_one_hour_with_the_fallback(api: respx.MockRouter) -> None:
+    """Two broken answers: failed, not rejected, and nothing of the text is kept"""
+
+    route = api.post(API_URL).mock(return_value=answer(BROKEN_NOTICE))
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert route.call_count == 2
+    assert (row.status, row.reject_reason, row.content) == ("failed", "encoding", None)
+    assert row.retry_at.replace(tzinfo=UTC) == NOW + timedelta(hours=1)
+    assert calls(bench) == [("answered", "encoding"), ("answered", "encoding")]
+    with bench.sessions() as session:
+        assert "\u0102" not in json.dumps([vars(call).get("reject_reason") for call in session.query(AiCall).all()])
+
+
+def test_translation_with_broken_encoding_is_retried_as_a_whole(api: respx.MockRouter) -> None:
+    """The rule applies to the whole translation call"""
+
+    route = api.post(API_URL).mock(
+        side_effect=[
+            answer({"items": [{"id": "tool_0", "text": "Donne l'heure \u0102\u00a0Paris."}]}),
+            answer({"items": [{"id": "tool_0", "text": "Donne l'heure à Paris."}]}),
+        ]
+    )
+    bench = Bench()
+    bench.queue("translation", tools=[tool_report("get_time", "Gives the time in Paris.")])
+    bench.redacteur.run_once()
+    assert route.call_count == 2
+    assert bench.row().content == {"items": [{"id": "tool_0", "text": "Donne l'heure à Paris."}]}
+
+
+def test_four_calls_a_day_for_one_text(api: respx.MockRouter) -> None:
+    """Two rounds of two broken answers use the four calls of the day; the next request waits for tomorrow"""
+
+    route = api.post(API_URL).mock(return_value=answer(BROKEN_NOTICE))
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    bench.clock.now = NOW + timedelta(hours=1, minutes=1)
+    requeue(bench)
+    bench.redacteur.run_once()
+    assert route.call_count == 4
+    bench.clock.now = NOW + timedelta(hours=2, minutes=2)
+    requeue(bench)
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert route.call_count == 4
+    assert (row.status, row.reject_reason) == ("paused", "daily_text_cap")
+    assert row.retry_at.replace(tzinfo=UTC) == datetime(2026, 11, 10, tzinfo=UTC)
+    bench.clock.now = datetime(2026, 11, 10, 0, 5, tzinfo=UTC)
+    requeue(bench)
+    route.side_effect = None
+    route.return_value = answer(GOOD_NOTICE)
+    bench.redacteur.run_once()
+    assert route.call_count == 5
+    assert bench.row().status == "ready"
+
+
+def test_the_cap_stops_the_second_try_too(api: respx.MockRouter) -> None:
+    """With three calls already made today, a broken answer is not retried"""
+
+    route = api.post(API_URL).mock(return_value=answer(BROKEN_NOTICE))
+    bench = Bench()
+    bench.queue()
+    with bench.sessions.begin() as session:
+        text = session.query(AiText).one()
+        for _ in range(3):
+            session.add(AiCall(text_id=text.id, kind="notice", lang="fr", outcome="unavailable", created_at=NOW))
+    bench.redacteur.run_once()
+    assert route.call_count == 1
+    assert (bench.row().status, bench.row().reject_reason) == ("paused", "daily_text_cap")
+
+
+def test_the_fuse_blocks_the_second_try(api: respx.MockRouter) -> None:
+    """The second call goes through the fuse with its worst cost, like the first"""
+
+    route = api.post(API_URL).mock(return_value=answer(BROKEN_NOTICE))
+    bench = Bench(ai_daily_fuse_usd=0.04)
+    bench.queue()
+    bench.redacteur.run_once()
+    row = bench.row()
+    assert route.call_count == 1
+    assert (row.status, row.reject_reason) == ("paused", "daily_fuse")
+    assert calls(bench) == [("answered", "encoding")]
+
+
+def test_a_forbidden_word_is_not_tried_again(api: respx.MockRouter) -> None:
+    """Every other rejection stays final for this prompt version"""
+
+    route = api.post(API_URL).mock(return_value=answer({**GOOD_NOTICE, "summary": "Ce serveur est fiable."}))
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    assert route.call_count == 1
+    assert (bench.row().status, bench.row().reject_reason) == ("rejected", "forbidden_word")
+    assert calls(bench) == [("answered", "forbidden_word")]
+
+
+def test_every_call_is_logged_even_without_an_answer(api: respx.MockRouter) -> None:
+    """An overloaded API counts too: one logged call, no token"""
+
+    api.post(API_URL).mock(return_value=httpx.Response(529))
+    bench = Bench()
+    bench.queue()
+    bench.redacteur.run_once()
+    assert calls(bench) == [("unavailable", None)]

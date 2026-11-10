@@ -3,7 +3,7 @@
 import json
 import uuid
 from collections.abc import Iterator
-from datetime import timedelta
+from datetime import UTC, timedelta
 from typing import Any
 
 import httpx
@@ -475,3 +475,37 @@ def test_the_request_carries_french_as_utf8(sessions: sessionmaker) -> None:
     assert "sécurisé".encode("utf-8") in raw
     assert FRENCH.encode("utf-8") in raw
     assert json.loads(raw.decode("utf-8"))["messages"][0]["content"] == FRENCH
+
+
+@respx.mock
+def test_encoding_failure_comes_back_only_after_one_hour(client: TestClient, sessions: sessionmaker, writer: Redacteur) -> None:
+    """Twice broken: the fallback, no new try before one hour, a new one after"""
+
+    broken = {**GOOD_NOTICE, "summary": "Il donne \u0102\u00a0Paris l'heure."}
+    route = respx.post(API_URL).mock(return_value=answer(broken))
+    identifier = add_analysis(sessions)
+    client.post(f"/api/analyses/{identifier}/notice", json={"lang": "fr"})
+    writer.run_once()
+    response = client.post(f"/api/analyses/{identifier}/notice", json={"lang": "fr"})
+    body = response.json()
+    assert response.status_code == 200
+    assert (body["status"], body["reject_reason"], body["source"], body["content"]) == ("failed", "encoding", "template", None)
+    assert body["fallback"]["variant"] == "tools"
+    assert "\u0102" not in response.text
+    assert writer.run_once() is False
+    assert route.call_count == 2
+    with sessions.begin() as session:
+        retry_at = session.query(AiText).one().retry_at
+        assert retry_at.replace(tzinfo=UTC) - utc_now() > timedelta(minutes=59)
+        session.query(AiText).update({"retry_at": utc_now() - timedelta(seconds=1)})
+    assert client.post(f"/api/analyses/{identifier}/notice", json={"lang": "fr"}).status_code == 202
+
+
+def test_a_text_paused_by_the_daily_cap_comes_back_tomorrow(client: TestClient, sessions: sessionmaker) -> None:
+    """The site says tomorrow"""
+
+    identifier = add_analysis(sessions)
+    client.post(f"/api/analyses/{identifier}/notice", json={"lang": "fr"})
+    with sessions.begin() as session:
+        session.query(AiText).update({"status": "paused", "reject_reason": "daily_text_cap", "retry_at": utc_now() + timedelta(hours=3)})
+    assert client.post(f"/api/analyses/{identifier}/notice", json={"lang": "fr"}).json()["resume"] == "tomorrow"

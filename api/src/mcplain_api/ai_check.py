@@ -248,7 +248,7 @@ def _translation_problem(translated: str, original: str) -> RejectReason | None:
 
 
 def check_translation(text: str, items: list[dict[str, str]]) -> Checked:
-    """Return the translations that may be shown; a rejected one, or a missing one, stays in the original language"""
+    """Return the translations that may be shown; a rejected one stays in the original, broken encoding rejects the call"""
 
     output: TranslationOutput = _parse(text, TranslationOutput)
     originals = {item["id"]: item["text"] for item in items}
@@ -259,6 +259,8 @@ def check_translation(text: str, items: list[dict[str, str]]) -> Checked:
             dropped = dropped or RejectReason.UNKNOWN_TOOL
             continue
         problem = _translation_problem(item.text, originals[item.id])
+        if problem is RejectReason.ENCODING:
+            raise OutputRejected(RejectReason.ENCODING)
         if problem is not None:
             dropped = dropped or problem
             continue
