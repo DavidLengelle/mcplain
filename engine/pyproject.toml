@@ -32,6 +32,7 @@ dev = [
 
 [tool.uv]
 exclude-newer = "7 days"
+required-version = ">=0.13.6"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
