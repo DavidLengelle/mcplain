@@ -11,6 +11,7 @@ var
 .env.*
 !.env.example
 web/node_modules
+auth/node_modules
 web/.next
 web/test-results
 web/playwright-report

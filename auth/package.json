@@ -1,0 +1,22 @@
+{
+  "name": "mcplain-guichet",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "better-auth": "1.7.15",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "typescript": "6.0.3",
+    "vitest": "5.0.4"
+  },
+  "packageManager": "pnpm@11.28.1"
+}

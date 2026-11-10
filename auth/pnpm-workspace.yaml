@@ -1,0 +1,8 @@
+minimumReleaseAge: 10080
+
+# @types/node comes with @types/pg; it follows the Node.js 24 of the image, like web/.
+overrides:
+  "@types/node": "24.19.2"
+
+# No install script runs, and none of the packages below has one today.
+allowBuilds: {}
