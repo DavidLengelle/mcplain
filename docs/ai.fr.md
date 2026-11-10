@@ -204,8 +204,8 @@ Pire coût avec les réglages par défaut : **0,055 dollar** pour une notice (60
 | 429, 529, 5xx, délai dépassé | Un seul nouvel essai après 20 s, puis échec. Nouvel essai possible 10 minutes plus tard. |
 
 Dans tous les cas, le rapport affiche la notice de secours. Le texte d'une erreur n'est jamais gardé, seuls le code HTTP et le
-`request-id`. Pour l'instant, une alerte est une ligne de la table `ai_admin_alerts` et une ligne de journal. L'e-mail viendra
-en séance 9.
+`request-id`. Une alerte est une ligne de la table `ai_admin_alerts` et une ligne de journal ; depuis la séance 9a, le facteur
+l'envoie aussi par e-mail à l'admin (au plus un par code et par 24 h, voir `docs/accounts.fr.md`).
 
 Sans clé (`MCPLAIN_ANTHROPIC_API_KEY` vide), la fonction est coupée : état `disabled`, aucun appel tenté, notice de secours.
 C'est le cas de la CI et du banc : **0 jeton par construction**.

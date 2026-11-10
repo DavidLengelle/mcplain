@@ -11,9 +11,14 @@ English.
 ## Layout
 
 - `engine/`: the Python engine (uv project, package `mcplain`, tree-sitter parsers).
-- `api/`: the HTTP API, the job queue and the dispatcher (uv project `mcplain-api`, package `mcplain_api`).
-- `docker/`: `atelier.Dockerfile` (engine only), `api.Dockerfile` (API and dispatcher) and `web.Dockerfile` (website).
-- `compose.yaml`: PostgreSQL, API, dispatcher, writer, website, and the atelier image (build only).
+- `api/`: the HTTP API, the job queue, the dispatcher, the writer, the postman and the migrations (uv project `mcplain-api`,
+  package `mcplain_api`).
+- `auth/`: the counter (guichet), Better Auth in a small Node.js 24 server (pnpm project, TypeScript run by Node). Guide of the
+  accounts: `docs/accounts.fr.md`.
+- `docker/`: `atelier.Dockerfile` (engine only), `api.Dockerfile` (API, dispatcher, writer, postman, migrate), `auth.Dockerfile`
+  (counter) and `web.Dockerfile` (website).
+- `compose.yaml`: PostgreSQL, migrate (one-shot), API, dispatcher, writer, counter, postman, website, Mailpit (profile `dev`
+  only), and the atelier image (build only).
 - `web/`: the Next.js website (pnpm project, Next.js 16, React 19, next-intl, Tailwind CSS v4).
   A guided tour in French: `docs/web.fr.md`.
 
@@ -42,6 +47,17 @@ Planned work and decisions for future sessions are in docs/roadmap.fr.md: read t
   (`ai_check.py`). The AI never reads code nor a third-party text; only the separate translation call receives the author
   descriptions. No AI output ever enters the engine, a verdict or the cache of analyses. Tests never reach the API (respx
   and the socket guard); only David runs `scripts/notice-smoke.sh`. The key never goes in GitHub.
+- **Counter** (guichet, `auth/`, service `guichet`, guide: `docs/accounts.fr.md`): Better Auth mounted on `/api/auth/*`. It alone
+  receives `BETTER_AUTH_SECRET` and owns the schema `auth` (password hashes) with its role `mcplain_guichet`. Before a sign-up,
+  a sign-in or a password reset, it asks the API (`POST /internal/auth-guard`: ALTCHA, sign-up limit per network). It sends no
+  mail: it adds a row to `mail_outbox`, its only right outside `auth`. The role of an account (`user` or `admin`) is never set
+  by the website: only `scripts/make-admin.sh`, run by David.
+- **Postman** (facteur, `api/src/mcplain_api/facteur.py`, command `mcplain-facteur`): the only service that receives the SMTP
+  credentials. It sends the rows of `mail_outbox` in plain text, then deletes them, and mails the admin alerts of the writer.
+  Role `mcplain_facteur`. In development the mails go to Mailpit (profile `dev`, `http://127.0.0.1:8025`).
+- **Migrate** (command `mcplain-migrate`, one-shot service): the only service with the owner password of the database. It runs
+  the Alembic migrations (the tables of Better Auth included) and gives the service roles their passwords, then stops. The API,
+  the dispatcher and the writer connect as `mcplain_app`, which has no right on `auth` nor on `mail_outbox`.
 - **Website** (`web/`, `docker/web.Dockerfile`): shows what the API answers. It never reads analyzed code
   and never decides a color: the verdict comes from the Python rules only. When the API does not answer
   or answers something unexpected, the site shows a gray "not verified" state, never green.
@@ -86,11 +102,19 @@ files `0644`, readable by the atelier user (uid 10001).
    (`api/tests/test_launcher.py`). Never add the Docker socket, a device, `privileged`, a capability,
    `apparmor=unconfined` or `seccomp=unconfined` to an atelier.
 10. No subprocess in the API or the dispatcher: Docker is driven with the Python SDK (`docker`).
-11. Networks: `front` links the website and the API; `back` links the API, the dispatcher, the writer and PostgreSQL.
-    The website is only on `front`: it reaches neither PostgreSQL nor the dispatcher. The Docker socket
-    stays in the dispatcher only. The API keeps `127.0.0.1:8000` open for development.
+11. Networks: `front` links the website, the API and the counter; `back` links the API, the dispatcher, the writer, the
+    counter, the postman, Mailpit and PostgreSQL. The website is only on `front`: it reaches neither PostgreSQL nor the
+    dispatcher. The Docker socket stays in the dispatcher only. The API keeps `127.0.0.1:8000` open for development.
 12. The Anthropic key reaches the writer service only. Before any test of the running stack, start it with an empty key
     (`MCPLAIN_ANTHROPIC_API_KEY= docker compose up -d --build`), because opening a report asks for a notice.
+13. The website has no secret and no database access: it only relays `/api/auth/*` to the counter and `/api/*` to the API
+    (`relayRewrites` in `web/src/lib/api-url.ts`, the counter first). `BETTER_AUTH_SECRET` reaches the counter only, the SMTP
+    credentials the postman only, the ALTCHA key (`MCPLAIN_ALTCHA_HMAC_KEY`) the API only; `api/tests/test_compose_accounts.py`
+    checks it. Never read `.env` and never print a secret: David creates the secrets with `scripts/init-secrets.sh`.
+14. The visitor address is read by one function only, `visitor_ip` in `api/src/mcplain_api/client_ip.py`: it trusts only the
+    address appended to `X-Forwarded-For` by our own relays (`MCPLAIN_TRUSTED_PROXY_HOPS`); `web/client-ip.js` appends it, since
+    Next.js does not. No address in clear in the database nor in the logs: HMAC-SHA256 with the salt of the UTC day, deleted
+    after two days (`ip_fingerprint.py`).
 
 ## Data flow engine
 
@@ -132,7 +156,7 @@ Keep `exclude-newer = "7 days"` in `[tool.uv]` of `engine/pyproject.toml` and `a
 Dependabot groups minor and patch updates into one pull request per ecosystem and folder (no lockfile
 conflicts between them); major updates stay one per pull request. Python stays on 3.12 in the images.
 
-For `web/`:
+For `web/` (and `auth/`, with the same rules, its own `pnpm-workspace.yaml` and lockfile):
 
 - pnpm 11 only (`packageManager: pnpm@11.28.1`). Never npm, never `pnpm self-update`, never pnpm 12.
   Every `pnpm create` or `pnpm dlx` names an explicit version.
@@ -172,6 +196,15 @@ docker compose up -d --build
 ```
 
 `-m "network and docker"` analyzes real packages through the API published on `127.0.0.1:8000`.
+`-m postgres` checks the rights of each PostgreSQL role on a fresh database: set `MCPLAIN_TEST_POSTGRES_URL` to the URL of a
+PostgreSQL owner (the CI starts one with test-only passwords).
+
+```bash
+cd auth
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test         # Vitest; tests/schema.test.ts also runs when MCPLAIN_TEST_GUICHET_DATABASE_URL is set
+```
 
 After changing a rule or its texts, regenerate the catalog from `engine/` (a test checks that it is up to date):
 `uv run mcplain --rules > ../docs/rules.md` and `uv run mcplain --rules --lang fr > ../docs/rules.fr.md`.

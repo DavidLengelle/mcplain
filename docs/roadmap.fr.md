@@ -1,8 +1,8 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies et 8 et le corpus partie 2 sont faits. Les parties « Protections » et
-« Adresses IP partagées » ne sont codées que pour ce qui concerne l'IA (voir séance 8).
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8 et 9a et le corpus partie 2 sont faits. Les parties « Protections »
+et « Adresses IP partagées » sont codées pour l'IA (séance 8) et pour les comptes (séance 9a) ; les quotas viennent en séance 9b.
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
 
@@ -149,10 +149,10 @@ Guide : `docs/ai.fr.md`.
 
 À faire :
 
-- [ ] E-mail à l'admin (séance 9) : aujourd'hui, une ligne de `ai_admin_alerts` et une ligne de journal.
+- [x] E-mail à l'admin : envoyé par le facteur (séance 9a), au plus un par code d'alerte et par 24 h, 20 par jour au plus.
 - [ ] La dépense et le solde dans un tableau admin.
 - [ ] La traduction vers l'anglais.
-- [ ] ALTCHA (séance 9).
+- [x] ALTCHA sur les formulaires du compte (séance 9a) ; sur l'analyse en séance 9b.
 - [ ] Décision sur httpx2 : le SDK anthropic actuel en dépend, respx ne l'intercepte pas, et Starlette le demande pour son client de test.
 - [ ] Les noms des dépendances directes dans le rapport : le champ `libraries` du formulaire reste vide tant que le moteur ne les garde pas.
 - [x] Premier vrai essai (9 novembre) : notice française avec un encodage cassé venu de la réponse de l'IA. Règle de rejet `encoding`,
@@ -164,6 +164,50 @@ Guide : `docs/ai.fr.md`.
 - [ ] Surveiller le taux de rejets encoding dans le tableau admin ; si un jour il reste à 0, retirer le nouvel essai.
 - [ ] Mise en ligne : vrai filtre de sortie réseau (pare-feu ou proxy) pour le chef d'atelier et le rédacteur.
 - [ ] Séance 9 : bouton admin pour relancer une notice rejetée.
+
+## SÉANCE 9A : LE GUICHET (faite le 10 novembre 2026, moteur et règles inchangés)
+
+Guide : `docs/accounts.fr.md`.
+
+- [x] Comptes gratuits avec Better Auth dans un service séparé, le guichet (`auth/`) : inscription avec e-mail vérifié,
+      connexion, déconnexion, mot de passe oublié, suppression du compte avec le mot de passe. Pas de connexion Google ou GitHub.
+- [x] Le facteur, seul à tenir les identifiants SMTP ; e-mails en texte brut ; Mailpit en développement (profil `dev`).
+- [x] ALTCHA invisible (preuve de travail PBKDF2/SHA-256, coût 2000) sur l'inscription, la connexion et le mot de passe oublié.
+- [x] Lecture de l'IP par une seule fonction de l'API ; le site ajoute l'adresse réelle à `X-Forwarded-For` (`web/client-ip.js`),
+      car Next.js n'en ajoute aucune. Empreinte HMAC-SHA256 avec un sel du jour effacé après 2 jours.
+- [x] Au plus 30 comptes créés par réseau et par jour UTC ; les refus comptés par jour, sans adresse.
+- [x] Un rôle PostgreSQL pour le guichet, un pour le facteur, un pour l'API, le chef d'atelier et le rédacteur
+      (`mcplain_app`) ; le propriétaire de la base ne sert plus qu'au service ponctuel `migrate` (décision de David du
+      10 novembre : sans cela, l'API restait superutilisateur et lisait le schéma `auth`).
+- [x] `current_user()` dans l'API, prêt pour la séance 9b.
+- [x] uv 0.13.6 sur le poste et en CI (`required-version`) : `uv lock` écrit la même `revision` que Dependabot.
+
+## SÉANCE 9B : QUOTAS ET COMPTEUR (à faire)
+
+- Quotas : sans compte, 3 analyses par jour et par adresse IP ; avec compte, 10 par jour au compte ; l'admin n'a pas de quota.
+- Anti-rafale : 30 demandes par heure et par adresse IP, cache compris.
+- ALTCHA sur l'analyse (bouton ANALYSER).
+- Le compteur d'analyses près du champ, et l'historique des analyses du compte.
+- Utiliser `current_user()` et `visitor_ip()` de la séance 9a.
+
+## SÉANCE 9C : ADMIN ET SIGNALEMENTS (à faire)
+
+- Tableau admin : dépense et solde de l'IA, taux de rejets `encoding`, nombre de refus « trop de comptes créés depuis ce
+  réseau » par jour (table `signup_refusals`), bouton pour relancer une notice rejetée.
+- Signalements (dont « Tu es l'auteur ? Signale une erreur »).
+- Umami (mesure d'audience auto-hébergée).
+- Double authentification TOTP (application, code à 6 chiffres, 30 secondes), obligatoire pour le seul compte admin, avec codes
+  de secours. Les autres comptes n'ont que l'e-mail vérifié.
+
+## MISE EN LIGNE (comptes)
+
+- Choisir un fournisseur SMTP (jamais un serveur d'e-mails maison) ; régler `MCPLAIN_SMTP_*` avec STARTTLS.
+- Un rôle PostgreSQL par service existant (API, chef d'atelier, rédacteur), au lieu du rôle commun `mcplain_app`.
+- `MCPLAIN_PUBLIC_URL` en `https://` (cookies `Secure`) ; `MCPLAIN_TRUSTED_PROXY_HOPS=2` avec un relais TLS devant le site ; ne
+  plus publier le port 8000 de l'API.
+- Mentions de confidentialité : le cookie de session est exempté de consentement (il sert seulement à rester connecté) ; les
+  empreintes d'IP (HMAC avec un sel du jour, effacé après 2 jours) ; les e-mails (adresse du compte, liens à usage unique).
+- Relever `MCPLAIN_SIGNUPS_PER_IP_PER_DAY` si le tableau admin montre des refus fréquents.
 
 ## PLUS TARD
 

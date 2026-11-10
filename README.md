@@ -68,6 +68,7 @@ Docker socket as seen from a container (`DOCKER_GID`).
 
 ```bash
 cp .env.example .env
+scripts/init-secrets.sh
 mkdir -p var/jobs
 docker compose build atelier
 docker compose up -d --build
@@ -78,6 +79,10 @@ curl -s http://127.0.0.1:8000/api/analyses/<id>
 The website is then on http://127.0.0.1:3000 (another port with `MCPLAIN_WEB_PORT` in `.env`, for example `MCPLAIN_WEB_PORT=3010` when another project already uses 3000), and the API on `127.0.0.1:8000`. Both only listen on
 `127.0.0.1`. `GITHUB_TOKEN` in `.env` is optional: it raises the GitHub API limit and only the
 dispatcher receives it.
+
+`scripts/init-secrets.sh` fills the empty secrets of `.env` with random values (it never replaces a value and never prints
+one). Accounts are handled by the counter (`auth/`, Better Auth); in development their mails land in Mailpit, on
+http://127.0.0.1:8025. Guide (in French): `docs/accounts.fr.md`.
 
 ### The website in development
 
