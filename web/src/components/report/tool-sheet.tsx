@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Fragment, useState } from "react";
 
+import type { ToolTranslation } from "@/lib/ai-text";
 import type { Alert, Tool } from "@/lib/analysis";
 import { SHEET_ID } from "@/lib/constants";
 import { alertPlace, findingPlaces, litLamps, placeText, toolNumber } from "@/lib/report";
@@ -51,74 +52,65 @@ function AlertNote({ alert, more }: { alert: Alert; more: number }) {
   );
 }
 
-function AuthorText({ tool, translated }: { tool: Tool; translated: string | null }) {
+function shownText(original: string, translated: string | null, showTranslation: boolean): string {
+  if (showTranslation && translated !== null) {
+    return translated;
+  }
+  return original;
+}
+
+function AuthorBadge({ translated, showTranslation }: { translated: boolean; showTranslation: boolean }) {
   const t = useTranslations("sheet");
-  const [original, setOriginal] = useState(false);
-  if (translated === null) {
+  if (!translated) {
     return (
-      <>
-        <span className="mt-2.5 inline-block rounded-full bg-orig-bg px-2.5 py-0.5 text-xs font-semibold text-orig-fg">
-          {t("authorText")}
-        </span>
-        <div className="mt-2.5" data-description="">
-          <RawText value={tool.description} variant="block" limit={800} />
-        </div>
-      </>
+      <span className="mt-2.5 inline-block rounded-full bg-orig-bg px-2.5 py-0.5 text-xs font-semibold text-orig-fg">
+        {t("authorText")}
+      </span>
     );
   }
-  let label = t("translatedText");
-  let shown = translated;
-  let toggle = t("showOriginal");
-  if (original) {
-    label = t("authorText");
-    shown = tool.description;
-    toggle = t("showTranslation");
+  let label = t("authorText");
+  if (showTranslation) {
+    label = t("translatedText");
   }
   return (
-    <>
-      <span
-        data-translated={String(!original)}
-        className="mt-2.5 inline-block rounded-2xl bg-orig-bg px-2.5 py-0.5 text-xs font-semibold text-orig-fg"
-      >
-        {label}
-      </span>
-      <div className="mt-2.5" data-description="">
-        <RawText value={shown} variant="block" limit={2400} />
-      </div>
-      <button
-        type="button"
-        aria-pressed={original}
-        onClick={() => setOriginal(!original)}
-        className="mt-2 inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-accent underline underline-offset-4 hover:text-accent-hover"
-      >
-        {toggle}
-      </button>
-    </>
+    <span
+      data-translated={String(showTranslation)}
+      className="mt-2.5 inline-block rounded-2xl bg-orig-bg px-2.5 py-0.5 text-xs font-semibold text-orig-fg"
+    >
+      {label}
+    </span>
   );
 }
 
-function Announced({ tool, translated }: { tool: Tool; translated: string | null }) {
+function Announced({ tool, translation }: { tool: Tool; translation: ToolTranslation | null }) {
   const t = useTranslations("sheet");
+  const [original, setOriginal] = useState(false);
   const description = tool.description.trim();
   const annotations = Object.entries(tool.annotations);
+  const translated = translation !== null;
+  const showTranslation = translated && !original;
+  let toggle = t("showOriginal");
+  if (original) {
+    toggle = t("showTranslation");
+  }
 
   return (
-    <div className="rounded-2xl bg-panel2 px-[22px] py-5">
+    <div className="rounded-2xl bg-panel2 px-[22px] py-5" data-announced="">
       <h4 className="font-condensed text-lg font-bold tracking-[0.08em]">
         {t("announces")} <span className="font-medium text-faint">{t("byAuthor")}</span>
       </h4>
-      {description === "" && (
-        <>
-          <span className="mt-2.5 inline-block rounded-full bg-orig-bg px-2.5 py-0.5 text-xs font-semibold text-orig-fg">
-            {t("authorText")}
-          </span>
-          <div className="mt-2.5" data-description="">
-            {tool.description_is_dynamic && <p className="text-ink2">{t("dynamicDescription")}</p>}
-            {!tool.description_is_dynamic && <p className="text-ink2">{t("noDescription")}</p>}
-          </div>
-        </>
-      )}
-      {description !== "" && <AuthorText tool={tool} translated={translated} />}
+      <AuthorBadge translated={translated} showTranslation={showTranslation} />
+      <div className="mt-2.5" data-description="">
+        {description === "" && tool.description_is_dynamic && <p className="text-ink2">{t("dynamicDescription")}</p>}
+        {description === "" && !tool.description_is_dynamic && <p className="text-ink2">{t("noDescription")}</p>}
+        {description !== "" && (
+          <RawText
+            value={shownText(tool.description, translation?.description ?? null, showTranslation)}
+            variant="block"
+            limit={2400}
+          />
+        )}
+      </div>
       {description !== "" && tool.description_is_dynamic && (
         <p className="mt-2 text-sm text-ink2">
           <EngineText code="cli.tool.description_partly_dynamic" />
@@ -147,23 +139,39 @@ function Announced({ tool, translated }: { tool: Tool; translated: string | null
         <div className="mt-3.5">
           <p className="text-sm text-faint">{t("parameters")}</p>
           <ul className="mt-1 flex flex-col gap-1.5 text-sm">
-            {tool.parameters.map((parameter, index) => (
-              <li key={index}>
-                <span className="font-medium text-ink">
-                  <RawText value={parameter.name} limit={100} />
-                </span>
-                {parameter.description !== null && (
-                  <>
-                    {t("colon")}
-                    <span className="text-ink2">
-                      <RawText value={parameter.description} limit={300} />
-                    </span>
-                  </>
-                )}
-              </li>
-            ))}
+            {tool.parameters.map((parameter, index) => {
+              const parameterTranslation = translation?.parameters[index] ?? null;
+              return (
+                <li key={index} data-parameter={index} data-parameter-translated={String(showTranslation && parameterTranslation !== null)}>
+                  <span className="font-medium text-ink">
+                    <RawText value={parameter.name} limit={100} />
+                  </span>
+                  {parameter.description !== null && (
+                    <>
+                      {t("colon")}
+                      <span className="text-ink2">
+                        <RawText
+                          value={shownText(parameter.description, parameterTranslation, showTranslation)}
+                          limit={900}
+                        />
+                      </span>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
+      )}
+      {translated && (
+        <button
+          type="button"
+          aria-pressed={original}
+          onClick={() => setOriginal(!original)}
+          className="mt-2 inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-accent underline underline-offset-4 hover:text-accent-hover"
+        >
+          {toggle}
+        </button>
       )}
     </div>
   );
@@ -216,9 +224,9 @@ function CodeCan({ tool }: { tool: Tool }) {
   );
 }
 
-type SheetProps = { tool: Tool; index: number; alerts: Alert[]; translated?: string | null };
+type SheetProps = { tool: Tool; index: number; alerts: Alert[]; translation?: ToolTranslation | null };
 
-export function ToolSheet({ tool, index, alerts, translated = null }: SheetProps) {
+export function ToolSheet({ tool, index, alerts, translation = null }: SheetProps) {
   const t = useTranslations("sheet");
   const declared = placeText({ function: null, file: tool.file, line: tool.line });
 
@@ -246,7 +254,7 @@ export function ToolSheet({ tool, index, alerts, translated = null }: SheetProps
       </p>
       {alerts.length > 0 && <AlertNote alert={alerts[0]} more={alerts.length - 1} />}
       <div className="mt-[18px] grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] gap-3.5">
-        <Announced key={index} tool={tool} translated={translated} />
+        <Announced key={index} tool={tool} translation={translation} />
         <CodeCan tool={tool} />
       </div>
     </section>

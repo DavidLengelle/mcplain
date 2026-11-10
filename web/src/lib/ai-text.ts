@@ -182,13 +182,17 @@ export function withPlainTitles(tools: Tool[], answer: NoticeAnswer | null): Too
   });
 }
 
-export function translationOfTool(answer: TranslationAnswer | null, index: number): string | null {
+export type ToolTranslation = { description: string | null; parameters: (string | null)[] };
+
+export function translationOfTool(answer: TranslationAnswer | null, index: number, parameterCount: number): ToolTranslation | null {
   if (answer === null || answer.content === null) {
     return null;
   }
-  const found = answer.content.items.find((item) => item.id === `tool_${index}`);
-  if (found === undefined) {
+  const texts = new Map(answer.content.items.map((item) => [item.id, item.text]));
+  const description = texts.get(`tool_${index}`) ?? null;
+  const parameters = Array.from({ length: parameterCount }, (_, position) => texts.get(`tool_${index}_param_${position}`) ?? null);
+  if (description === null && parameters.every((text) => text === null)) {
     return null;
   }
-  return found.text;
+  return { description, parameters };
 }

@@ -133,11 +133,20 @@ describe("the answer of the notice route", () => {
     expect(withPlainTitles(tools, null)).toBe(tools);
   });
 
-  it("gives each tool its translation by identifier", () => {
-    const value = parseTranslationAnswer(translation("ready", { items: [{ id: "tool_1", text: "Bonjour" }] }));
-    expect(translationOfTool(value, 1)).toBe("Bonjour");
-    expect(translationOfTool(value, 0)).toBeNull();
-    expect(translationOfTool(null, 0)).toBeNull();
+  it("gives each tool its translation and those of its parameters by identifier", () => {
+    const value = parseTranslationAnswer(
+      translation("ready", {
+        items: [
+          { id: "tool_1", text: "Bonjour" },
+          { id: "tool_1_param_1", text: "Fuseau" },
+          { id: "tool_2_param_0", text: "Seul" },
+        ],
+      }),
+    );
+    expect(translationOfTool(value, 1, 2)).toEqual({ description: "Bonjour", parameters: [null, "Fuseau"] });
+    expect(translationOfTool(value, 2, 1)).toEqual({ description: null, parameters: ["Seul"] });
+    expect(translationOfTool(value, 0, 3)).toBeNull();
+    expect(translationOfTool(null, 0, 0)).toBeNull();
   });
 });
 
@@ -336,6 +345,51 @@ describe("the translation in the sheet", () => {
     expect(container.querySelector("[data-description]")?.textContent).toContain(original.slice(0, 40));
     fireEvent.click(screen.getByRole("button", { name: "Voir la traduction" }));
     expect(container.querySelector('[data-translated="true"]')).not.toBeNull();
+  });
+
+  it("translates the parameters, keeps the original of an untranslated one, and switches the whole card", async () => {
+    const view = loadView(ORANGE);
+    const tool = view.result?.servers[0].tools[0];
+    const tail = tool?.parameters[1].description ?? "";
+    const head = tool?.parameters[2].description ?? "";
+    serve([answer("failed")], [
+      translation("ready", {
+        items: [
+          { id: "tool_0", text: "Lit tout le contenu d'un fichier." },
+          { id: "tool_0_param_1", text: "Si présent, ne renvoie que les N dernières lignes." },
+        ],
+      }),
+    ]);
+    const { container } = renderWithIntl(<ReportView analysis={view} />, "fr");
+    fireEvent.click(container.querySelector('[data-tool-card="0"]') as Element);
+    await waitFor(() => expect(container.querySelector('[data-translated="true"]')).not.toBeNull());
+    const card = () => container.querySelector("[data-announced]") as Element;
+    const parameter = (index: number) => card().querySelector(`[data-parameter="${index}"]`) as Element;
+    expect(card().querySelectorAll("[data-translated]")).toHaveLength(1);
+    expect(card().firstElementChild?.nextElementSibling?.getAttribute("data-translated")).toBe("true");
+    expect(parameter(1).textContent).toContain("Si présent, ne renvoie que les N dernières lignes.");
+    expect(parameter(1).getAttribute("data-parameter-translated")).toBe("true");
+    expect(parameter(2).textContent).toContain(head.slice(0, 30));
+    expect(parameter(2).getAttribute("data-parameter-translated")).toBe("false");
+    expect(parameter(1).textContent).toContain("tail");
+    fireEvent.click(screen.getByRole("button", { name: "Voir l'original" }));
+    expect(card().querySelector('[data-translated="false"]')?.textContent).toBe("Texte de l'auteur");
+    expect(card().querySelector("[data-description]")?.textContent).toContain("Read the complete contents");
+    expect(parameter(1).textContent).toContain(tail.slice(0, 30));
+    expect(parameter(1).getAttribute("data-parameter-translated")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Voir la traduction" }));
+    expect(parameter(1).textContent).toContain("Si présent");
+    expect(card().querySelector("[data-description]")?.textContent).toContain("Lit tout le contenu");
+  });
+
+  it("shows a translated parameter even when the tool description is not translated", async () => {
+    const view = loadView(ORANGE);
+    serve([answer("failed")], [translation("ready", { items: [{ id: "tool_0_param_2", text: "Les N premières lignes." }] })]);
+    const { container } = renderWithIntl(<ReportView analysis={view} />, "fr");
+    fireEvent.click(container.querySelector('[data-tool-card="0"]') as Element);
+    await waitFor(() => expect(container.querySelector('[data-translated="true"]')).not.toBeNull());
+    expect(container.querySelector("[data-description]")?.textContent).toContain("Read the complete contents");
+    expect(container.querySelector('[data-parameter="2"]')?.textContent).toContain("Les N premières lignes.");
   });
 
   it("keeps the original when the translation is rejected", async () => {

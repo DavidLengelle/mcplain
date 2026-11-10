@@ -136,6 +136,32 @@ test("the translation shows with its mark, and a rejected one keeps the original
   await expect(page.locator('[data-translated="false"]')).toHaveText("Texte de l'auteur");
 });
 
+test("the parameters are translated too, and the whole card switches back to the original", async ({ page }) => {
+  const translated = answer("ready", {
+    kind: "translation",
+    fallback: null,
+    source: "ai",
+    content: {
+      items: [
+        { id: "tool_0", text: "Lit tout le contenu d'un fichier." },
+        { id: "tool_0_param_1", text: "Si présent, ne renvoie que les N dernières lignes." },
+      ],
+    },
+  });
+  await open(page, [answer("failed")], [translated]);
+  await page.locator('[data-tool-card="0"]').click();
+  const card = page.locator("[data-announced]");
+  await expect(card.locator('[data-translated="true"]')).toHaveText("Traduction automatique du texte de l'auteur, pas un avis de MCPlain");
+  await expect(card.locator('[data-parameter="1"]')).toContainText("Si présent, ne renvoie que les N dernières lignes.");
+  await expect(card.locator('[data-parameter="2"]')).toHaveAttribute("data-parameter-translated", "false");
+  await expect(card.locator('[data-parameter="2"]')).toContainText("If provided");
+  await card.getByRole("button", { name: "Voir l'original" }).click();
+  await expect(card.locator("[data-description]")).toContainText("Read the complete contents");
+  await expect(card.locator('[data-parameter="1"]')).toContainText("If provided");
+  await card.getByRole("button", { name: "Voir la traduction" }).click();
+  await expect(card.locator('[data-parameter="1"]')).toContainText("Si présent");
+});
+
 test("a rejected translation keeps the text of the author", async ({ page }) => {
   await open(page, [answer("failed")], [answer("rejected", { kind: "translation", fallback: null, reject_reason: "link" })]);
   await expect(page.locator("[data-description]")).toBeVisible();

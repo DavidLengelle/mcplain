@@ -69,7 +69,7 @@ function FullReport({ analysis, result }: { analysis: AnalysisView; result: Anal
           tool={tool}
           index={selected}
           alerts={alertsOfTool(tool, alerts)}
-          translated={translationOfTool(translation.answer, selected)}
+          translation={translationOfTool(translation.answer, selected, tool.parameters.length)}
         />
       )}
       <TechDetails
