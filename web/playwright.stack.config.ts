@@ -29,6 +29,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   reporter: "list",
   timeout: 180_000,
+  workers: 1,
   use: {
     baseURL: process.env.MCPLAIN_SITE_URL ?? `http://127.0.0.1:${webPort()}`,
     locale: "en-US",

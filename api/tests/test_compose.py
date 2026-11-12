@@ -37,7 +37,7 @@ def web_port() -> str:
 
 API_URL = os.environ.get("MCPLAIN_API_URL", "http://127.0.0.1:8000")
 PROJECT = "mcplain"
-FINISHED: frozenset[str] = frozenset({"done", "failed"})
+FINISHED: frozenset[str] = frozenset({"done", "failed", "quota_exhausted"})
 ANALYSIS_TIMEOUT = 300
 CLAIM_COUNT = 300
 CLAIM_SCRIPT = f"""
@@ -187,10 +187,28 @@ def compose_container(client: DockerClient, service: str) -> Container:
     return containers[0]
 
 
-def analyze(http: httpx.Client, text: str) -> dict[str, Any]:
-    """Ask the API for an analysis and poll it until it is finished"""
+def solved_altcha(http: httpx.Client) -> str:
+    """Ask the API for an ALTCHA challenge and solve it as the widget of a browser would"""
 
-    response = http.post("/api/analyses", json={"input": text})
+    from altcha import Challenge, Payload, solve_challenge
+
+    challenge = Challenge.from_dict(http.get("/api/altcha/challenge").json())
+    solution = solve_challenge(challenge)
+    assert solution is not None
+    return Payload(challenge, solution).to_base64()
+
+
+def reset_counters() -> None:
+    """Empty the quotas and the burst counts as the owner of the database, never through the API: tests only"""
+
+    postgres_lines(docker.from_env(), "DELETE FROM quota_usage; DELETE FROM burst_counts; DELETE FROM analysis_tokens;")
+
+
+def analyze(http: httpx.Client, text: str) -> dict[str, Any]:
+    """Ask the API for an analysis with a solved ALTCHA, the counters reset first, and poll it until it is finished"""
+
+    reset_counters()
+    response = http.post("/api/analyses", json={"input": text}, headers={"x-altcha": solved_altcha(http)})
     assert response.status_code == 202, response.text
     identifier = response.json()["id"]
     deadline = time.monotonic() + ANALYSIS_TIMEOUT

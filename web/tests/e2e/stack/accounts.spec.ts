@@ -1,75 +1,15 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-const MAILPIT = process.env.MCPLAIN_MAILPIT_URL ?? "http://127.0.0.1:8025";
-const SCREENS = join(__dirname, "..", "..", "..", "test-results", "screens");
-const RESULTS = join(__dirname, "..", "..", "..", "test-results");
+import { linkOf, RESULTS, screens, signIn, site, waitForMail } from "./helpers";
+
 const PASSWORD = "first password, long enough";
 const NEW_PASSWORD = "second password, long enough";
-const THEMES = ["light", "dark"] as const;
-const WIDTHS = [1280, 390] as const;
-const LINK = /https?:\/\/\S+/;
 const ALTCHA_RUNS = 10;
 const MID_PHONE_SLOWDOWN = 4;
 const SIGN_IN_WINDOW_MS = 11_000;
-
-function site(baseURL: string | undefined, path: string): string {
-  const url = new URL(path, baseURL);
-  url.hostname = "localhost";
-  return url.toString();
-}
-
-type MailSummary = { ID: string; Subject: string; To: { Address: string }[] };
-
-async function waitForMail(request: APIRequestContext, address: string, subject: RegExp): Promise<{ text: string; html: string }> {
-  const deadline = Date.now() + 60_000;
-  while (Date.now() < deadline) {
-    const listing = await request.get(`${MAILPIT}/api/v1/messages`, { params: { limit: "200" } });
-    const body = (await listing.json()) as { messages: MailSummary[] };
-    const found = body.messages.find(
-      (message) => subject.test(message.Subject) && message.To.some((recipient) => recipient.Address === address),
-    );
-    if (found !== undefined) {
-      const message = (await (await request.get(`${MAILPIT}/api/v1/message/${found.ID}`)).json()) as { Text: string; HTML: string };
-      await request.delete(`${MAILPIT}/api/v1/messages`, { data: { IDs: [found.ID] } });
-      return { text: message.Text, html: message.HTML };
-    }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-  throw new Error(`no mail for ${address}`);
-}
-
-function linkOf(text: string): string {
-  const match = LINK.exec(text);
-  if (match === null) {
-    throw new Error("the mail has no link");
-  }
-  return match[0];
-}
-
-async function signIn(page: Page, baseURL: string | undefined, email: string, password: string) {
-  await page.goto(site(baseURL, "/fr/account/sign-in"));
-  await page.getByLabel("Adresse e-mail").fill(email);
-  await page.getByLabel("Mot de passe", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "SE CONNECTER" }).click();
-}
-
-async function screens(page: Page, baseURL: string | undefined, path: string, name: string, ready: string) {
-  mkdirSync(SCREENS, { recursive: true });
-  for (const theme of THEMES) {
-    for (const width of WIDTHS) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ colorScheme: theme });
-      await page.goto(site(baseURL, path));
-      await expect(page.locator(ready).first()).toBeVisible();
-      await page.screenshot({ path: join(SCREENS, `${name}-${theme}-${width}.png`), fullPage: true });
-    }
-  }
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.emulateMedia({ colorScheme: "light" });
-}
 
 test("an account is created, verified, used, recovered and deleted", async ({ page, request, baseURL }) => {
   const email = `ada-${Date.now()}@example.com`;
@@ -82,7 +22,7 @@ test("an account is created, verified, used, recovered and deleted", async ({ pa
   await page.getByRole("button", { name: "CRÉER MON COMPTE" }).click();
   await expect(page.getByTestId("sign-up-done")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(email)).toBeVisible();
-  await expect(page.getByText("ALTCHA")).toHaveCount(0);
+  await expect(page.getByText("ALTCHA").filter({ visible: true })).toHaveCount(0);
 
   const verification = await waitForMail(request, email, /Confirme ton adresse/);
   expect(verification.html).toBe("");
@@ -167,7 +107,14 @@ test("the ALTCHA proof stays under one second on a slowed down processor", async
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
   const sorted = [...times].sort((first, second) => first - second);
   const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+  const maximum = sorted[sorted.length - 1] ?? 0;
+  const challenge = (await (await page.request.get(site(baseURL, "/api/altcha/challenge"))).json()) as { parameters: { cost: number } };
+  const cost = challenge.parameters.cost;
   mkdirSync(RESULTS, { recursive: true });
-  writeFileSync(join(RESULTS, "altcha-timing.json"), JSON.stringify({ slowdown: MID_PHONE_SLOWDOWN, times, median }, null, 2));
+  writeFileSync(
+    join(RESULTS, "altcha-timing.json"),
+    JSON.stringify({ cost, slowdown: MID_PHONE_SLOWDOWN, times, median, maximum }, null, 2),
+  );
+  expect(cost).toBe(5000);
   expect(median).toBeLessThan(1000);
 });
