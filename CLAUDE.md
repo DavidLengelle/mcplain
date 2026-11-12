@@ -147,6 +147,13 @@ The repository is public: never commit secrets or local files. The remote is SSH
   build.
 - Never pipe a test command into tail, head or grep before a push: the pipe hides the exit code. Run tests
   without a pipe, or with `set -o pipefail`, and check the exit code.
+- The bench runs in CI on every push to `main` and every pull request that touches a part it depends on (the path filter
+  of `.github/workflows/bench.yml`: `engine/`, `bench/`, `api/`, `auth/`, `web/`, `docker/`, `.dockerignore`, compose,
+  the bench scripts, the workflow). Before any push that touches one of these paths, run the bench locally as in CI, on a
+  stack rebuilt from the commit (`MCPLAIN_ANTHROPIC_API_KEY= docker compose up -d --build`, the bench account of
+  `scripts/make-bench-account.sh`), from `bench/`:
+  `uv run --locked python bench.py run --check --mask-red --output results/local.json`. Push only if it exits 0. Guide:
+  `docs/bench.fr.md`, section 5. When a path is added to the filter, `bench/tests/test_workflow.py` gets it too.
 - Never force push. Never rewrite history that is already pushed.
 
 ## Agent instruction files

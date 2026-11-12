@@ -113,9 +113,23 @@ Les tests du script, sans réseau ni pile :
 uv run pytest
 ```
 
-## 5. Le banc chaque semaine en CI
+## 5. Le banc en CI : chaque semaine et à chaque changement
 
-Le workflow `.github/workflows/bench.yml` tourne chaque lundi à 05:17 UTC, et à la main. Il construit les
+Le workflow `.github/workflows/bench.yml` tourne chaque lundi à 05:17 UTC, à la main, et tout seul (séance du
+12 novembre 2026) à chaque push sur `main` et à chaque pull request qui touche une pièce dont il dépend : `engine/`, `bench/`,
+`api/` (migrations comprises), `auth/`, `web/` (le banc passe par le site), `docker/`, `.dockerignore`, `compose.yaml`,
+`scripts/make-bench-account.sh` et `bench.yml` lui-même. Pourquoi : en séance 9a, le banc a été cassé sans que personne le
+voie, car il ne tournait que le lundi. Un seul banc à la fois par branche : un nouveau push annule le banc encore en cours
+(`concurrency`). Le test `bench/tests/test_workflow.py` vérifie ce filtre, et que chaque script lancé par le workflow y est.
+
+Avant de pousser un changement de ces chemins, lance le banc en local avec la même commande que la CI (règle de `CLAUDE.md`),
+et ne pousse que s'il est vert :
+
+```bash
+uv run --locked python bench.py run --check --mask-red --output results/local.json
+```
+
+En CI, le workflow construit les
 images, lance la pile avec docker compose (API, chef d'atelier, guichet et site, avec des secrets « test only » écrits en dur),
 crée le compte du banc avec `scripts/make-bench-account.sh`, puis lance le banc par le site sur les dernières versions des serveurs
 de la liste.
