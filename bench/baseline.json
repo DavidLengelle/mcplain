@@ -1,18 +1,18 @@
 {
-  "engine_version": "0.6.0",
-  "date": "2026-11-09T13:13:03+00:00",
-  "source": "2026-11-09-engine-0.6.0.json",
+  "engine_version": "0.6.1",
+  "date": "2026-11-12T17:16:27+00:00",
+  "source": "2026-11-12-engine-0.6.1.json",
   "reds_left_out": 0,
   "servers": {
     "fetch": {
       "color": "orange",
       "gray_case": null,
-      "version": "2026.11.4"
+      "version": "2026.11.11"
     },
     "filesystem": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.2.0"
+      "version": "2.3.0"
     },
     "github-go": {
       "color": "gray",
@@ -22,22 +22,22 @@
     "time": {
       "color": "green",
       "gray_case": null,
-      "version": "2026.11.4"
+      "version": "2026.11.11"
     },
     "git": {
       "color": "orange",
       "gray_case": null,
-      "version": "2026.11.4"
+      "version": "2026.11.11"
     },
     "everything": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.2.1"
+      "version": "2.3.0"
     },
     "memory": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.1.0"
+      "version": "2.1.1"
     },
     "sequential-thinking": {
       "color": "green",
@@ -80,8 +80,8 @@
       "version": "2025.4.25"
     },
     "sentry-archived": {
-      "color": "gray",
-      "gray_case": "network_unresolved",
+      "color": "green",
+      "gray_case": null,
       "version": "2025.1.14"
     },
     "notion": {
@@ -107,22 +107,22 @@
     "context7": {
       "color": "orange",
       "gray_case": null,
-      "version": "4.5.1"
+      "version": "4.7.0"
     },
     "chrome-devtools": {
       "color": "gray",
       "gray_case": "no_tools_found",
-      "version": "1.12.0"
+      "version": "1.13.0"
     },
     "playwright": {
       "color": "gray",
       "gray_case": "not_a_server",
-      "version": "0.0.84"
+      "version": "0.0.85"
     },
     "firecrawl": {
       "color": "orange",
       "gray_case": null,
-      "version": "3.38.0"
+      "version": "3.40.0"
     },
     "gcloud": {
       "color": "orange",
@@ -152,17 +152,17 @@
     "hostinger": {
       "color": "orange",
       "gray_case": null,
-      "version": "3.31.3"
+      "version": "3.40.0"
     },
     "storybook": {
       "color": "gray",
       "gray_case": "no_tools_found",
-      "version": "10.6.6"
+      "version": "10.6.7"
     },
     "desktop-commander": {
       "color": "red",
       "gray_case": null,
-      "version": "0.3.1",
+      "version": "0.3.3",
       "verified": true,
       "rules": [
         "R10"
@@ -171,7 +171,7 @@
     "gitlab": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.3.22"
+      "version": "2.3.26"
     },
     "figma": {
       "color": "orange",
@@ -191,7 +191,7 @@
     "ms-365": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.182.1"
+      "version": "0.184.0"
     },
     "calculator": {
       "color": "green",
@@ -201,7 +201,7 @@
     "atlassian": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.24.1"
+      "version": "0.24.3"
     },
     "blender": {
       "color": "gray",
@@ -216,7 +216,7 @@
     "aws-documentation": {
       "color": "orange",
       "gray_case": null,
-      "version": "1.2.4"
+      "version": "1.2.5"
     },
     "clickhouse": {
       "color": "orange",
@@ -226,12 +226,12 @@
     "workspace": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.4.0"
+      "version": "2.4.2"
     },
     "excel": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.2.9"
+      "version": "2.3.0"
     },
     "chroma": {
       "color": "orange",

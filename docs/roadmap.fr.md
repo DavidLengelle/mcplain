@@ -1,7 +1,7 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8, 9a et 9b et le corpus partie 2 sont faits. Les parties
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8, 9a et 9b, le corpus partie 2 et l'enquête fetch sont faits. Les parties
 « Protections » et « Adresses IP partagées » sont codées (séances 8, 9a et 9b).
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
@@ -203,9 +203,26 @@ Guide : `docs/accounts.fr.md`, sections 14 à 18.
 - [x] Le guichet ne limite plus la lecture d'une session (`/get-session`) : l'API la demande pour chaque visiteur depuis une
       seule adresse, et la limite de 100 par minute faisait passer des comptes connectés pour des anonymes.
 - [ ] Un compte banni plus tard (9c) n'est pas géré : rien n'est préparé dans les quotas.
-- [ ] `uvx mcp-server-fetch` 2026.11.11 (publié le 11 novembre) sort orange avec O04 et O08, sans O01 : deux tests de la vraie pile
-      qui attendent O01 échouent (`api/tests/test_compose.py`, `web/tests/e2e/stack/fetch.spec.ts`). Moteur inchangé : décision
-      de David attendue (enquête du moteur, ou nouvel attendu).
+- [x] `uvx mcp-server-fetch` 2026.11.11 sortait orange sans O01 : angle mort du moteur, corrigé le 12 novembre (section suivante).
+
+## BANC AUTOMATIQUE ET ENQUÊTE FETCH (faite le 12 novembre 2026, moteur 0.6.1, règles version 4)
+
+- [x] Le banc tourne aussi à chaque push sur `main` et à chaque pull request qui touche une pièce dont il dépend, un seul à la
+      fois par branche. Avant un tel push, le banc est lancé en local comme en CI (règle de `CLAUDE.md`).
+- [x] fetch 2026.11.11 avait perdu O01 par un angle mort du moteur : client reçu en paramètre annoté (`httpx.AsyncClient`),
+      requête construite par `build_request` puis envoyée par `send`. Les deux sont suivis ; fetch retrouve O01.
+- [x] O01 se tait quand l'adresse de base du client est écrite dans le code ou lue dans l'environnement, et que l'URL commence
+      par un chemin relatif écrit dans le code (ni vide, ni `//`, ni schéma, ni seulement des `/`). sentry-archived passe au vert.
+- [x] Tests de la vraie pile : toujours une version épinglée d'un vrai serveur, jamais la dernière ; chaque test efface ses
+      e-mails dans Mailpit et ses comptes.
+- [ ] À clé égale, garder le chemin le plus parlant pour l'explication (souvent le plus court) : fetch 2026.11.11 cite le
+      chemin de robots.txt, car deux chemins mènent à la même requête.
+- [ ] filesystem 2.3.0 a gagné O04, à examiner plus tard.
+- [ ] Un hôte fixé chez l'appelant et passé à une fonction qui fait la requête (`"https://api.example.com/" + ville`, puis
+      `requests.get(url)` ailleurs) allume encore O01 : limite connue, déjà là avant 0.6.1.
+- [ ] Un client reçu en paramètre : son adresse de base n'est lue que dans les appels du même fichier (sans appel dans le
+      fichier, O01 reste allumé). Un appel depuis un autre fichier n'est pas vu ; une adresse de base venue de l'IA y allume
+      quand même O01, là où le client est créé.
 
 ## SÉANCE 9C : ADMIN ET SIGNALEMENTS (à faire)
 
@@ -240,6 +257,8 @@ Guide : `docs/accounts.fr.md`, sections 14 à 18.
 
 ## PLUS TARD
 
+- Surveiller les nouvelles versions des serveurs de référence (fetch, filesystem, time, git...) : être prévenu quand une version
+  sort, pour vérifier son verdict et mettre à jour la version épinglée des tests de pile. Pas codé.
 - Liste des bibliothèques dans le formulaire de l'IA.
 - Retester la sortie imposée avec `scripts/notice-diagnose.sh --with-format` (abandonnée le 9 novembre 2026 : accents cassés en
   français).
