@@ -48,6 +48,8 @@ from mcplain.capabilities import (
     DOCKER_SOCKET_SUFFIX,
     NETWORK_BODY_KEYS,
     NETWORK_CLIENT_METHODS,
+    PYTHON_BASE_URL_CLIENTS,
+    PYTHON_CLIENT_METHODS,
     NETWORK_SEND_METHODS,
     PYTHON_CLIENT_URL_KEYWORDS,
     PYTHON_ENV_GETTERS,
@@ -56,6 +58,7 @@ from mcplain.capabilities import (
     PYTHON_LOCAL_SOCKET,
     PYTHON_LOCAL_SOCKET_FAMILY,
     PYTHON_NETWORK_CLIENTS,
+    PYTHON_POSITIONAL_BASE_URL_CLIENTS,
     PYTHON_OFFLINE_PARTS,
     PYTHON_OPEN_FUNCTIONS,
     PYTHON_OPEN_GLOBALS,
@@ -137,6 +140,8 @@ TOOL_ATTRIBUTE = "tool"
 CALL_TOOL_ATTRIBUTE = "call_tool"
 TOOL_SDK_ROOTS: frozenset[str] = frozenset({"fastmcp", "mcp"})
 MAX_CONSTANT_DEPTH = 5
+URL_SCHEME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
+SLASHES = "/\\"
 SCHEMA_METHODS: frozenset[str] = frozenset({"model_json_schema", "schema"})
 FIELD_FUNCTION = "Field"
 ANNOTATED_NAME = "Annotated"
@@ -244,6 +249,16 @@ def _runs_immediately(function: Node) -> bool:
         return False
     parts = dotted_parts(arguments.parent.child_by_field_name("function"))
     return bool(parts) and parts[-1] in IMMEDIATE_CALLBACK_FUNCTIONS
+
+
+def keeps_client_site(start: str) -> bool:
+    """Tell whether a relative URL that starts with this text keeps the site of the client base address"""
+
+    if not start or start[0].isspace() or not start[0].isprintable() or URL_SCHEME_PATTERN.match(start):
+        return False
+    if start[:2] in ("//", "\\\\", "/\\", "\\/"):
+        return False
+    return start.strip(SLASHES) != ""
 
 
 def docstring_node(definition: Node) -> Node | None:
@@ -372,6 +387,7 @@ class _PythonFile:
         self.class_constants: dict[str, Node] = {}
         self.filling_templates = False
         self.clients: list[tuple[str, int, int, str]] = []
+        self.client_bases: dict[tuple[str, int, int], bool] = {}
         self.client_factories: dict[str, str] = {}
         self.instance_factories: dict[str, tuple[str, str | None]] = {}
         self.tool_definitions: set[int] = set()
@@ -1564,14 +1580,15 @@ class _PythonFile:
                 self.client_factories[name] = constructor
 
     def _index_clients(self) -> None:
-        """Remember variables that hold a network client, from assignments, with ... as v and client factories"""
+        """Remember variables that hold a network client: assignments, with ... as v, client factories, annotated parameters"""
 
         self._index_client_factories()
         for assignment in self.nodes["assignment"]:
             left = assignment.child_by_field_name("left")
-            constructor = self._client_constructor(assignment.child_by_field_name("right"))
+            right = assignment.child_by_field_name("right")
+            constructor = self._client_constructor(right)
             if left is not None and constructor is not None:
-                self._bind_client(node_text(left), assignment, constructor)
+                self._bind_client(node_text(left), assignment, constructor, self._fixed_base(right))
         for item in self.nodes["with_item"]:
             value = item.child_by_field_name("value")
             if value is None or value.type != "as_pattern" or not value.named_children:
@@ -1579,10 +1596,167 @@ class _PythonFile:
             alias = value.child_by_field_name("alias")
             constructor = self._client_constructor(value.named_children[0])
             if alias is not None and constructor is not None:
-                self._bind_client(node_text(alias), item, constructor)
+                self._bind_client(node_text(alias), item, constructor, self._fixed_base(value.named_children[0]))
+        for definition in self.nodes["function_definition"]:
+            self._index_client_parameters(definition)
 
-    def _bind_client(self, name: str, node: Node, constructor: str) -> None:
-        """Record a client variable with the range where it is visible"""
+    def _index_client_parameters(self, definition: Node) -> None:
+        """Remember the parameters of a function annotated with a known network client class, visible in it only"""
+
+        parameters = definition.child_by_field_name("parameters")
+        if parameters is None:
+            return
+        next_position = 0
+        for parameter in parameters.named_children:
+            splat = any(item.type in ("list_splat_pattern", "dictionary_splat_pattern") for item in parameter.named_children)
+            if splat or parameter.type in ("keyword_separator", "list_splat_pattern", "dictionary_splat_pattern"):
+                next_position = -1
+            position = next_position
+            if next_position >= 0 and parameter.type != "positional_separator":
+                next_position += 1
+            if parameter.type not in ("typed_parameter", "typed_default_parameter"):
+                continue
+            name = parameter.child_by_field_name("name")
+            if name is None:
+                name = next((item for item in parameter.named_children if item.type == "identifier"), None)
+            annotation = parameter.child_by_field_name("type")
+            if name is None or annotation is None or not annotation.named_children:
+                continue
+            parts = dotted_parts(annotation.named_children[0])
+            if not parts:
+                continue
+            qualified, imported = self._resolve(parts)
+            if imported and qualified in PYTHON_NETWORK_CLIENTS:
+                fixed = self._parameter_base(definition, position, node_text(name))
+                self._bind_client(node_text(name), parameter, qualified, fixed)
+
+    def _parameter_base(self, definition: Node, position: int, name: str) -> bool:
+        """Tell whether each call of this file to a module function gives one client parameter a client with a fixed base"""
+
+        function_name = definition.child_by_field_name("name")
+        if function_name is None or not _at_module_level(definition):
+            return False
+        called = node_text(function_name)
+        found = False
+        for call in self.nodes["call"]:
+            callee = call.child_by_field_name("function")
+            if callee is None or callee.type != "identifier" or node_text(callee) != called:
+                continue
+            arguments = call.child_by_field_name("arguments")
+            if arguments is None or any(
+                item.type in ("list_splat", "dictionary_splat") for item in arguments.named_children
+            ):
+                return False
+            positional, keywords = split_arguments(arguments)
+            argument = keywords.get(name)
+            if argument is None and 0 <= position < len(positional):
+                argument = positional[position]
+            if argument is None or not self._gives_fixed_base(argument, call):
+                return False
+            found = True
+        return found
+
+    def _gives_fixed_base(self, argument: Node, call: Node) -> bool:
+        """Tell whether an argument is a client with a fixed base: a known client variable, or a client built in place"""
+
+        if argument.type == "identifier":
+            return self._client_base_of(node_text(argument), call.start_byte)
+        return self._client_constructor(argument) is not None and self._fixed_base(argument)
+
+    def _fixed_base(self, construction: Node | None) -> bool:
+        """Tell whether a client is built with a base address written in the code or read from the environment"""
+
+        if construction is None or construction.type != "call":
+            return False
+        parts = dotted_parts(construction.child_by_field_name("function"))
+        if not parts:
+            return False
+        qualified, imported = self._resolve(parts)
+        if not imported or qualified not in PYTHON_BASE_URL_CLIENTS:
+            return False
+        positional, keywords = split_arguments(construction.child_by_field_name("arguments"))
+        value = keywords.get("base_url")
+        if value is None and qualified in PYTHON_POSITIONAL_BASE_URL_CLIENTS and positional:
+            value = positional[0]
+        return value is not None and self._installer_value(value, construction, 0)
+
+    def _installer_value(self, node: Node, at: Node, depth: int) -> bool:
+        """Tell whether a value is a full address written in the code, or a setting read from the environment"""
+
+        if depth > MAX_CONSTANT_DEPTH:
+            return False
+        text = self.static_text(node)
+        if not text.dynamic:
+            return literal_host(text) is not None
+        if node.type == "parenthesized_expression" and node.named_children:
+            return self._installer_value(node.named_children[0], at, depth + 1)
+        if node.type == "boolean_operator":
+            operator = node.child_by_field_name("operator")
+            left = node.child_by_field_name("left")
+            right = node.child_by_field_name("right")
+            if operator is None or left is None or right is None or node_text(operator) != "or":
+                return False
+            return self._installer_value(left, at, depth + 1) and self._installer_value(right, at, depth + 1)
+        if node.type in ("call", "subscript"):
+            field = "function"
+            known = PYTHON_ENV_GETTERS
+            if node.type == "subscript":
+                field = "value"
+                known = PYTHON_ENV_MAPPINGS
+            parts = dotted_parts(node.child_by_field_name(field))
+            if not parts:
+                return False
+            qualified, imported = self._resolve(parts)
+            return imported and qualified in known
+        if node.type == "identifier" and not self._is_parameter(node_text(node), at):
+            value = self._value_of(node, at)
+            return value is not None and self._installer_value(value, at, depth + 1)
+        return False
+
+    def _is_parameter(self, name: str, at: Node) -> bool:
+        """Tell whether a name is a parameter of the function around a node"""
+
+        scope = at.parent
+        while scope is not None and scope.type not in ("function_definition", "lambda"):
+            scope = scope.parent
+        if scope is None:
+            return False
+        parameters = scope.child_by_field_name("parameters")
+        if parameters is None:
+            return False
+        for parameter in parameters.named_children:
+            node = parameter
+            if parameter.type in ("default_parameter", "typed_default_parameter"):
+                node = parameter.child_by_field_name("name")
+            elif parameter.type in ("typed_parameter", "list_splat_pattern", "dictionary_splat_pattern"):
+                node = next((item for item in parameter.named_children if item.type == "identifier"), None)
+            if node is not None and node.type == "identifier" and node_text(node) == name:
+                return True
+        return False
+
+    def _written_start(self, node: Node | None, at: Node, depth: int) -> str:
+        """Return the text written in the code at the very start of a value, empty when it starts with a computed part"""
+
+        if node is None or depth > MAX_CONSTANT_DEPTH:
+            return ""
+        text = self.static_text(node)
+        if not text.dynamic:
+            return text.value
+        if node.type == "string":
+            return text.value.split(DYNAMIC_PLACEHOLDER, 1)[0]
+        if node.type == "parenthesized_expression" and node.named_children:
+            return self._written_start(node.named_children[0], at, depth + 1)
+        if node.type == "binary_operator":
+            operands = self._concatenation_operands(node)
+            if not operands:
+                return ""
+            return self._written_start(operands[0], at, depth + 1)
+        if node.type == "identifier" and not self._is_parameter(node_text(node), at):
+            return self._written_start(self._value_of(node, at), at, depth + 1)
+        return ""
+
+    def _bind_client(self, name: str, node: Node, constructor: str, fixed_base: bool = False) -> None:
+        """Record a client variable with the range where it is visible, and whether its base address is fixed"""
 
         start, end = 0, len(self.source.data) + 1
         wanted = "function_definition"
@@ -1595,6 +1769,19 @@ class _PythonFile:
                 break
             current = current.parent
         self.clients.append((name, start, end, constructor))
+        key = (name, start, end)
+        self.client_bases[key] = self.client_bases.get(key, True) and fixed_base
+
+    def _client_base_of(self, name: str, offset: int) -> bool:
+        """Tell whether the client held by a variable name at an offset has a fixed base address"""
+
+        best = None
+        best_size = 0
+        for client_name, start, end, _ in self.clients:
+            if client_name == name and start <= offset < end and (best is None or end - start < best_size):
+                best = (client_name, start, end)
+                best_size = end - start
+        return best is not None and self.client_bases.get(best, False)
 
     def _client_of(self, name: str, offset: int) -> str | None:
         """Return the client class held by a variable name at an offset"""
@@ -1834,24 +2021,30 @@ class _PythonFile:
         """Record client.get(url) and the like when client holds a known network client"""
 
         attribute = callee.child_by_field_name("attribute")
-        target = callee.child_by_field_name("object")
-        if attribute is None or target is None:
+        receiver = callee.child_by_field_name("object")
+        if attribute is None or receiver is None:
             return False
         method = node_text(attribute)
-        constructor = self._client_of(node_text(target), call.start_byte)
+        constructor = self._client_of(node_text(receiver), call.start_byte)
         if constructor == PYTHON_LOCAL_SOCKET:
             positional, _ = split_arguments(arguments)
             if method in PYTHON_SOCKET_CONNECTS and positional:
                 if self.static_text(positional[0]).value.endswith(DOCKER_SOCKET_SUFFIX):
                     self._add(Capability.DOCKER_SOCKET, call, f"{PYTHON_LOCAL_SOCKET}.{method}")
             return True
-        if constructor is None or method not in NETWORK_CLIENT_METHODS:
+        if constructor is None or method not in PYTHON_CLIENT_METHODS:
             return False
         index = 0
         if method in URL_AFTER_METHOD:
             index = 1
         target = self._url_kind(arguments, index)
         self._add(Capability.NETWORK, call, f"{constructor}.{method}", target, self._sends(method, arguments))
+        if target == (UrlKind.DYNAMIC, None) and self._client_base_of(node_text(receiver), call.start_byte):
+            positional, keywords = split_arguments(arguments)
+            url = keywords.get("url")
+            if url is None and len(positional) > index:
+                url = positional[index]
+            self.report.findings[-1].fixed_site = keeps_client_site(self._written_start(url, call, 0))
         return True
 
     def _open_call(self, call: Node, arguments: Node | None, qualified: str) -> None:

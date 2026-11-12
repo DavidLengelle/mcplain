@@ -256,7 +256,7 @@ An HTML comment or an instruction tag of a description (IMPORTANT, SYSTEM, INSTR
 
 **Can contact any address**: ORANGE, a power to be aware of (nothing suspicious found).
 
-A tool sends requests to an address the AI gives it. It can contact any address the AI gives it, and what it brings back from the Internet can contain traps (hidden instructions for the AI).
+A tool sends requests to an address the AI gives it. It can contact any address the AI gives it, and what it brings back from the Internet can contain traps (hidden instructions for the AI). If the client has a base address written in the code or set at install time, and the address asked for starts with a path written in the code ("issues/" then a number), the site stays fixed: no O01.
 
 - In plain words: **Can reach any website**. A tool goes to the address the AI gives it. What it brings back from the Internet can hold traps for the AI. Advice: Watch the addresses it visits, and do not make it read your private pages.
 - Visible when reading the code: yes

@@ -144,6 +144,18 @@ def test_closed_world_tool_that_only_reads_the_network(fixtures: Path) -> None:
     assert [(alert.tool, alert.detail) for alert in fired] == [("status", "openWorldHint: network")]
 
 
+def test_open_network_follows_a_client_given_as_parameter(fixtures: Path) -> None:
+    """The AI address reaches build_request on a client passed to a helper, then send: O01, and the request is followed"""
+
+    result = analyze_fixture(fixtures / "rules" / "O01" / "client_parameter")
+    fired = [alert for alert in result.verdict.alerts if alert.rule == "O01"]
+    assert [(alert.tool, alert.function, alert.detail) for alert in fired] == [
+        ("read", "send_get", "httpx.AsyncClient.build_request")
+    ]
+    assert [step.function for step in fired[0].steps] == ["read_page", "send_get"]
+    assert result.servers[0].network_not_followed == []
+
+
 def test_open_network_cites_the_most_direct_request_first(fixtures: Path) -> None:
     """The request that receives the AI value as is comes before the robots.txt request built from it"""
 

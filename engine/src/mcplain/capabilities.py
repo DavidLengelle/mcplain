@@ -221,7 +221,8 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
 NETWORK_CLIENT_METHODS: frozenset[str] = frozenset(
     {"get", "post", "put", "patch", "delete", "head", "options", "request", "stream"}
 )
-URL_AFTER_METHOD: frozenset[str] = frozenset({"request", "stream"})
+URL_AFTER_METHOD: frozenset[str] = frozenset({"request", "stream", "build_request"})
+PYTHON_CLIENT_METHODS: frozenset[str] = NETWORK_CLIENT_METHODS | frozenset({"build_request"})
 NETWORK_SEND_METHODS: frozenset[str] = frozenset(
     {
         "post",
@@ -251,6 +252,8 @@ PYTHON_NETWORK_CLIENTS: frozenset[str] = frozenset(
         "urllib3.PoolManager",
     }
 )
+PYTHON_BASE_URL_CLIENTS: frozenset[str] = frozenset({"httpx.Client", "httpx.AsyncClient", "aiohttp.ClientSession"})
+PYTHON_POSITIONAL_BASE_URL_CLIENTS: frozenset[str] = frozenset({"aiohttp.ClientSession"})
 PYTHON_URL_FUNCTIONS: frozenset[str] = frozenset({"urllib.request.urlopen", "urllib.request.Request"})
 PYTHON_CLIENT_URL_KEYWORDS: tuple[str, ...] = ("base_url",)
 PYTHON_OPEN_GLOBALS: frozenset[str] = frozenset({"open"})

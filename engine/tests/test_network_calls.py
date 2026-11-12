@@ -209,6 +209,210 @@ def test_python_client_factory_stays_prudent(tmp_path: Path, factory: str) -> No
     assert all(finding.function != "read" for finding in findings)
 
 
+def test_python_client_from_an_annotated_parameter(tmp_path: Path) -> None:
+    """A parameter annotated with a known client class is a client in its own function only"""
+
+    findings = python_network(
+        tmp_path,
+        """import httpx
+import requests
+from httpx import AsyncClient
+
+
+async def one(client: httpx.AsyncClient, url: str):
+    await client.get(url)
+
+
+def two(session: requests.Session = None):
+    session.get("https://api.example.com/items")
+
+
+async def three(client: AsyncClient, url):
+    await client.post(url)
+
+
+def four(client: Unknown, url):
+    client.get(url)
+
+
+def five(url):
+    client.get(url)
+""",
+    )
+    calls = {finding.function: (finding.detail, finding.url_kind) for finding in findings}
+    assert calls["one"] == ("httpx.AsyncClient.get", UrlKind.DYNAMIC)
+    assert calls["two"] == ("requests.Session.get", UrlKind.LITERAL)
+    assert calls["three"] == ("httpx.AsyncClient.post", UrlKind.DYNAMIC)
+    assert "four" not in calls
+    assert "five" not in calls
+
+
+@pytest.mark.parametrize(
+    ("call", "kind", "host", "sends"),
+    [
+        ('client.build_request("GET", url)', UrlKind.DYNAMIC, None, False),
+        ('client.build_request("GET", "https://api.example.com/items")', UrlKind.LITERAL, "api.example.com", False),
+        ('client.build_request("POST", url, json=data)', UrlKind.DYNAMIC, None, True),
+        ("client.build_request(method, url=url)", UrlKind.DYNAMIC, None, True),
+    ],
+)
+def test_python_build_request_is_the_request_that_send_sends(
+    tmp_path: Path, call: str, kind: UrlKind, host: str | None, sends: bool
+) -> None:
+    """build_request carries the verb then the URL, like request; sending it adds no second request"""
+
+    source = (
+        "import httpx\n\n\nasync def get(client: httpx.AsyncClient, method, url, data):\n"
+        f"    request = {call}\n    return await client.send(request)\n"
+    )
+    [finding] = python_network(tmp_path, source)
+    assert finding.detail == "httpx.AsyncClient.build_request"
+    assert finding.url_kind is kind
+    assert finding.url_host == host
+    assert finding.sends is sends
+
+
+@pytest.mark.parametrize(
+    ("client", "url", "fixed"),
+    [
+        ('httpx.AsyncClient(base_url="https://api.example.com/v1/")', 'f"issues/{issue_id}/"', True),
+        ("httpx.AsyncClient(base_url=API_BASE)", '"issues/" + issue_id', True),
+        ('httpx.AsyncClient(base_url=os.environ["API_BASE"])', '"/api/issues/" + issue_id', True),
+        ('httpx.AsyncClient(base_url=os.getenv("API_BASE") or API_BASE)', 'f"issues/{issue_id}"', True),
+        ("httpx.AsyncClient(base_url=API_BASE)", "issue_id", False),
+        ("httpx.AsyncClient(base_url=API_BASE)", '"//" + issue_id', False),
+        ("httpx.AsyncClient(base_url=API_BASE)", '"" + issue_id', False),
+        ("httpx.AsyncClient(base_url=API_BASE)", 'f"{issue_id}/issues"', False),
+        ("httpx.AsyncClient(base_url=API_BASE)", 'issue_id + "/issues"', False),
+        ("httpx.AsyncClient(base_url=API_BASE)", '"/" + issue_id', False),
+        ("httpx.AsyncClient(base_url=API_BASE)", '"https:" + issue_id', False),
+        ("httpx.AsyncClient(base_url=base)", '"issues/" + issue_id', False),
+        ('httpx.AsyncClient(base_url="/v1/")', '"issues/" + issue_id', False),
+        ("httpx.AsyncClient()", '"issues/" + issue_id', False),
+        ("httpx.AsyncClient()", "issue_id", False),
+    ],
+)
+def test_python_base_address_keeps_the_site_of_a_relative_request(
+    tmp_path: Path, client: str, url: str, fixed: bool
+) -> None:
+    """A fixed base address keeps the site only when the URL starts with a relative path written in the code"""
+
+    source = (
+        'import os\n\nimport httpx\n\nAPI_BASE = "https://api.example.com/v1/"\n\n\n'
+        f"async def read(base, issue_id):\n    async with {client} as client:\n        await client.get({url})\n"
+    )
+    findings = python_network(tmp_path, source)
+    [request] = [finding for finding in findings if finding.detail == "httpx.AsyncClient.get"]
+    assert request.url_kind is UrlKind.DYNAMIC
+    assert request.fixed_site is fixed
+
+
+def test_python_base_address_of_a_client_given_as_parameter(tmp_path: Path) -> None:
+    """A client parameter keeps the site only when every call of the file passes a client with a fixed base address"""
+
+    findings = python_network(
+        tmp_path,
+        """import httpx
+
+API_BASE = "https://api.example.com/v1/"
+
+
+async def fixed(client: httpx.AsyncClient, issue_id: str):
+    await client.get(f"issues/{issue_id}/")
+
+
+async def mixed(client: httpx.AsyncClient, issue_id: str):
+    await client.get(f"issues/{issue_id}/")
+
+
+async def never_called(client: httpx.AsyncClient, issue_id: str):
+    await client.get(f"issues/{issue_id}/")
+
+
+async def keyword(issue_id: str, *, client: httpx.AsyncClient):
+    await client.get(f"issues/{issue_id}/")
+
+
+async def run(issue_id, base):
+    shared = httpx.AsyncClient(base_url=API_BASE)
+    other = httpx.AsyncClient(base_url=base)
+    await fixed(shared, issue_id)
+    await fixed(httpx.AsyncClient(base_url=API_BASE), issue_id)
+    await mixed(shared, issue_id)
+    await mixed(other, issue_id)
+    await keyword(issue_id, client=shared)
+""",
+    )
+    sites = {finding.function: finding.fixed_site for finding in findings if finding.detail == "httpx.AsyncClient.get"}
+    assert sites == {"fixed": True, "mixed": False, "never_called": False, "keyword": True}
+
+
+def test_open_network_keeps_the_five_open_cases_and_drops_the_fixed_site(tmp_path: Path) -> None:
+    """O01 stays on a path from the AI, a // prefix, an empty prefix, a base from the AI and a client without base"""
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "five"\nversion = "0.1.0"\ndependencies = ["mcp>=2.3", "httpx"]\n', encoding="utf-8"
+    )
+    (tmp_path / "server.py").write_text(
+        """import httpx
+from mcp.server import MCPServer
+
+API_BASE = "https://api.example.com/v1/"
+
+
+def create_server() -> MCPServer:
+    server = MCPServer("five")
+
+    @server.tool(name="whole_path", description="d")
+    async def whole_path(path: str) -> str:
+        async with httpx.AsyncClient(base_url=API_BASE) as client:
+            return (await client.get(path)).text
+
+    @server.tool(name="double_slash", description="d")
+    async def double_slash(path: str) -> str:
+        async with httpx.AsyncClient(base_url=API_BASE) as client:
+            return (await client.get("//" + path)).text
+
+    @server.tool(name="empty_prefix", description="d")
+    async def empty_prefix(path: str) -> str:
+        async with httpx.AsyncClient(base_url=API_BASE) as client:
+            return (await client.get("" + path)).text
+
+    @server.tool(name="base_from_ai", description="d")
+    async def base_from_ai(base: str, issue_id: str) -> str:
+        async with httpx.AsyncClient(base_url=base) as client:
+            return (await client.get("issues/" + issue_id)).text
+
+    @server.tool(name="no_base", description="d")
+    async def no_base(url: str) -> str:
+        async with httpx.AsyncClient() as client:
+            return (await client.get(url)).text
+
+    @server.tool(name="fixed_site", description="d")
+    async def fixed_site(issue_id: str) -> str:
+        async with httpx.AsyncClient(base_url=API_BASE) as client:
+            return (await client.get(f"issues/{issue_id}/")).text
+
+    return server
+""",
+        encoding="utf-8",
+    )
+    result = analyze_directory(tmp_path)
+    open_tools = {alert.tool for alert in result.verdict.alerts if alert.rule == "O01"}
+    assert open_tools == {"whole_path", "double_slash", "empty_prefix", "base_from_ai", "no_base"}
+
+
+def test_open_network_stays_off_when_the_base_address_fixes_the_site(fixtures: Path) -> None:
+    """A client built with a fixed base address, given to a helper that adds the AI number to a written path: no O01"""
+
+    result = analyze_directory(fixtures / "rules" / "O01" / "fixed_base_parameter")
+    assert [alert.rule for alert in result.verdict.alerts if alert.rule == "O01"] == []
+    [tool] = result.servers[0].tools
+    [request] = [finding for finding in tool.findings if finding.detail == "httpx.AsyncClient.get"]
+    assert request.fixed_site is True
+    assert result.servers[0].network_not_followed == []
+
+
 def test_client_factory_server_is_orange_on_the_open_tool_only(fixtures: Path) -> None:
     """A tool that sends a request to the AI's address through a client factory raises O01; a fixed address does not"""
 

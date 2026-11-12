@@ -474,7 +474,7 @@
   "rule.R13.plain_found": "Un bloc écrit pour l'IA dans une description cite un fichier sensible, demande de ne rien te dire, ou demande de transmettre un contenu.",
   "rule.R13.plain_advice": "Ne l'installe pas. Si tu l'as déjà utilisé, change les clés ou les mots de passe concernés.",
   "rule.O01.title": "Peut contacter n'importe quelle adresse",
-  "rule.O01.explanation": "Un outil envoie des requêtes à une adresse que l'IA lui donne. Il peut contacter n'importe quelle adresse que l'IA lui donne, et ce qu'il rapporte d'Internet peut contenir des pièges (des instructions cachées pour l'IA).",
+  "rule.O01.explanation": "Un outil envoie des requêtes à une adresse que l'IA lui donne. Il peut contacter n'importe quelle adresse que l'IA lui donne, et ce qu'il rapporte d'Internet peut contenir des pièges (des instructions cachées pour l'IA). Si le client a une adresse de base écrite dans le code ou réglée à l'installation, et que l'adresse demandée commence par un chemin écrit dans le code (« issues/ » puis un numéro), le site reste fixe : pas d'O01.",
   "rule.O01.false_positive": "Une adresse de base lue dans une variable d'environnement, fixe en pratique.",
   "rule.O01.plain_title": "Peut aller sur n'importe quel site",
   "rule.O01.plain_found": "Un outil va à l'adresse que l'IA lui donne. Ce qu'il rapporte d'Internet peut contenir des pièges pour l'IA.",

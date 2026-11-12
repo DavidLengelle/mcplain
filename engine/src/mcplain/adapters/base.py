@@ -467,6 +467,7 @@ class Adapter(ABC):
                 url_host=raw.url_host,
                 sends=raw.sends,
                 plain=raw.plain,
+                fixed_site=raw.fixed_site,
             )
         return built[key]
 

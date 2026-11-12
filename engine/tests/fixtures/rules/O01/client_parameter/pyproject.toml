@@ -1,0 +1,4 @@
+[project]
+name = "o01-client-parameter"
+version = "0.1.0"
+dependencies = ["mcp>=2.3", "httpx"]

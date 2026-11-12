@@ -256,7 +256,7 @@ Un commentaire HTML ou une balise de consigne d'une description (IMPORTANT, SYST
 
 **Peut contacter n'importe quelle adresse** : ORANGE, pouvoir à connaître (rien de suspect trouvé).
 
-Un outil envoie des requêtes à une adresse que l'IA lui donne. Il peut contacter n'importe quelle adresse que l'IA lui donne, et ce qu'il rapporte d'Internet peut contenir des pièges (des instructions cachées pour l'IA).
+Un outil envoie des requêtes à une adresse que l'IA lui donne. Il peut contacter n'importe quelle adresse que l'IA lui donne, et ce qu'il rapporte d'Internet peut contenir des pièges (des instructions cachées pour l'IA). Si le client a une adresse de base écrite dans le code ou réglée à l'installation, et que l'adresse demandée commence par un chemin écrit dans le code (« issues/ » puis un numéro), le site reste fixe : pas d'O01.
 
 - En clair : **Peut aller sur n'importe quel site**. Un outil va à l'adresse que l'IA lui donne. Ce qu'il rapporte d'Internet peut contenir des pièges pour l'IA. Conseil : Regarde les adresses qu'il visite, et ne lui fais pas lire tes pages privées.
 - Visible en lisant le code : oui

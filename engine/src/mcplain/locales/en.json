@@ -474,7 +474,7 @@
   "rule.R13.plain_found": "A block written for the AI in a description names a sensitive file, asks not to tell you anything, or asks to pass some content.",
   "rule.R13.plain_advice": "Do not install it. If you already used it, change the keys or passwords involved.",
   "rule.O01.title": "Can contact any address",
-  "rule.O01.explanation": "A tool sends requests to an address the AI gives it. It can contact any address the AI gives it, and what it brings back from the Internet can contain traps (hidden instructions for the AI).",
+  "rule.O01.explanation": "A tool sends requests to an address the AI gives it. It can contact any address the AI gives it, and what it brings back from the Internet can contain traps (hidden instructions for the AI). If the client has a base address written in the code or set at install time, and the address asked for starts with a path written in the code (\"issues/\" then a number), the site stays fixed: no O01.",
   "rule.O01.false_positive": "A base address read from an environment variable, fixed in practice.",
   "rule.O01.plain_title": "Can reach any website",
   "rule.O01.plain_found": "A tool goes to the address the AI gives it. What it brings back from the Internet can hold traps for the AI.",

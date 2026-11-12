@@ -86,12 +86,13 @@ class OpenNetwork(Rule):
 
 
 def _open_request(finding: Finding) -> bool:
-    """Tell whether a finding is a network call of server code with a dynamic URL and no fixed host"""
+    """Tell whether a finding is a network call of server code with a dynamic URL, no fixed host and no fixed site"""
 
     return (
         finding.capability is Capability.NETWORK
         and finding.url_kind is UrlKind.DYNAMIC
         and finding.url_host is None
+        and not finding.fixed_site
         and finding.location_kind is LocationKind.SERVER_CODE
     )
 
