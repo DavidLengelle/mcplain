@@ -44,10 +44,13 @@ class AnalysisState(StrEnum):
     ANALYZING = "analyzing"
     DONE = "done"
     FAILED = "failed"
+    QUOTA_EXHAUSTED = "quota_exhausted"
 
 
 RUNNING_STATES: tuple[str, ...] = (AnalysisState.FETCHING.value, AnalysisState.ANALYZING.value)
-STATE_CHECK = "state IN ('queued', 'fetching', 'analyzing', 'done', 'failed')"
+STATE_CHECK = "state IN ('queued', 'fetching', 'analyzing', 'done', 'failed', 'quota_exhausted')"
+SUBJECT_MAX_CHARS = 80
+USER_ID_MAX_CHARS = 64
 
 
 class AiKind(StrEnum):
@@ -107,6 +110,7 @@ class Analysis(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     from_cache: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    cache_only: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 class AiText(Base):
@@ -252,6 +256,70 @@ class SignupRefusal(Base):
 
     day: Mapped[date] = mapped_column(Date, primary_key=True)
     count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class QuotaUsage(Base):
+    """Class that maps how many analyses one subject (address fingerprint or account) took during one UTC day"""
+
+    __tablename__ = "quota_usage"
+    __table_args__ = (PrimaryKeyConstraint("day", "subject", name="quota_usage_pkey"),)
+
+    day: Mapped[date] = mapped_column(Date)
+    subject: Mapped[str] = mapped_column(String(SUBJECT_MAX_CHARS))
+    kind: Mapped[str] = mapped_column(String(16))
+    count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class AnalysisToken(Base):
+    """Class that maps the token one analysis took, so that it can be given back once"""
+
+    __tablename__ = "analysis_tokens"
+    __table_args__ = (Index("ix_analysis_tokens_day", "day"), Index("ix_analysis_tokens_subject", "subject"))
+
+    analysis_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    day: Mapped[date] = mapped_column(Date)
+    subject: Mapped[str] = mapped_column(String(SUBJECT_MAX_CHARS))
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class BurstCount(Base):
+    """Class that maps how many analyses one subject asked for during one minute, kept one hour"""
+
+    __tablename__ = "burst_counts"
+    __table_args__ = (
+        PrimaryKeyConstraint("subject", "minute", name="burst_counts_pkey"),
+        Index("ix_burst_counts_minute", "minute"),
+    )
+
+    subject: Mapped[str] = mapped_column(String(SUBJECT_MAX_CHARS))
+    minute: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class QuotaRefusal(Base):
+    """Class that maps how many requests ended without analysis because the quota was used up, per UTC day and kind"""
+
+    __tablename__ = "quota_refusals"
+    __table_args__ = (PrimaryKeyConstraint("day", "kind", name="quota_refusals_pkey"),)
+
+    day: Mapped[date] = mapped_column(Date)
+    kind: Mapped[str] = mapped_column(String(16))
+    count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class UserHistory(Base):
+    """Class that maps one analysis asked by a signed-in account, for its own history"""
+
+    __tablename__ = "user_history"
+    __table_args__ = (
+        Index("ix_user_history_user_id_created_at", "user_id", "created_at"),
+        Index("ix_user_history_analysis_id", "analysis_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[str] = mapped_column(String(USER_ID_MAX_CHARS))
+    analysis_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
 def make_engine(url: str) -> Engine:

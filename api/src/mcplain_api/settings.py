@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 DISPATCHER_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$"
 DAILY_FUSE_SHARE_OF_BUDGET = 20
 MAX_PROXY_HOPS = 5
-DEFAULT_ALTCHA_COST = 2000
+DEFAULT_ALTCHA_COST = 5000
 MAX_ALTCHA_COST = 1_000_000
 
 
@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     altcha_cost: int = Field(default=DEFAULT_ALTCHA_COST, ge=1, le=MAX_ALTCHA_COST, validation_alias="MCPLAIN_ALTCHA_COST")
     altcha_lifetime_s: int = Field(default=300, ge=10, le=3600, validation_alias="MCPLAIN_ALTCHA_LIFETIME_S")
     signups_per_ip_per_day: int = Field(default=30, ge=1, validation_alias="MCPLAIN_SIGNUPS_PER_IP_PER_DAY")
+    quota_anonymous: int = Field(default=3, ge=1, validation_alias="MCPLAIN_QUOTA_ANONYMOUS")
+    quota_account: int = Field(default=10, ge=1, validation_alias="MCPLAIN_QUOTA_ACCOUNT")
+    burst_per_hour: int = Field(default=30, ge=1, validation_alias="MCPLAIN_BURST_PER_HOUR")
+    allow_bench_role: bool = Field(default=False, validation_alias="MCPLAIN_ALLOW_BENCH_ROLE")
     guichet_url: str = Field(default="http://guichet:3100", validation_alias="MCPLAIN_GUICHET_URL")
     auth_guard_peers: str = Field(default="guichet", validation_alias="MCPLAIN_AUTH_GUARD_PEERS")
 

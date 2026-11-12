@@ -1,19 +1,24 @@
 """Tests of the PostgreSQL roles on a real database: each service reaches its own tables only, nobody but the counter reads auth"""
 
 import os
+import threading
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, text
+from helpers import altcha_settings
+from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import make_url
 
-from mcplain_api.db import make_engine
+from mcplain_api.analysis_gate import enqueue
+from mcplain_api.db import AnalysisToken, QuotaUsage, make_engine, make_sessions
 from mcplain_api.migrate import set_role_passwords
+from mcplain_api.quota import Visitor, VisitorKind
 
 pytestmark = pytest.mark.postgres
 
@@ -119,10 +124,13 @@ def test_the_counter_reads_its_schema_and_only_writes_the_outbox(database: str) 
         assert denied(connection, "SELECT * FROM public.ip_salts")
 
 
-def test_the_role_column_accepts_user_and_admin_only(database: str) -> None:
-    """A role other than user or admin is refused by the database itself"""
+def test_the_role_column_accepts_user_admin_and_bench_only(database: str) -> None:
+    """A role other than user, admin or bench is refused by the database itself"""
 
     with connect(database, "mcplain_guichet") as connection:
+        connection.execute(
+            'INSERT INTO "user" (id, name, email, "emailVerified", role) VALUES (\'u3\', \'\', \'c@example.com\', true, \'bench\')'
+        )
         with pytest.raises(psycopg.errors.CheckViolation):
             connection.execute(
                 'INSERT INTO "user" (id, name, email, "emailVerified", role) VALUES (\'u2\', \'\', \'b@example.com\', true, \'root\')'
@@ -142,3 +150,52 @@ def test_the_postman_reads_and_deletes_the_outbox_and_marks_the_alerts(database:
         assert denied(connection, "SELECT * FROM analyses")
         assert denied(connection, "SELECT * FROM ai_texts")
         assert denied(connection, 'SELECT * FROM auth."user"')
+
+
+def test_the_app_role_keeps_the_quotas_and_the_counter_never_reads_them(database: str) -> None:
+    """The API writes the quotas, the tokens, the burst counts and the history; the counter reads none of them"""
+
+    with connect(database, "mcplain_app") as connection:
+        for table in ("quota_usage", "analysis_tokens", "burst_counts", "quota_refusals", "user_history"):
+            assert connection.execute(f"SELECT count(*) FROM {table}").fetchone() == (0,)
+    with connect(database, "mcplain_guichet") as connection:
+        for table in ("quota_usage", "analysis_tokens", "burst_counts", "quota_refusals", "user_history"):
+            assert denied(connection, f"SELECT * FROM public.{table}")
+
+
+def test_take_token_is_atomic_on_postgresql(database: str) -> None:
+    """Five simultaneous requests with three tokens left give exactly three counted analyses, as the API role"""
+
+    url = make_url(os.environ[ADMIN_URL_VARIABLE]).set(
+        database=database, username="mcplain_app", password=TEST_PASSWORDS["mcplain_app"]
+    )
+    engine = make_engine(url.render_as_string(hide_password=False))
+    sessions = make_sessions(engine)
+    settings = altcha_settings(max_queued=100)
+    visitor = Visitor(VisitorKind.ANONYMOUS, "ip:" + "e" * 64, None)
+    barrier = threading.Barrier(5)
+    created: list[bool] = []
+    errors: list[BaseException] = []
+
+    def ask() -> None:
+        """Wait for the others, then ask for an analysis"""
+
+        try:
+            barrier.wait()
+            created.append(enqueue(sessions, settings, visitor, "uvx mcp-server-fetch", None, datetime.now(UTC)).cache_only)
+        except BaseException as error:
+            errors.append(error)
+
+    threads = [threading.Thread(target=ask) for _ in range(5)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    try:
+        assert errors == []
+        assert sorted(created) == [False, False, False, True, True]
+        with sessions() as session:
+            assert session.scalar(select(QuotaUsage.count).where(QuotaUsage.subject == visitor.subject)) == 3
+            assert session.scalar(select(func.count()).select_from(AnalysisToken).where(AnalysisToken.subject == visitor.subject)) == 3
+    finally:
+        engine.dispose()

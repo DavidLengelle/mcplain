@@ -5,5 +5,6 @@
   "ai.notice.fallback.nothing": "Son code n'allume aucun voyant.",
   "ai.notice.fallback.unavailable": "MCPlain n'a pas pu écrire de résumé automatique pour ce serveur.",
   "ai.notice.fallback.no_tools": "MCPlain n'a reconnu aucun outil dans ce serveur : il n'y a pas de résumé automatique.",
-  "api.altcha_unavailable": "La vérification automatique des robots n'est pas disponible pour le moment. Réessaie dans un instant."
+  "api.altcha_unavailable": "La vérification automatique des robots n'est pas disponible pour le moment. Réessaie dans un instant.",
+  "api.sign_in_required": "Connecte-toi à ton compte pour voir ceci."
 }

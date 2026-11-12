@@ -28,6 +28,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from mcplain_api.db import RUNNING_STATES, Analysis, AnalysisState, make_engine, make_sessions, utc_now
+from mcplain_api.history import forget_analysis
+from mcplain_api.quota import refund_token
+from mcplain_api.refunds import gives_back
 from mcplain_api.launcher import ATELIER_ERROR, AtelierRun, remove_orphans, run_atelier
 from mcplain_api.outcomes import FETCH_ERROR, INTERNAL_ERROR, INTERRUPTED, failure_result
 from mcplain_api.settings import Settings
@@ -93,6 +96,7 @@ class Claimed:
     id: uuid.UUID
     input_raw: str
     select: str | None
+    cache_only: bool = False
 
 
 def safe_text(value: object, limit: int = LOG_TEXT_LIMIT) -> str:
@@ -151,6 +155,8 @@ class Dispatcher:
                 row.result = gray
                 row.finished_at = now
                 row.analyzed_at = now
+                if gives_back(row.state, row.error_code, row.result, False):
+                    refund_token(session, row.id, now)
         for identifier in identifiers:
             shutil.rmtree(self.settings.jobs_dir / str(identifier), ignore_errors=True)
         removed = self.launcher.remove_orphans()
@@ -172,7 +178,7 @@ class Dispatcher:
                 return None
             row.state = AnalysisState.FETCHING.value
             row.started_at = utc_now()
-            return Claimed(row.id, row.input_raw, row.select)
+            return Claimed(row.id, row.input_raw, row.select, bool(row.cache_only))
 
     def run_once(self) -> bool:
         """Claim and process one analysis in the current thread; return False when the queue is empty"""
@@ -241,6 +247,9 @@ class Dispatcher:
         if cached is not None:
             LOGGER.info("analysis %s: served from the cache for %s", claimed.id, safe_text(resolved.source_key))
             self._record_result(claimed.id, _reuse(cached.result, resolved, spec), cached.analyzed_at, True)
+            return
+        if claimed.cache_only:
+            self._record_quota_exhausted(claimed.id)
             return
         job_dir.mkdir(mode=JOB_FOLDER_MODE)
         job_dir.chmod(JOB_FOLDER_MODE)
@@ -322,6 +331,21 @@ class Dispatcher:
         self._finish(identifier, AnalysisState.FAILED.value, error_code, result)
         LOGGER.info("analysis %s: failed, %s", identifier, error_code)
 
+    def _record_quota_exhausted(self, identifier: uuid.UUID) -> None:
+        """End a cache-only request that the cache cannot serve: no download, no verdict, no history, counted per day"""
+
+        now = utc_now()
+        with self.sessions.begin() as session:
+            row = session.get(Analysis, identifier)
+            if row is None:
+                return
+            row.state = AnalysisState.QUOTA_EXHAUSTED.value
+            row.error_code = None
+            row.result = None
+            row.finished_at = now
+            forget_analysis(session, identifier)
+        LOGGER.info("analysis %s: quota used up and nothing in the cache", identifier)
+
     def _finish(
         self,
         identifier: uuid.UUID,
@@ -331,22 +355,26 @@ class Dispatcher:
         analyzed_at: datetime | None = None,
         from_cache: bool = False,
     ) -> None:
-        """Store the final state, the result, the versions, the date of the real analysis and where it came from"""
+        """Store the final state, the result, the versions and the date; give the token back in the same transaction"""
 
         now = utc_now()
         if analyzed_at is None:
             analyzed_at = now
-        self._update(
-            identifier,
-            state=state,
-            error_code=error_code,
-            result=result.model_dump(mode="json"),
-            engine_version=__version__,
-            rules_version=RULES_VERSION,
-            finished_at=now,
-            analyzed_at=analyzed_at,
-            from_cache=from_cache,
-        )
+        stored = result.model_dump(mode="json")
+        with self.sessions.begin() as session:
+            row = session.get(Analysis, identifier)
+            if row is None:
+                return
+            row.state = state
+            row.error_code = error_code
+            row.result = stored
+            row.engine_version = __version__
+            row.rules_version = RULES_VERSION
+            row.finished_at = now
+            row.analyzed_at = analyzed_at
+            row.from_cache = from_cache
+            if gives_back(state, error_code, stored, from_cache):
+                refund_token(session, identifier, now)
 
 
 def _reuse(cached: AnalysisResult, resolved: ResolvedSource, spec: InputSpec) -> AnalysisResult:

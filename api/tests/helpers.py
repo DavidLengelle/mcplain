@@ -5,6 +5,7 @@ import io
 import re
 import tarfile
 from pathlib import Path
+from typing import Any
 
 from mcplain import __version__
 from mcplain.job import write_job
@@ -158,3 +159,33 @@ def uncommented(block: str) -> str:
     """Remove the comment lines of a service"""
 
     return "\n".join(line for line in block.splitlines() if not line.strip().startswith("#"))
+
+
+TEST_ALTCHA_KEY = "test only altcha key, never a real one"
+
+
+def altcha_settings(**values: object) -> Settings:
+    """Return test settings with a test ALTCHA key and the cheapest cost, so that each test solves its own challenges"""
+
+    defaults: dict[str, object] = {"altcha_hmac_key": TEST_ALTCHA_KEY, "altcha_cost": 1}
+    defaults.update(values)
+    return make_settings(**defaults)
+
+
+def altcha_headers(client: Any) -> dict[str, str]:
+    """Ask the API for a challenge and solve it as the widget of a browser would"""
+
+    from altcha import Challenge, Payload, solve_challenge
+
+    challenge = Challenge.from_dict(client.get("/api/altcha/challenge").json())
+    solution = solve_challenge(challenge)
+    assert solution is not None
+    return {"x-altcha": Payload(challenge, solution).to_base64()}
+
+
+def post_analysis(client: Any, body: dict[str, object], headers: dict[str, str] | None = None) -> Any:
+    """Ask for an analysis with a fresh ALTCHA solution, as the website does"""
+
+    sent = altcha_headers(client)
+    sent.update(headers or {})
+    return client.post("/api/analyses", json=body, headers=sent)

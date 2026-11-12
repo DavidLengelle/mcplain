@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from helpers import ENGINE_FIXTURES, make_settings
+from helpers import ENGINE_FIXTURES, altcha_settings, make_settings, post_analysis
 from mcplain.analyze import analyze_directory
 from mcplain.i18n import load_catalog
 from mcplain.models import AnalysisResult, VerdictColor
@@ -52,7 +52,7 @@ def sessions() -> sessionmaker:
 def client(sessions: sessionmaker) -> Iterator[TestClient]:
     """Return a test client of the API on the in-memory database, with a queue of 3"""
 
-    app = create_app(make_settings(max_queued=3), sessions.kw["bind"])
+    app = create_app(altcha_settings(max_queued=3), sessions.kw["bind"])
     with TestClient(app) as test_client:
         yield test_client
 
@@ -71,7 +71,7 @@ def add_row(sessions: sessionmaker, **values: object) -> uuid.UUID:
 def test_valid_input_is_queued(client: TestClient, sessions: sessionmaker, text: str, selection: str | None, stored: str | None) -> None:
     """A valid input gives 202 with an id and the queued state, and is stored as given"""
 
-    response = client.post("/api/analyses", json={"input": text, "select": selection})
+    response = post_analysis(client, {"input": text, "select": selection})
     assert response.status_code == 202
     body = response.json()
     assert body["state"] == "queued"
@@ -85,7 +85,7 @@ def test_valid_input_is_queued(client: TestClient, sessions: sessionmaker, text:
 def test_invalid_input_is_refused_with_a_code(client: TestClient, sessions: sessionmaker, text: str, selection: str | None, code: str) -> None:
     """An invalid input gives 400 with the engine code and its parameters, and nothing is queued"""
 
-    response = client.post("/api/analyses", json={"input": text, "select": selection})
+    response = post_analysis(client, {"input": text, "select": selection})
     assert response.status_code == 400
     error = response.json()["error"]
     assert error["code"] == code
@@ -97,7 +97,7 @@ def test_invalid_input_is_refused_with_a_code(client: TestClient, sessions: sess
 def test_too_long_input_says_the_limit(client: TestClient) -> None:
     """The limit of 500 characters is given as a parameter"""
 
-    response = client.post("/api/analyses", json={"input": "x" * 501})
+    response = post_analysis(client, {"input": "x" * 501})
     assert response.json() == {"error": {"code": "input.too_long", "params": {"limit": "500"}}}
 
 
@@ -149,8 +149,8 @@ def test_full_queue_gives_503(client: TestClient, sessions: sessionmaker) -> Non
     add_row(sessions, state=AnalysisState.DONE.value)
     add_row(sessions, state=AnalysisState.FAILED.value)
     for _ in range(3):
-        assert client.post("/api/analyses", json={"input": "uvx mcp-server-fetch"}).status_code == 202
-    response = client.post("/api/analyses", json={"input": "uvx mcp-server-fetch"})
+        assert post_analysis(client, {"input": "uvx mcp-server-fetch"}).status_code == 202
+    response = post_analysis(client, {"input": "uvx mcp-server-fetch"})
     assert response.status_code == 503
     assert response.json() == {"error": {"code": "api.queue_full", "params": {}}}
 
@@ -167,7 +167,7 @@ def test_unknown_analysis_gives_404(client: TestClient, identifier: str) -> None
 def test_queued_analysis_has_no_result_yet(client: TestClient) -> None:
     """A queued analysis has its creation time and no result"""
 
-    identifier = client.post("/api/analyses", json={"input": "uvx mcp-server-fetch"}).json()["id"]
+    identifier = post_analysis(client, {"input": "uvx mcp-server-fetch"}).json()["id"]
     body = client.get(f"/api/analyses/{identifier}").json()
     assert body["id"] == identifier
     assert (body["state"], body["result"], body["finished_at"], body["error_code"]) == ("queued", None, None, None)
@@ -200,13 +200,13 @@ def test_retry_with_the_same_input_and_selection_gives_a_new_analysis(client: Te
     """After a failure, the same input and selection are queued again as a new analysis"""
 
     sent = {"input": "npx -y @modelcontextprotocol/server-filesystem", "select": "src/a"}
-    first = client.post("/api/analyses", json=sent).json()["id"]
+    first = post_analysis(client, sent).json()["id"]
     with sessions.begin() as session:
         row = session.get(Analysis, uuid.UUID(first))
         assert row is not None
         row.state = AnalysisState.FAILED.value
         row.error_code = "atelier_timeout"
-    response = client.post("/api/analyses", json=sent)
+    response = post_analysis(client, sent)
     assert response.status_code == 202
     second = response.json()["id"]
     assert second != first
@@ -218,7 +218,7 @@ def test_analysis_gives_back_what_was_asked(client: TestClient) -> None:
     """The view repeats the input and the selection, so the site can ask again with another selection"""
 
     sent = {"input": "npx -y @modelcontextprotocol/server-filesystem", "select": "src/a"}
-    identifier = client.post("/api/analyses", json=sent).json()["id"]
+    identifier = post_analysis(client, sent).json()["id"]
     body = client.get(f"/api/analyses/{identifier}").json()
     assert (body["input"], body["select"]) == (sent["input"], sent["select"])
 

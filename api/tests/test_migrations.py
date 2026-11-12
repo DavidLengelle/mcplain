@@ -2,11 +2,13 @@
 
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 
 from mcplain_api.db import Base, make_engine
 
@@ -77,4 +79,20 @@ def test_texts_broken_by_encoding_become_retryable(tmp_path: Path) -> None:
         logged = connection.execute(text("SELECT request_id, reject_reason FROM ai_calls ORDER BY request_id")).all()
     assert statuses == {"encoding": "failed", "forbidden_word": "rejected"}
     assert [tuple(row) for row in logged] == [("req_a", "encoding"), ("req_b", "forbidden_word")]
+    engine.dispose()
+
+
+def test_migration_0007_accepts_quota_exhausted_and_still_refuses_other_states(tmp_path: Path) -> None:
+    """After 0007 an analysis may end quota_exhausted and be cache-only; an unknown state is still refused"""
+
+    url = f"sqlite:///{tmp_path / 'mcplain.db'}"
+    command.upgrade(alembic_config(url), "head")
+    engine = make_engine(url)
+    insert = "INSERT INTO analyses (id, input_raw, state, from_cache, cache_only, created_at) VALUES (:id, 'uvx a', :state, 0, 1, '2026-11-12 10:00:00')"
+    with engine.begin() as connection:
+        connection.execute(text(insert), {"id": "a" * 32, "state": "quota_exhausted"})
+    with pytest.raises(IntegrityError):
+        with engine.begin() as connection:
+            connection.execute(text(insert), {"id": "b" * 32, "state": "bogus"})
+    assert {"quota_usage", "analysis_tokens", "burst_counts", "quota_refusals", "user_history"} <= set(inspect(engine).get_table_names())
     engine.dispose()

@@ -17,6 +17,7 @@ CACHE_MAX_ENTRIES = 10_000
 TIMEOUT_SECONDS = 3.0
 ROLE_ADMIN = "admin"
 ROLE_USER = "user"
+ROLE_BENCH = "bench"
 
 
 @dataclass(frozen=True)
@@ -56,8 +57,8 @@ def user_from_answer(body: object) -> CurrentUser | None:
     if not isinstance(identifier, str) or not identifier:
         return None
     role = ROLE_USER
-    if user.get("role") == ROLE_ADMIN:
-        role = ROLE_ADMIN
+    if user.get("role") in (ROLE_ADMIN, ROLE_BENCH):
+        role = str(user.get("role"))
     return CurrentUser(id=identifier, email_verified=user.get("emailVerified") is True, role=role)
 
 
