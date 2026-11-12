@@ -83,6 +83,21 @@ describe("the account forms", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("sign in: the password goes back to hidden after a refused submit", async () => {
+    signIn.mockResolvedValue({ data: null, error: { code: "INVALID_EMAIL_OR_PASSWORD", status: 401 } });
+    renderWithIntl(<SignInForm />, "en");
+    fill("Email address", "ada@example.com");
+    fill("Password", PASSWORD);
+    const toggle = screen.getByLabelText("Show password") as HTMLInputElement;
+    fireEvent.click(toggle);
+    expect((screen.getByLabelText("Password") as HTMLInputElement).type).toBe("text");
+    fireEvent.click(screen.getByRole("button", { name: "SIGN IN" }));
+    expect(await screen.findByText("Email or password incorrect.")).toBeTruthy();
+    expect((screen.getByLabelText("Password") as HTMLInputElement).type).toBe("password");
+    expect(toggle.checked).toBe(false);
+    expect((screen.getByLabelText("Password") as HTMLInputElement).value).toBe(PASSWORD);
+  });
+
   it("sign in: goes to the account page once signed in", async () => {
     signIn.mockResolvedValue({ data: { user: {} }, error: null });
     renderWithIntl(<SignInForm />, "en");

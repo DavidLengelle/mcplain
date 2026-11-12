@@ -22,21 +22,11 @@ export function AccountCard({ title, children }: { title: string; children: Reac
 type FieldProps = {
   id: string;
   label: string;
-  type: "email" | "password";
   value: string;
   onChange: (value: string) => void;
-  autoComplete: string;
-  help?: string;
-  minLength?: number;
-  maxLength?: number;
 };
 
-export function Field({ id, label, type, value, onChange, autoComplete, help, minLength, maxLength }: FieldProps) {
-  const helpId = `${id}-help`;
-  let described: string | undefined = undefined;
-  if (help !== undefined) {
-    described = helpId;
-  }
+export function EmailField({ id, label, value, onChange }: FieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-[15px] font-semibold text-ink">
@@ -45,23 +35,15 @@ export function Field({ id, label, type, value, onChange, autoComplete, help, mi
       <input
         id={id}
         name={id}
-        type={type}
+        type="email"
         value={value}
         required
-        minLength={minLength}
-        maxLength={maxLength}
-        autoComplete={autoComplete}
+        autoComplete="email"
         autoCapitalize="off"
         spellCheck={false}
-        aria-describedby={described}
         onChange={(event) => onChange(event.target.value)}
         className={INPUT_CLASS}
       />
-      {help !== undefined && (
-        <p id={helpId} className="text-sm text-muted">
-          {help}
-        </p>
-      )}
     </div>
   );
 }

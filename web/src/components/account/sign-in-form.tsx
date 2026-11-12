@@ -7,7 +7,8 @@ import { getPathname, Link, useRouter } from "@/i18n/navigation";
 import { authClient, authHeaders } from "@/lib/auth-client";
 
 import { AltchaField, type AltchaHandle } from "./altcha-field";
-import { AccountCard, BUTTON_CLASS, Field, FormMessage, LINK_CLASS } from "./form-parts";
+import { AccountCard, BUTTON_CLASS, EmailField, FormMessage, LINK_CLASS } from "./form-parts";
+import { PasswordField } from "./password-field";
 import { useAuthAction } from "./use-auth-action";
 
 export function SignInForm() {
@@ -17,10 +18,12 @@ export function SignInForm() {
   const altcha = useRef<AltchaHandle>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordReset, setPasswordReset] = useState(0);
   const { pending, error, setError, run } = useAuthAction();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setPasswordReset((count) => count + 1);
     const done = await run(async () => {
       const payload = (await altcha.current?.solve()) ?? null;
       if (payload === null) {
@@ -39,14 +42,14 @@ export function SignInForm() {
   return (
     <AccountCard title={t("signIn.title")}>
       <form onSubmit={submit} className="flex flex-col gap-4" aria-describedby="sign-in-error">
-        <Field id="sign-in-email" label={t("common.email")} type="email" value={email} onChange={setEmail} autoComplete="email" />
-        <Field
+        <EmailField id="sign-in-email" label={t("common.email")} value={email} onChange={setEmail} />
+        <PasswordField
           id="sign-in-password"
           label={t("common.password")}
-          type="password"
           value={password}
           onChange={setPassword}
           autoComplete="current-password"
+          resetCount={passwordReset}
         />
         <AltchaField ref={altcha} />
         <button type="submit" disabled={pending} className={BUTTON_CLASS}>

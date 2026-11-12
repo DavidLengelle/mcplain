@@ -547,7 +547,8 @@
       "passwordHelp": "10 to 128 characters.",
       "busy": "PLEASE WAIT…",
       "backToAccount": "Go to my account",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "showPassword": "Show password"
     },
     "signUp": {
       "metaTitle": "Create an account",

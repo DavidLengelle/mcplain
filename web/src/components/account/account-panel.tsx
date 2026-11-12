@@ -7,17 +7,20 @@ import { RawText } from "@/components/raw-text";
 import { Link, useRouter } from "@/i18n/navigation";
 import { authClient } from "@/lib/auth-client";
 
-import { AccountCard, BUTTON_CLASS, Field, FormMessage, LINK_CLASS, SECONDARY_BUTTON_CLASS } from "./form-parts";
+import { AccountCard, BUTTON_CLASS, FormMessage, LINK_CLASS, SECONDARY_BUTTON_CLASS } from "./form-parts";
+import { PasswordField } from "./password-field";
 import { useAuthAction } from "./use-auth-action";
 
 function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
   const t = useTranslations("account");
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
+  const [passwordReset, setPasswordReset] = useState(0);
   const { pending, error, run } = useAuthAction();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setPasswordReset((count) => count + 1);
     const done = await run(() => authClient.deleteUser({ password }));
     if (done) {
       setPassword("");
@@ -37,13 +40,13 @@ function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
       {open && (
         <form onSubmit={submit} className="mt-4 flex flex-col gap-4" aria-describedby="delete-error">
           <p className="font-semibold text-ink">{t("page.deleteConfirmIntro")}</p>
-          <Field
+          <PasswordField
             id="delete-password"
             label={t("common.password")}
-            type="password"
             value={password}
             onChange={setPassword}
             autoComplete="current-password"
+            resetCount={passwordReset}
           />
           <div className="flex flex-wrap gap-3">
             <button type="submit" disabled={pending || password === ""} className={BUTTON_CLASS}>

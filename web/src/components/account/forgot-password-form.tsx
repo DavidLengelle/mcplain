@@ -7,7 +7,7 @@ import { getPathname, Link } from "@/i18n/navigation";
 import { authClient, authHeaders } from "@/lib/auth-client";
 
 import { AltchaField, type AltchaHandle } from "./altcha-field";
-import { AccountCard, BUTTON_CLASS, Field, FormMessage, LINK_CLASS } from "./form-parts";
+import { AccountCard, BUTTON_CLASS, EmailField, FormMessage, LINK_CLASS } from "./form-parts";
 import { useAuthAction } from "./use-auth-action";
 
 const GUARD_CODES = new Set(["ALTCHA_INVALID", "GUARD_UNAVAILABLE"]);
@@ -51,7 +51,7 @@ export function ForgotPasswordForm() {
         <>
           <p>{t("forgot.intro")}</p>
           <form onSubmit={submit} className="flex flex-col gap-4" aria-describedby="forgot-error">
-            <Field id="forgot-email" label={t("common.email")} type="email" value={email} onChange={setEmail} autoComplete="email" />
+            <EmailField id="forgot-email" label={t("common.email")} value={email} onChange={setEmail} />
             <AltchaField ref={altcha} />
             <button type="submit" disabled={pending} className={BUTTON_CLASS}>
               {pending && t("common.busy")}

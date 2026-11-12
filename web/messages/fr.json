@@ -547,7 +547,8 @@
       "passwordHelp": "De 10 à 128 caractères.",
       "busy": "UN INSTANT…",
       "backToAccount": "Aller à mon compte",
-      "loading": "Chargement…"
+      "loading": "Chargement…",
+      "showPassword": "Afficher le mot de passe"
     },
     "signUp": {
       "metaTitle": "Créer un compte",

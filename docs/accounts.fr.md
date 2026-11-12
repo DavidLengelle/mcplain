@@ -8,6 +8,10 @@ toi-même. Les phrases sont courtes. Séance 9a, faite le 10 novembre 2026.
 Un compte sert à une seule chose pour l'instant : se connecter. Les quotas (combien d'analyses par jour) viendront en
 séance 9b. Un compte est gratuit, il demande une adresse e-mail vérifiée et un mot de passe de 10 à 128 caractères.
 
+Sous chaque champ de mot de passe, une case « Afficher le mot de passe » montre ce qu'on tape, pour éviter les fautes de
+frappe sur téléphone. Elle est décochée au départ, se décoche à chaque envoi, et son état n'est gardé nulle part. Un seul
+composant porte tous les champs de mot de passe du site (`web/src/components/account/password-field.tsx`), un test le vérifie.
+
 ```
 navigateur ──> site (relais, sans secret) ──/api/auth/*──> guichet (Better Auth) ──> schéma auth de PostgreSQL
                                           └─/api/*──────> API ──> tables de MCPlain

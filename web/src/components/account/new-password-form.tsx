@@ -6,17 +6,20 @@ import { useState, type FormEvent } from "react";
 import { Link } from "@/i18n/navigation";
 import { authClient, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, passwordFits } from "@/lib/auth-client";
 
-import { AccountCard, BUTTON_CLASS, Field, FormMessage, LINK_CLASS } from "./form-parts";
+import { AccountCard, BUTTON_CLASS, FormMessage, LINK_CLASS } from "./form-parts";
+import { PasswordField } from "./password-field";
 import { useAuthAction } from "./use-auth-action";
 
 export function NewPasswordForm({ token }: { token: string | null }) {
   const t = useTranslations("account");
   const [password, setPassword] = useState("");
+  const [passwordReset, setPasswordReset] = useState(0);
   const [saved, setSaved] = useState(false);
   const { pending, error, setError, run } = useAuthAction();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setPasswordReset((count) => count + 1);
     if (token === null) {
       return;
     }
@@ -62,16 +65,16 @@ export function NewPasswordForm({ token }: { token: string | null }) {
   return (
     <AccountCard title={t("newPassword.title")}>
       <form onSubmit={submit} className="flex flex-col gap-4" aria-describedby="new-password-error">
-        <Field
+        <PasswordField
           id="new-password"
           label={t("newPassword.label")}
-          type="password"
           value={password}
           onChange={setPassword}
           autoComplete="new-password"
           help={t("common.passwordHelp")}
           minLength={MIN_PASSWORD_LENGTH}
           maxLength={MAX_PASSWORD_LENGTH}
+          resetCount={passwordReset}
         />
         <button type="submit" disabled={pending} className={BUTTON_CLASS}>
           {pending && t("common.busy")}

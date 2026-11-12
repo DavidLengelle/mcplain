@@ -8,7 +8,8 @@ import { getPathname, Link } from "@/i18n/navigation";
 import { authClient, authHeaders, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, passwordFits } from "@/lib/auth-client";
 
 import { AltchaField, type AltchaHandle } from "./altcha-field";
-import { AccountCard, BUTTON_CLASS, Field, FormMessage, LINK_CLASS } from "./form-parts";
+import { AccountCard, BUTTON_CLASS, EmailField, FormMessage, LINK_CLASS } from "./form-parts";
+import { PasswordField } from "./password-field";
 import { useAuthAction } from "./use-auth-action";
 
 export function SignUpForm() {
@@ -17,11 +18,13 @@ export function SignUpForm() {
   const altcha = useRef<AltchaHandle>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordReset, setPasswordReset] = useState(0);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const { pending, error, setError, run } = useAuthAction();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setPasswordReset((count) => count + 1);
     if (!passwordFits(password)) {
       setError("passwordLength");
       return;
@@ -61,17 +64,17 @@ export function SignUpForm() {
     <AccountCard title={t("signUp.title")}>
       <p>{t("signUp.intro")}</p>
       <form onSubmit={submit} className="flex flex-col gap-4" aria-describedby="sign-up-error">
-        <Field id="sign-up-email" label={t("common.email")} type="email" value={email} onChange={setEmail} autoComplete="email" />
-        <Field
+        <EmailField id="sign-up-email" label={t("common.email")} value={email} onChange={setEmail} />
+        <PasswordField
           id="sign-up-password"
           label={t("common.password")}
-          type="password"
           value={password}
           onChange={setPassword}
           autoComplete="new-password"
           help={t("common.passwordHelp")}
           minLength={MIN_PASSWORD_LENGTH}
           maxLength={MAX_PASSWORD_LENGTH}
+          resetCount={passwordReset}
         />
         <AltchaField ref={altcha} />
         <button type="submit" disabled={pending} className={BUTTON_CLASS}>
