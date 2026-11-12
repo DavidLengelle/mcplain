@@ -19,7 +19,7 @@ describe.skipIf(!databaseUrl)("the auth schema built by Alembic", () => {
         trustedProxyHops: 1,
         port: 3100,
       };
-      const options = authOptions(settings, { database: pool, guard: async () => ({ ok: true }), deposit: async () => {} });
+      const options = authOptions(settings, { database: pool, guard: async () => ({ ok: true }), deposit: async () => {}, erase: async () => true });
       const { toBeCreated, toBeAdded } = await getMigrations(options);
       expect(toBeCreated.map((table) => table.table)).toEqual([]);
       expect(toBeAdded.map((table) => table.table)).toEqual([]);

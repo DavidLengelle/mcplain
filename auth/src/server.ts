@@ -5,6 +5,7 @@ import pg from "pg";
 
 import { createAuth, BASE_PATH } from "./auth.ts";
 import { setLimiterAddress } from "./client-ip.ts";
+import { apiErase } from "./erase.ts";
 import { apiGuard } from "./guard.ts";
 import { outboxDeposit } from "./outbox.ts";
 import { readSettings } from "./settings.ts";
@@ -14,7 +15,7 @@ const POOL_SIZE = 10;
 
 const settings = readSettings(process.env);
 const pool = new pg.Pool({ connectionString: settings.databaseUrl, options: "-c search_path=auth", max: POOL_SIZE });
-const auth = createAuth(settings, { database: pool, guard: apiGuard(settings.apiUrl), deposit: outboxDeposit(pool) });
+const auth = createAuth(settings, { database: pool, guard: apiGuard(settings.apiUrl), deposit: outboxDeposit(pool), erase: apiErase(settings.apiUrl) });
 const handle = toNodeHandler(auth);
 
 const server = createServer((request, response) => {

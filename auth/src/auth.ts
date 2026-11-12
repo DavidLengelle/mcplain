@@ -2,6 +2,7 @@ import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 
 import { LIMITER_IP_HEADER } from "./client-ip.ts";
+import { ERASE_UNAVAILABLE, type Erase } from "./erase.ts";
 import { GUARD_UNAVAILABLE, GUARDED_PATHS, altchaPayload, ipHeaders, type Guard } from "./guard.ts";
 import { mailLanguage, type Deposit } from "./outbox.ts";
 import { isSecure, type Settings } from "./settings.ts";
@@ -25,6 +26,7 @@ export type Dependencies = {
   database: BetterAuthOptions["database"];
   guard: Guard;
   deposit: Deposit;
+  erase: Erase;
 };
 
 function refusal(code: string): APIError {
@@ -70,9 +72,16 @@ export function authOptions(settings: Settings, dependencies: Dependencies) {
     },
     user: {
       additionalFields: {
-        [ROLE_FIELD]: { type: ["user", "admin"] as const, required: false, defaultValue: "user", input: false },
+        [ROLE_FIELD]: { type: ["user", "admin", "bench"] as const, required: false, defaultValue: "user", input: false },
       },
-      deleteUser: { enabled: true },
+      deleteUser: {
+        enabled: true,
+        beforeDelete: async (user: { id: string }) => {
+          if (!(await dependencies.erase(user.id))) {
+            throw new APIError("SERVICE_UNAVAILABLE", { code: ERASE_UNAVAILABLE, message: "Refused" });
+          }
+        },
+      },
     },
     account: { accountLinking: { enabled: false } },
     advanced: {

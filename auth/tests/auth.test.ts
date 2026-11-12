@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { authOptions, createAuth, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "../src/auth.ts";
 import { limiterAddress, LIMITER_IP_HEADER, setLimiterAddress } from "../src/client-ip.ts";
+import { apiErase } from "../src/erase.ts";
 import { apiGuard, type Guard, type GuardAction } from "../src/guard.ts";
 import { mailLanguage, outboxDeposit, type Mail } from "../src/outbox.ts";
 import { readSettings, type Settings } from "../src/settings.ts";
@@ -28,16 +29,24 @@ async function bodyOf(response: Response): Promise<Body> {
 
 type Call = { action: GuardAction; altcha: string | null; headers: Record<string, string> };
 
-function setup(answer: (action: GuardAction) => { ok: true } | { ok: false; code: string } = () => ({ ok: true })) {
+function setup(
+  answer: (action: GuardAction) => { ok: true } | { ok: false; code: string } = () => ({ ok: true }),
+  erased: boolean = true,
+) {
   const calls: Call[] = [];
   const mails: Mail[] = [];
+  const erasures: string[] = [];
   const guard: Guard = async (action, altcha, headers) => {
     calls.push({ action, altcha, headers });
     return answer(action);
   };
+  const erase = async (userId: string) => {
+    erasures.push(userId);
+    return erased;
+  };
   const database = memoryAdapter({ user: [], session: [], account: [], verification: [] });
-  const auth = createAuth(SETTINGS, { database, guard, deposit: async (mail) => void mails.push(mail) });
-  return { auth, calls, mails };
+  const auth = createAuth(SETTINGS, { database, guard, deposit: async (mail) => void mails.push(mail), erase });
+  return { auth, calls, mails, erasures };
 }
 
 let visitor = 0;
@@ -92,7 +101,7 @@ describe("settings of the counter", () => {
   });
 
   it("sets Better Auth as decided: email and password only, verified email, cookies, limiter, no telemetry", () => {
-    const options = authOptions(SETTINGS, { database: undefined, guard: async () => ({ ok: true }), deposit: async () => {} });
+    const options = authOptions(SETTINGS, { database: undefined, guard: async () => ({ ok: true }), deposit: async () => {}, erase: async () => true });
     expect(options.emailAndPassword).toMatchObject({
       enabled: true,
       minPasswordLength: MIN_PASSWORD_LENGTH,
@@ -102,7 +111,7 @@ describe("settings of the counter", () => {
     expect([MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH]).toEqual([10, 128]);
     expect(options.emailVerification).toMatchObject({ sendOnSignUp: true, autoSignInAfterVerification: true });
     expect(options.user.deleteUser.enabled).toBe(true);
-    expect(options.user.additionalFields.role).toMatchObject({ input: false, defaultValue: "user" });
+    expect(options.user.additionalFields.role).toMatchObject({ input: false, defaultValue: "user", type: ["user", "admin", "bench"] });
     expect(options.trustedOrigins).toEqual([ORIGIN]);
     expect(options.baseURL).toBe(ORIGIN);
     expect(options.advanced).toMatchObject({
@@ -118,6 +127,7 @@ describe("settings of the counter", () => {
       database: undefined,
       guard: async () => ({ ok: true }),
       deposit: async () => {},
+      erase: async () => true,
     });
     expect(secure.advanced.useSecureCookies).toBe(true);
     expect(secure.advanced.defaultCookieAttributes.secure).toBe(true);
@@ -231,23 +241,54 @@ describe("accounts", () => {
     expect((await bodyOf(session)).user?.role).toBe("user");
   });
 
-  it("deletes an account only with its password", async () => {
-    const { auth, mails } = setup();
+  it("deletes an account only with its password, after the API erased its history and its quotas", async () => {
+    const { auth, mails, erasures } = setup();
     const cookie = await signUpAndVerify(auth, mails, "ada@example.com");
+    const session = await bodyOf(await auth.handler(new Request(`${ORIGIN}/api/auth/get-session`, { headers: { Cookie: cookie } })));
     const without = await auth.handler(post("/delete-user", {}, { Cookie: cookie }));
     expect(without.status).toBe(400);
     const wrong = await auth.handler(post("/delete-user", { password: "a wrong password" }, { Cookie: cookie }));
     expect(wrong.status).toBe(400);
+    expect(erasures).toEqual([]);
     const done = await auth.handler(post("/delete-user", { password: PASSWORD }, { Cookie: cookie }));
     expect(done.status).toBe(200);
+    expect(erasures).toEqual([(session as { user: { id: string } }).user.id]);
     const signIn = await auth.handler(post("/sign-in/email", { email: "ada@example.com", password: PASSWORD }));
     expect(signIn.status).toBe(401);
+  });
+
+  it("keeps the account when the API cannot erase its history, with a code to try again", async () => {
+    const { auth, mails, erasures } = setup(() => ({ ok: true }), false);
+    const cookie = await signUpAndVerify(auth, mails, "ada@example.com");
+    const refused = await auth.handler(post("/delete-user", { password: PASSWORD }, { Cookie: cookie }));
+    expect(refused.status).toBe(503);
+    expect((await bodyOf(refused)).code).toBe("ERASE_UNAVAILABLE");
+    expect(erasures).toHaveLength(1);
+    const signIn = await auth.handler(post("/sign-in/email", { email: "ada@example.com", password: PASSWORD }));
+    expect(signIn.status).toBe(200);
+  });
+
+  it("asks the API to erase through its internal route, and says no when it does not answer 200", async () => {
+    const sent: { url: string; body: string }[] = [];
+    const statuses = [200, 500];
+    const fetcher = async (url: string | URL | Request, init?: RequestInit) => {
+      sent.push({ url: String(url), body: String(init?.body) });
+      return new Response("{}", { status: statuses[sent.length - 1] });
+    };
+    const erase = apiErase("http://api:8000", fetcher as typeof fetch);
+    expect(await erase("u1")).toBe(true);
+    expect(await erase("u1")).toBe(false);
+    expect(sent[0]).toEqual({ url: "http://api:8000/internal/account-erase", body: '{"user_id":"u1"}' });
+    const down = apiErase("http://api:8000", (async () => {
+      throw new TypeError("down");
+    }) as typeof fetch);
+    expect(await down("u1")).toBe(false);
   });
 
   it("keeps no visitor address nor browser in the session", async () => {
     const database = { user: [], session: [] as Record<string, unknown>[], account: [], verification: [] };
     const mails: Mail[] = [];
-    const auth = createAuth(SETTINGS, { database: memoryAdapter(database), guard: async () => ({ ok: true }), deposit: async (mail) => void mails.push(mail) });
+    const auth = createAuth(SETTINGS, { database: memoryAdapter(database), guard: async () => ({ ok: true }), deposit: async (mail) => void mails.push(mail), erase: async () => true });
     await auth.handler(post("/sign-up/email", { email: "ada@example.com", password: PASSWORD, name: "" }));
     const link = mails[0]?.link ?? "";
     await auth.handler(new Request(link, { headers: { "x-mcplain-limiter-ip": "203.0.113.7", "User-Agent": "Browser" } }));
