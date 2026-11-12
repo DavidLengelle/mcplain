@@ -18,14 +18,68 @@ docker compose up -d redacteur >/dev/null
 "$ROOT/scripts/image-commit.sh"
 docker compose exec -T redacteur python -c "from mcplain_api.ai_prompts import NOTICE_PROMPT_VERSION, TRANSLATION_PROMPT_VERSION; print('prompts:', NOTICE_PROMPT_VERSION, TRANSLATION_PROMPT_VERSION)"
 
-python3 - "$API" "$INPUT" <<'PY'
+bench_value() {
+    CURRENT="$(printenv "$1" || true)"
+    if [ -n "$CURRENT" ]; then
+        printf '%s' "$CURRENT"
+        return
+    fi
+    sed -n "s/^$1=//p" .env | tail -n 1
+}
+
+BENCH_EMAIL="$(bench_value MCPLAIN_BENCH_EMAIL)"
+BENCH_PASSWORD="$(bench_value MCPLAIN_BENCH_PASSWORD)"
+if [ -z "$BENCH_EMAIL" ] || [ -z "$BENCH_PASSWORD" ]; then
+    echo "notice-smoke: no bench account: run scripts/init-secrets.sh, then scripts/make-bench-account.sh." >&2
+    exit 1
+fi
+ORIGIN="$(docker compose exec -T guichet printenv MCPLAIN_PUBLIC_URL)"
+
+ASK='
+import sys
+
+import httpx
+from altcha import Challenge, Payload, solve_challenge
+
+email, password, origin, text = (sys.stdin.readline().rstrip("\n") for _ in range(4))
+
+
+def solved(client):
+    challenge = Challenge.from_dict(client.get("http://127.0.0.1:8000/api/altcha/challenge").json())
+    solution = solve_challenge(challenge)
+    if solution is None:
+        sys.exit("notice-smoke: the ALTCHA challenge could not be solved")
+    return Payload(challenge, solution).to_base64()
+
+
+with httpx.Client(timeout=30, trust_env=False) as client:
+    signed = client.post(
+        "http://guichet:3100/api/auth/sign-in/email",
+        json={"email": email, "password": password},
+        headers={"Origin": origin, "x-altcha": solved(client)},
+    )
+    if signed.status_code != 200:
+        sys.exit(f"notice-smoke: the bench account cannot sign in ({signed.status_code}): run scripts/make-bench-account.sh")
+    cookie = "; ".join(f"{name}={value}" for name, value in client.cookies.items())
+    created = client.post(
+        "http://127.0.0.1:8000/api/analyses",
+        json={"input": text},
+        headers={"x-altcha": solved(client), "Cookie": cookie},
+    )
+    if created.status_code != 202:
+        sys.exit(f"notice-smoke: POST /api/analyses answered {created.status_code}")
+    print(created.json()["id"])
+'
+IDENTIFIER="$(printf '%s\n%s\n%s\n%s\n' "$BENCH_EMAIL" "$BENCH_PASSWORD" "$ORIGIN" "$INPUT" | docker compose exec -T api python -c "$ASK")"
+
+python3 - "$API" "$INPUT" "$IDENTIFIER" <<'PY'
 import json
 import sys
 import time
 import urllib.error
 import urllib.request
 
-API, INPUT = sys.argv[1], sys.argv[2]
+API, INPUT, identifier = sys.argv[1], sys.argv[2], sys.argv[3]
 WAITING = {"pending", "none"}
 
 
@@ -41,12 +95,10 @@ def call(method, path, payload=None):
         sys.exit(f"notice-smoke: {method} {path} answered {error.code}")
 
 
-created = call("POST", "/api/analyses", {"input": INPUT})
-identifier = created["id"]
-print(f"analysis {identifier} of {INPUT}")
+print(f"analysis {identifier} of {INPUT}, asked by the bench account with a solved ALTCHA")
 for _ in range(300):
     analysis = call("GET", f"/api/analyses/{identifier}")
-    if analysis["state"] in ("done", "failed"):
+    if analysis["state"] in ("done", "failed", "quota_exhausted"):
         break
     time.sleep(1)
 print(f"state {analysis['state']}, verdict {analysis['result']['verdict']['color']}")

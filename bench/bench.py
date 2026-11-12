@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from altcha import Challenge, Payload, solve_challenge
 
 BENCH_DIR = Path(__file__).resolve().parent
 SERVERS_FILE = BENCH_DIR / "servers.toml"
@@ -25,6 +26,14 @@ BASELINE_FILE = BENCH_DIR / "baseline.json"
 RESULTS_DIR = BENCH_DIR / "results"
 ENGINE_INIT = BENCH_DIR.parent / "engine" / "src" / "mcplain" / "__init__.py"
 DEFAULT_API_URL = "http://127.0.0.1:8000"
+DEFAULT_WEB_PORT = "3000"
+ENV_FILE = BENCH_DIR.parent / ".env"
+ENV_KEYS: tuple[str, ...] = ("MCPLAIN_BENCH_EMAIL", "MCPLAIN_BENCH_PASSWORD", "MCPLAIN_WEB_PORT")
+ALTCHA_PATH = "/api/altcha/challenge"
+SIGN_IN_PATH = "/api/auth/sign-in/email"
+ALTCHA_HEADER = "x-altcha"
+ALTCHA_UNSOLVED = "bench.altcha_unsolved"
+QUOTA_EXHAUSTED = "quota_exhausted"
 DEFAULT_CONCURRENCY = 2
 DEFAULT_TIMEOUT_SECONDS = 900.0
 POLL_SECONDS = 2.0
@@ -197,6 +206,61 @@ def gray_cause(record: dict[str, Any]) -> str:
     return case
 
 
+def env_values(environ: dict[str, str], env_file: Path | None = None) -> dict[str, str]:
+    """Return the settings of the bench: the environment first, then the lines of .env written by init-secrets.sh"""
+
+    if env_file is None:
+        env_file = ENV_FILE
+    values: dict[str, str] = {}
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            name, separator, value = line.partition("=")
+            if separator and name in ENV_KEYS:
+                values[name] = value
+    for name in ENV_KEYS:
+        if environ.get(name):
+            values[name] = environ[name]
+    return values
+
+
+def default_site(values: dict[str, str]) -> str:
+    """Return the address of the website of the local stack"""
+
+    return f"http://localhost:{values.get('MCPLAIN_WEB_PORT') or DEFAULT_WEB_PORT}"
+
+
+def solve_altcha(client: httpx.Client) -> str | None:
+    """Ask the API for a new ALTCHA challenge and solve it as the widget of a browser would"""
+
+    try:
+        answer = client.get(ALTCHA_PATH)
+        answer.raise_for_status()
+        challenge = Challenge.from_dict(answer.json())
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return None
+    solution = solve_challenge(challenge)
+    if solution is None:
+        return None
+    return Payload(challenge, solution).to_base64()
+
+
+def sign_in(client: httpx.Client, email: str, password: str, origin: str) -> bool:
+    """Sign in the bench account through the counter, with a solved ALTCHA; the session cookie stays in the client"""
+
+    payload = solve_altcha(client)
+    if payload is None:
+        return False
+    try:
+        answer = client.post(
+            SIGN_IN_PATH,
+            json={"email": email, "password": password},
+            headers={"Origin": origin, ALTCHA_HEADER: payload},
+        )
+    except httpx.HTTPError:
+        return False
+    return answer.status_code == 200
+
+
 def analyze_one(
     client: httpx.Client,
     server: Server,
@@ -204,13 +268,22 @@ def analyze_one(
     poll: float = POLL_SECONDS,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
+    altcha: Callable[[], str | None] | None = None,
 ) -> dict[str, Any]:
-    """Ask the API for one analysis, wait for its end, and return its record"""
+    """Ask the API for one analysis with a fresh ALTCHA solution, wait for its end, and return its record"""
 
     record = base_record(server)
     started = clock()
+    headers: dict[str, str] = {}
+    if altcha is not None:
+        payload = altcha()
+        if payload is None:
+            record["outcome"] = NETWORK_FAILURE
+            record["error_code"] = ALTCHA_UNSOLVED
+            return record
+        headers[ALTCHA_HEADER] = payload
     try:
-        answer = client.post("/api/analyses", json={"input": server.input})
+        answer = client.post("/api/analyses", json={"input": server.input}, headers=headers)
     except httpx.HTTPError:
         record["outcome"] = NETWORK_FAILURE
         record["error_code"] = "bench.api_unreachable"
@@ -237,6 +310,10 @@ def analyze_one(
                 return record
             sleep(poll)
             continue
+        if view.get("state") == QUOTA_EXHAUSTED:
+            record["outcome"] = NETWORK_FAILURE
+            record["error_code"] = QUOTA_EXHAUSTED
+            return record
         if view.get("state") in FINISHED_STATES:
             classify(record, view)
             record["duration_seconds"] = round(clock() - started, 1)
@@ -256,22 +333,31 @@ def error_code_of(answer: httpx.Response) -> str:
         return f"http.{answer.status_code}"
 
 
+class BenchSignInError(Exception):
+    """Class for a bench that cannot sign in its account"""
+
+
 def run_bench(
     servers: list[Server],
-    api_url: str = DEFAULT_API_URL,
+    site_url: str,
+    email: str,
+    password: str,
     concurrency: int = DEFAULT_CONCURRENCY,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     poll: float = POLL_SECONDS,
     report: Callable[[dict[str, Any]], None] | None = None,
+    transport: httpx.BaseTransport | None = None,
 ) -> list[dict[str, Any]]:
-    """Analyze every server, a few at a time, and return the records in list order"""
+    """Sign in the bench account through the website, then analyze every server, a few at a time, in list order"""
 
-    with httpx.Client(base_url=api_url, timeout=REQUEST_TIMEOUT_SECONDS) as client:
+    with httpx.Client(base_url=site_url, timeout=REQUEST_TIMEOUT_SECONDS, transport=transport) as client:
+        if not sign_in(client, email, password, site_url):
+            raise BenchSignInError(site_url)
 
         def one(server: Server) -> dict[str, Any]:
             """Analyze one server and report its record"""
 
-            record = analyze_one(client, server, timeout=timeout, poll=poll)
+            record = analyze_one(client, server, timeout=timeout, poll=poll, altcha=lambda: solve_altcha(client))
             if report is not None:
                 report(record)
             return record
@@ -662,13 +748,26 @@ def command_run(arguments: argparse.Namespace) -> int:
     now = datetime.now(UTC)
     date = now.strftime("%Y-%m-%d")
     baseline = read_json(Path(arguments.baseline))
-    records = run_bench(
-        servers,
-        api_url=arguments.api,
-        concurrency=arguments.concurrency,
-        timeout=arguments.timeout,
-        report=lambda record: print(progress_line(record, baseline), flush=True),
-    )
+    values = env_values(dict(os.environ))
+    email = values.get("MCPLAIN_BENCH_EMAIL", "")
+    password = values.get("MCPLAIN_BENCH_PASSWORD", "")
+    if not email or not password:
+        print("No bench account: run scripts/init-secrets.sh, then scripts/make-bench-account.sh.", file=sys.stderr)
+        return 2
+    site = arguments.site or default_site(values)
+    try:
+        records = run_bench(
+            servers,
+            site_url=site,
+            email=email,
+            password=password,
+            concurrency=arguments.concurrency,
+            timeout=arguments.timeout,
+            report=lambda record: print(progress_line(record, baseline), flush=True),
+        )
+    except BenchSignInError:
+        print(f"The bench account cannot sign in on {site}: run scripts/make-bench-account.sh.", file=sys.stderr)
+        return 2
     run = build_run(records, baseline, version, now.isoformat(timespec="seconds"))
     output = Path(arguments.output or RESULTS_DIR / f"{date}-engine-{version}.json")
     if arguments.mask_red:
@@ -771,7 +870,7 @@ def parser() -> argparse.ArgumentParser:
     main = argparse.ArgumentParser(description="Bench of MCPlain on real MCP servers")
     commands = main.add_subparsers(dest="command", required=True)
     run = commands.add_parser("run", help="analyze every server of the list through the API")
-    run.add_argument("--api", default=DEFAULT_API_URL)
+    run.add_argument("--site", default="")
     run.add_argument("--servers", default=str(SERVERS_FILE))
     run.add_argument("--baseline", default=str(BASELINE_FILE))
     run.add_argument("--only", default="")

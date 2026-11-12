@@ -8,11 +8,43 @@ from typing import Any
 import httpx
 import pytest
 import respx
+from altcha import create_challenge
 
 import bench
 
 API = "http://api.test"
 ANALYSIS_ID = "00000000-0000-4000-8000-000000000001"
+TEST_KEY = "test only altcha key of the simulated api"
+BENCH_EMAIL = "bench@mcplain.invalid"
+BENCH_PASSWORD = "test only bench password 0123"
+
+
+@pytest.fixture(autouse=True)
+def no_real_env_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Never read the .env of the machine: point the bench at a file that does not exist"""
+
+    monkeypatch.setattr(bench, "ENV_FILE", tmp_path / "no.env")
+
+
+def challenge_answer(request: httpx.Request) -> httpx.Response:
+    """Answer a fresh ALTCHA challenge of cost 1, as the API would"""
+
+    return httpx.Response(200, json=create_challenge("PBKDF2/SHA-256", 1, hmac_secret=TEST_KEY).to_dict())
+
+
+def mock_accounts(status: int = 200) -> respx.Route:
+    """Mock the ALTCHA challenges and the sign-in of the counter, and return the sign-in route"""
+
+    respx.get(f"{API}/api/altcha/challenge").mock(side_effect=challenge_answer)
+    cookie = {"set-cookie": "mcplain.session_token=bench.session; Path=/; HttpOnly"}
+    return respx.post(f"{API}/api/auth/sign-in/email").mock(return_value=httpx.Response(status, json={}, headers=cookie))
+
+
+def bench_account(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give the bench its account through the environment"""
+
+    monkeypatch.setenv("MCPLAIN_BENCH_EMAIL", BENCH_EMAIL)
+    monkeypatch.setenv("MCPLAIN_BENCH_PASSWORD", BENCH_PASSWORD)
 
 
 def view(state: str, result: dict[str, Any] | None = None, error_code: str | None = None) -> dict[str, Any]:
@@ -374,7 +406,11 @@ def test_two_runs_are_compared_side_by_side() -> None:
 
 
 @respx.mock
-def test_the_run_command_writes_results_and_summary_and_fails_on_a_wrong_witness(tmp_path: Path) -> None:
+def test_the_run_command_writes_results_and_summary_and_fails_on_a_wrong_witness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bench_account(monkeypatch)
+    mock_accounts()
     servers = tmp_path / "servers.toml"
     servers.write_text(
         '[[server]]\nid = "fetch"\ninput = "uvx mcp-server-fetch"\nlanguage = "python"\ngroup = "witness"\n'
@@ -389,7 +425,7 @@ def test_the_run_command_writes_results_and_summary_and_fails_on_a_wrong_witness
     summary = tmp_path / "summary.md"
     arguments = [
         "run",
-        "--api",
+        "--site",
         API,
         "--servers",
         str(servers),
@@ -428,7 +464,9 @@ def test_the_summary_command_prints_a_results_file(tmp_path: Path, capsys: pytes
 
 
 @respx.mock
-def test_the_ci_run_masks_a_red_server_and_fails(tmp_path: Path) -> None:
+def test_the_ci_run_masks_a_red_server_and_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bench_account(monkeypatch)
+    mock_accounts()
     servers = tmp_path / "servers.toml"
     servers.write_text(
         '[[server]]\nid = "secret-name"\ninput = "uvx secret-name"\nlanguage = "python"\ngroup = "popular"\nwhy = "x"\n',
@@ -440,7 +478,7 @@ def test_the_ci_run_masks_a_red_server_and_fails(tmp_path: Path) -> None:
     )
     output = tmp_path / "results.json"
     summary = tmp_path / "summary.md"
-    arguments = ["run", "--api", API, "--servers", str(servers), "--baseline", str(tmp_path / "none.json")]
+    arguments = ["run", "--site", API, "--servers", str(servers), "--baseline", str(tmp_path / "none.json")]
     arguments += ["--output", str(output), "--summary", str(summary), "--mask-red", "--check"]
     assert bench.main(arguments) == 1
     assert "secret-name" not in output.read_text(encoding="utf-8")
@@ -543,3 +581,68 @@ def test_the_baseline_command_verifies_only_a_red_of_the_run(tmp_path: Path) -> 
     written = json.loads(target.read_text(encoding="utf-8"))
     assert written["servers"]["checked"]["verified"] is True
     assert written["reds_left_out"] == 0
+
+
+@respx.mock
+def test_each_analysis_sends_a_fresh_altcha_solution() -> None:
+    route = respx.post(f"{API}/api/analyses").mock(return_value=httpx.Response(202, json={"id": ANALYSIS_ID}))
+    respx.get(f"{API}/api/analyses/{ANALYSIS_ID}").mock(return_value=httpx.Response(200, json=view("done", result("orange"))))
+    mock_accounts()
+    with httpx.Client(base_url=API) as client:
+        for _ in range(2):
+            bench.analyze_one(client, server(), poll=0, sleep=no_sleep, altcha=lambda: bench.solve_altcha(client))
+    payloads = [call.request.headers["x-altcha"] for call in route.calls]
+    assert len(payloads) == 2 and payloads[0] != payloads[1]
+
+
+@respx.mock
+def test_an_unsolved_altcha_and_a_used_up_quota_are_failures_apart() -> None:
+    route = respx.post(f"{API}/api/analyses").mock(return_value=httpx.Response(202, json={"id": ANALYSIS_ID}))
+    respx.get(f"{API}/api/analyses/{ANALYSIS_ID}").mock(return_value=httpx.Response(200, json=view("quota_exhausted")))
+    with httpx.Client(base_url=API) as client:
+        unsolved = bench.analyze_one(client, server(), poll=0, sleep=no_sleep, altcha=lambda: None)
+        assert route.call_count == 0
+        exhausted = bench.analyze_one(client, server(), poll=0, sleep=no_sleep, altcha=lambda: "PAYLOAD")
+    assert (unsolved["outcome"], unsolved["error_code"]) == (bench.NETWORK_FAILURE, "bench.altcha_unsolved")
+    assert (exhausted["outcome"], exhausted["error_code"]) == (bench.NETWORK_FAILURE, "quota_exhausted")
+
+
+@respx.mock
+def test_the_bench_signs_in_through_the_counter_with_altcha_and_its_origin() -> None:
+    sign_in = mock_accounts()
+    with httpx.Client(base_url=API) as client:
+        assert bench.sign_in(client, BENCH_EMAIL, BENCH_PASSWORD, API)
+        assert client.cookies.get("mcplain.session_token") == "bench.session"
+    request = sign_in.calls[0].request
+    assert json.loads(request.content) == {"email": BENCH_EMAIL, "password": BENCH_PASSWORD}
+    assert request.headers["Origin"] == API
+    assert request.headers["x-altcha"]
+
+
+@respx.mock
+def test_a_bench_that_cannot_sign_in_stops_before_any_analysis() -> None:
+    mock_accounts(status=401)
+    route = respx.post(f"{API}/api/analyses")
+    with pytest.raises(bench.BenchSignInError):
+        bench.run_bench([server()], API, BENCH_EMAIL, "wrong")
+    assert route.call_count == 0
+
+
+def test_the_bench_reads_its_account_from_the_environment_then_from_env(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("MCPLAIN_BENCH_EMAIL=file@mcplain.invalid\nMCPLAIN_BENCH_PASSWORD=from file\nOTHER=x\nMCPLAIN_WEB_PORT=3010\n", encoding="utf-8")
+    values = bench.env_values({"MCPLAIN_BENCH_EMAIL": "env@mcplain.invalid"}, env_file)
+    assert values == {"MCPLAIN_BENCH_EMAIL": "env@mcplain.invalid", "MCPLAIN_BENCH_PASSWORD": "from file", "MCPLAIN_WEB_PORT": "3010"}
+    assert bench.default_site(values) == "http://localhost:3010"
+    assert bench.default_site({}) == "http://localhost:3000"
+
+
+def test_without_a_bench_account_the_run_command_says_what_to_do(
+    tmp_path: Path, capsys: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("MCPLAIN_BENCH_EMAIL", raising=False)
+    monkeypatch.delenv("MCPLAIN_BENCH_PASSWORD", raising=False)
+    servers = tmp_path / "servers.toml"
+    servers.write_text('[[server]]\nid = "a"\ninput = "uvx a"\nlanguage = "python"\ngroup = "popular"\nwhy = "x"\n', encoding="utf-8")
+    assert bench.main(["run", "--site", API, "--servers", str(servers), "--baseline", str(tmp_path / "none.json")]) == 2
+    assert "make-bench-account.sh" in capsys.readouterr().err

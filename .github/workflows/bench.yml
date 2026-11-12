@@ -26,6 +26,14 @@ jobs:
           mkdir -p "$RUNNER_TEMP/jobs"
           {
             echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
+            echo "BETTER_AUTH_SECRET=test-only-bench-better-auth-secret-0123456789"
+            echo "MCPLAIN_ALTCHA_HMAC_KEY=test-only-bench-altcha-key-0123456789"
+            echo "MCPLAIN_APP_DB_PASSWORD=test-only-bench-app-password-0123456789"
+            echo "MCPLAIN_GUICHET_DB_PASSWORD=test-only-bench-guichet-password-0123456789"
+            echo "MCPLAIN_FACTEUR_DB_PASSWORD=test-only-bench-facteur-password-0123456789"
+            echo "MCPLAIN_ALLOW_BENCH_ROLE=true"
+            echo "MCPLAIN_BENCH_EMAIL=bench@bench.mcplain.invalid"
+            echo "MCPLAIN_BENCH_PASSWORD=test-only-bench-account-password-0123456789"
             echo "GITHUB_TOKEN=$GITHUB_TOKEN"
             echo "MCPLAIN_JOBS_DIR=$RUNNER_TEMP/jobs"
             echo "MCPLAIN_UID=$(id -u)"
@@ -35,12 +43,14 @@ jobs:
       - name: Build the images and start the stack
         run: |
           docker compose build atelier
-          docker compose up -d --build --wait api dispatcher
+          docker compose up -d --build --wait api dispatcher guichet web
+      - name: Create the bench account of this stack
+        run: scripts/make-bench-account.sh
       - name: Run the bench on the latest versions
         working-directory: bench
         env:
           MCPLAIN_BENCH_KEY: ${{ secrets.MCPLAIN_BENCH_KEY }}
-        run: uv run --locked python bench.py run --check --mask-red --output results/bench.json --summary "$GITHUB_STEP_SUMMARY"
+        run: uv run --locked python bench.py run --site http://localhost:3000 --check --mask-red --output results/bench.json --summary "$GITHUB_STEP_SUMMARY"
       - name: Keep the full results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -51,7 +61,7 @@ jobs:
           retention-days: 30
       - name: Show the logs of the stack
         if: failure()
-        run: docker compose logs --no-color --tail 200 api dispatcher
+        run: docker compose logs --no-color --tail 200 api dispatcher guichet web
       - name: Stop the stack
         if: always()
         run: docker compose down --volumes

@@ -42,6 +42,22 @@ for NAME_TO_FILL in $SECRETS; do
     ADDED=$((ADDED + 1))
 done
 
+if ! grep -Eq "^MCPLAIN_BENCH_EMAIL=.+" "$ENV_FILE"; then
+    set_line MCPLAIN_BENCH_EMAIL "bench-$(openssl rand -hex 4)@bench.mcplain.invalid"
+    echo "init-secrets: added MCPLAIN_BENCH_EMAIL (the bench account of this machine, never your own)"
+    ADDED=$((ADDED + 1))
+fi
+if ! grep -Eq "^MCPLAIN_BENCH_PASSWORD=.+" "$ENV_FILE"; then
+    set_line MCPLAIN_BENCH_PASSWORD "$(openssl rand -hex 32)"
+    echo "init-secrets: added MCPLAIN_BENCH_PASSWORD"
+    ADDED=$((ADDED + 1))
+fi
+if ! grep -Eq "^MCPLAIN_ALLOW_BENCH_ROLE=" "$ENV_FILE"; then
+    set_line MCPLAIN_ALLOW_BENCH_ROLE true
+    echo "init-secrets: added MCPLAIN_ALLOW_BENCH_ROLE (true on this machine only, never on the VPS)"
+    ADDED=$((ADDED + 1))
+fi
+
 if ! grep -Eq "^COMPOSE_PROFILES=" "$ENV_FILE"; then
     set_line COMPOSE_PROFILES dev
     echo "init-secrets: added COMPOSE_PROFILES (dev: Mailpit receives the mails)"
