@@ -1,8 +1,8 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8 et 9a et le corpus partie 2 sont faits. Les parties « Protections »
-et « Adresses IP partagées » sont codées pour l'IA (séance 8) et pour les comptes (séance 9a) ; les quotas viennent en séance 9b.
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8, 9a et 9b et le corpus partie 2 sont faits. Les parties
+« Protections » et « Adresses IP partagées » sont codées (séances 8, 9a et 9b).
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
 
@@ -182,18 +182,37 @@ Guide : `docs/accounts.fr.md`.
 - [x] `current_user()` dans l'API, prêt pour la séance 9b.
 - [x] uv 0.13.6 sur le poste et en CI (`required-version`) : `uv lock` écrit la même `revision` que Dependabot.
 
-## SÉANCE 9B : QUOTAS ET COMPTEUR (à faire)
+## SÉANCE 9B : QUOTAS ET COMPTEUR (faite le 12 novembre 2026, moteur et règles inchangés)
 
-- Quotas : sans compte, 3 analyses par jour et par adresse IP ; avec compte, 10 par jour au compte ; l'admin n'a pas de quota.
-- Anti-rafale : 30 demandes par heure et par adresse IP, cache compris.
-- ALTCHA sur l'analyse (bouton ANALYSER).
-- Le compteur d'analyses près du champ, et l'historique des analyses du compte.
-- Utiliser `current_user()` et `visitor_ip()` de la séance 9a.
+Guide : `docs/accounts.fr.md`, sections 14 à 18.
+
+- [x] Quotas par jour UTC : 3 par empreinte d'IP sans compte, 10 par compte, admin sans limite. Jeton pris en une instruction SQL
+      (testé avec 5 demandes simultanées sur PostgreSQL), rendu une seule fois par le chef d'atelier (cache, liste de plusieurs
+      MCP, échec de MCPlain). Une seule table des codes (`api/src/mcplain_api/refunds.py`), un test pour les codes oubliés.
+- [x] Quota épuisé : demande « cache seulement », état `quota_exhausted` sans téléchargement ni verdict (décision de David du
+      12 novembre : l'API ne peut pas savoir avant OSV si le cache servira).
+- [x] Anti-rafale : 30 demandes par heure glissante, par empreinte d'IP sans compte, par compte connecté ; admin et banc exemptés.
+- [x] ALTCHA invisible sur chaque demande d'analyse, coût porté à 5000 (médiane 268 à 376 ms, maximum 469 à 959 ms, processeur
+      ralenti 4 fois).
+- [x] Compteur dans l'en-tête, phrase du réseau partagé, page de quota épuisé, historique sur « Mon compte », effacement de
+      l'historique et des quotas avant la suppression d'un compte (`/internal/account-erase`).
+- [x] Rôle `bench` (décision de David du 12 novembre) : sans quota ni anti-rafale, ALTCHA obligatoire, aucun pouvoir admin, actif
+      seulement avec `MCPLAIN_ALLOW_BENCH_ROLE=true`. `scripts/make-bench-account.sh`. Le banc et `bench.yml` passent par le site.
+- [x] Inscription : même réponse pour une adresse nouvelle ou déjà inscrite (corps fixe), sans e-mail pour l'adresse déjà
+      inscrite.
+- [x] Le guichet ne limite plus la lecture d'une session (`/get-session`) : l'API la demande pour chaque visiteur depuis une
+      seule adresse, et la limite de 100 par minute faisait passer des comptes connectés pour des anonymes.
+- [ ] Un compte banni plus tard (9c) n'est pas géré : rien n'est préparé dans les quotas.
+- [ ] `uvx mcp-server-fetch` 2026.11.11 (publié le 11 novembre) sort orange avec O04 et O08, sans O01 : deux tests de la vraie pile
+      qui attendent O01 échouent (`api/tests/test_compose.py`, `web/tests/e2e/stack/fetch.spec.ts`). Moteur inchangé : décision
+      de David attendue (enquête du moteur, ou nouvel attendu).
 
 ## SÉANCE 9C : ADMIN ET SIGNALEMENTS (à faire)
 
 - Tableau admin : dépense et solde de l'IA, taux de rejets `encoding`, nombre de refus « trop de comptes créés depuis ce
-  réseau » par jour (table `signup_refusals`), bouton pour relancer une notice rejetée.
+  réseau » par jour (table `signup_refusals`), demandes arrivées quota épuisé par jour et par type de visiteur (table
+  `quota_refusals`), bouton pour relancer une notice rejetée.
+- Bannir un compte (et décider de ce que deviennent son historique et ses quotas).
 - Signalements (dont « Tu es l'auteur ? Signale une erreur »).
 - Umami (mesure d'audience auto-hébergée).
 - Double authentification TOTP (application, code à 6 chiffres, 30 secondes), obligatoire pour le seul compte admin, avec codes
@@ -209,6 +228,10 @@ Guide : `docs/accounts.fr.md`.
   seul quota. À vérifier une fois en ligne : deux visiteurs sur deux réseaux différents doivent voir deux compteurs.
 - Retirer `CREATEDB` au rôle `mcplain_app` en production (donné par la migration `0006`) : ce droit ne sert qu'aux tests de
   la pile.
+- `MCPLAIN_ALLOW_BENCH_ROLE` faux sur le VPS (c'est la valeur par défaut) ; vérifier qu'aucun compte `bench` n'y existe
+  (`SELECT email FROM auth."user" WHERE role = 'bench'`).
+- Le port de l'API jamais exposé sur l'hôte : sinon les appels directs, sans adresse lue, partagent une seule empreinte d'IP et un
+  seul quota.
 - Surveiller la prochaine demande de Dependabot pour uv : elle doit rester compatible avec `required-version = ">=0.13.6"` de
   `engine/`, `api/` et `bench/` (sinon `uv lock` échoue en CI).
 - Mentions de confidentialité : le cookie de session est exempté de consentement (il sert seulement à rester connecté) ; les

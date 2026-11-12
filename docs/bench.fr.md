@@ -70,29 +70,41 @@ dans l'atelier.
    docker compose up -d --build
    ```
 
-2. Lance le banc, depuis `bench/` :
+2. Une fois pour toutes (séance 9b), crée le compte du banc : `scripts/init-secrets.sh` ajoute son adresse et son mot de passe
+   à `.env` (`MCPLAIN_BENCH_EMAIL`, `MCPLAIN_BENCH_PASSWORD`, et `MCPLAIN_ALLOW_BENCH_ROLE=true`), puis, la pile lancée :
+
+   ```bash
+   scripts/make-bench-account.sh
+   ```
+
+   Ce compte a le rôle `bench` : ni quota ni anti-rafale, mais ALTCHA à chaque demande (`docs/accounts.fr.md`, section 18).
+
+3. Lance le banc, depuis `bench/` :
 
    ```bash
    uv run python bench.py run
    ```
 
+   Il se connecte avec le compte du banc par le site (`http://localhost:<MCPLAIN_WEB_PORT>`), puis demande chaque analyse avec
+   une solution ALTCHA neuve. Sans compte, il s'arrête et dit quoi lancer.
+
    Il affiche une ligne par serveur, puis le résumé. Les résultats complets vont dans
    `bench/results/<date>-engine-<version>.json`. Compte quelques minutes : deux analyses tournent en même temps,
    comme `MCPLAIN_MAX_PARALLEL`.
 
-3. Pour garder le résumé dans git (les noms des serveurs rouges y sont cachés) :
+4. Pour garder le résumé dans git (les noms des serveurs rouges y sont cachés) :
 
    ```bash
    uv run python bench.py summary results/2026-10-29-engine-0.3.0.json > results/2026-10-29-engine-0.3.0.md
    ```
 
-4. Pour comparer deux mesures :
+5. Pour comparer deux mesures :
 
    ```bash
    uv run python bench.py compare results/2026-10-29-engine-0.2.1.json results/2026-10-29-engine-0.3.0.json
    ```
 
-Options utiles de `run` : `--only fetch,time` (quelques serveurs seulement), `--api http://127.0.0.1:8000`,
+Options utiles de `run` : `--only fetch,time` (quelques serveurs seulement), `--site http://localhost:3010`,
 `--check` (code de sortie 1 si une couleur change ou si un témoin se trompe).
 
 Les tests du script, sans réseau ni pile :
@@ -104,7 +116,9 @@ uv run pytest
 ## 5. Le banc chaque semaine en CI
 
 Le workflow `.github/workflows/bench.yml` tourne chaque lundi à 05:17 UTC, et à la main. Il construit les
-images, lance la pile avec docker compose, puis le banc sur les dernières versions des serveurs de la liste.
+images, lance la pile avec docker compose (API, chef d'atelier, guichet et site, avec des secrets « test only » écrits en dur),
+crée le compte du banc avec `scripts/make-bench-account.sh`, puis lance le banc par le site sur les dernières versions des serveurs
+de la liste.
 
 - Le résumé (compteurs, pourcentage de verdicts clairs, serveurs dont la couleur ou la version a changé) est
   dans la page du run, onglet « Summary ».

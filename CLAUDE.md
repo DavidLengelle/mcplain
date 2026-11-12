@@ -50,8 +50,17 @@ Planned work and decisions for future sessions are in docs/roadmap.fr.md: read t
 - **Counter** (guichet, `auth/`, service `guichet`, guide: `docs/accounts.fr.md`): Better Auth mounted on `/api/auth/*`. It alone
   receives `BETTER_AUTH_SECRET` and owns the schema `auth` (password hashes) with its role `mcplain_guichet`. Before a sign-up,
   a sign-in or a password reset, it asks the API (`POST /internal/auth-guard`: ALTCHA, sign-up limit per network). It sends no
-  mail: it adds a row to `mail_outbox`, its only right outside `auth`. The role of an account (`user` or `admin`) is never set
-  by the website: only `scripts/make-admin.sh`, run by David.
+  mail: it adds a row to `mail_outbox`, its only right outside `auth`. The role of an account (`user`, `admin` or `bench`) is never set
+  by the website: only `scripts/make-admin.sh`, run by David. Before it deletes an account, it asks the API to erase its history
+  and its quotas (`POST /internal/account-erase`); if that fails, the account is kept.
+- **Quotas** (`api/src/mcplain_api/quota.py`, `analysis_gate.py`, `refunds.py`, guide: `docs/accounts.fr.md` sections 14 to 18):
+  new analyses per UTC day (3 per address fingerprint, 10 per account, no limit for the admin), a burst limit per fingerprint or
+  per account, ALTCHA on every analysis. The token is taken in one SQL statement and given back once by the dispatcher (cache,
+  list of several servers, or a failure of MCPlain, decided by the one table `REFUND_BY_CODE`; a test fails on a code missing
+  from it). Without token, the request is cache-only and ends `quota_exhausted` without download. No setting, header or parameter
+  ever turns the quotas, the burst limit or ALTCHA off: the only exemption is the role `bench` (no admin power, ALTCHA still),
+  active only when `MCPLAIN_ALLOW_BENCH_ROLE=true` (never on the VPS), given by `scripts/make-bench-account.sh`. Stack tests reset
+  the counters with psql as the owner, never through the API.
 - **Postman** (facteur, `api/src/mcplain_api/facteur.py`, command `mcplain-facteur`): the only service that receives the SMTP
   credentials. It sends the rows of `mail_outbox` in plain text, then deletes them, and mails the admin alerts of the writer.
   Role `mcplain_facteur`. In development the mails go to Mailpit (profile `dev`, `http://127.0.0.1:8025`).

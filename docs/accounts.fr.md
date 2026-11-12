@@ -1,12 +1,12 @@
 # Les comptes de MCPlain
 
 Ce guide explique à un débutant comment marchent les comptes : qui fait quoi, où vivent les secrets, et ce que tu lances
-toi-même. Les phrases sont courtes. Séance 9a, faite le 10 novembre 2026.
+toi-même. Les phrases sont courtes. Séance 9a, faite le 10 novembre 2026 ; quotas et historique en séance 9b, le 12 novembre 2026.
 
 ## 1. Le tableau d'ensemble
 
-Un compte sert à une seule chose pour l'instant : se connecter. Les quotas (combien d'analyses par jour) viendront en
-séance 9b. Un compte est gratuit, il demande une adresse e-mail vérifiée et un mot de passe de 10 à 128 caractères.
+Un compte sert à deux choses : avoir 10 analyses par jour rien qu'à soi, et retrouver la liste de ses analyses (section 14).
+Un compte est gratuit, il demande une adresse e-mail vérifiée et un mot de passe de 10 à 128 caractères.
 
 Sous chaque champ de mot de passe, une case « Afficher le mot de passe » montre ce qu'on tape, pour éviter les fautes de
 frappe sur téléphone. Elle est décochée au départ, se décoche à chaque envoi, et son état n'est gardé nulle part. Un seul
@@ -50,8 +50,10 @@ Après la connexion, le navigateur reçoit un badge : le cookie `mcplain.session
 
 Ce cookie sert seulement à rester connecté. C'est pourquoi il n'a pas besoin de bandeau de consentement.
 
-Quand l'API devra savoir qui est connecté (séance 9b), elle transmettra ce cookie au guichet (`current_user()` dans
-`api/src/mcplain_api/session_user.py`) et gardera la réponse 30 secondes. Elle ne transmet que les cookies `mcplain.`.
+Pour savoir qui est connecté, l'API transmet ce cookie au guichet (`current_user()` dans `api/src/mcplain_api/session_user.py`)
+et garde la réponse 30 secondes. Elle ne transmet que les cookies `mcplain.`. Le guichet ne limite jamais la lecture d'une
+session (`/get-session`) : l'API la demande pour tous les visiteurs, depuis une seule adresse, et une limite ferait passer
+des comptes connectés pour des anonymes.
 
 ## 4. Le facteur
 
@@ -82,9 +84,14 @@ envoi. Pour toi, c'est invisible : le calcul se fait pendant que tu cliques, en 
 
 Seule l'API connaît la clé de signature `MCPLAIN_ALTCHA_HMAC_KEY`. Pas de service tiers, pas de cookie.
 
-**Le coût choisi : 2000** (`MCPLAIN_ALTCHA_COST`). Mesure du 10 novembre 2026, dans Chromium avec le processeur ralenti 4 fois
-(le réglage « téléphone moyen » des outils de Chrome), 10 essais : médiane 110 ms, au plus 322 ms. Il reste donc de la marge
-sous la seconde, même sur un téléphone plus lent. Le test `pnpm test:stack` refait cette mesure à chaque fois.
+**Le coût choisi : 5000** (`MCPLAIN_ALTCHA_COST`, séance 9b ; 2000 en séance 9a). Mesures du 12 novembre 2026, dans Chromium
+avec le processeur ralenti 4 fois (le réglage « téléphone moyen » des outils de Chrome), 10 essais chaque fois : médianes 268,
+376 et 279 ms ; maximums 959, 789 et 469 ms. Le maximum reste sous la seconde, mais de peu une fois sur trois : à surveiller.
+Le test `pnpm test:stack` refait cette mesure à chaque fois et vérifie que l'API sert bien le coût 5000.
+
+Depuis la séance 9b, **chaque demande d'analyse** demande aussi une solution neuve : le champ de l'accueil, celui de l'en-tête,
+les exemples « Essaie avec », le clic dans une liste de plusieurs MCP et le bouton « Relancer ». Le widget invisible vit une
+seule fois dans la page (`web/src/components/visitor-context.tsx`).
 
 ## 6. L'adresse IP, et pourquoi on ne croit pas le navigateur
 
@@ -110,7 +117,7 @@ HMAC-SHA256(adresse, sel du jour).
 
 - Le sel est un nombre aléatoire tiré une fois par jour UTC (table `ip_salts`).
 - Il est effacé après 2 jours. Ensuite, même MCPlain ne peut plus refaire l'empreinte d'une adresse : les compteurs de la
-  veille deviennent anonymes, puis sont effacés aussi.
+  veille deviennent anonymes, puis sont effacés aussi (inscriptions, quotas et jetons des analyses, même rythme).
 
 C'est comme un vestiaire qui donne un numéro pour la soirée, puis jette le carnet le lendemain.
 
@@ -140,7 +147,7 @@ ponctuel `migrate` l'utilise.
 | Rôle | Qui | Ce qu'il peut faire |
 | --- | --- | --- |
 | `mcplain` (propriétaire) | service `migrate`, qui s'arrête ensuite | migrations Alembic, création des rôles et de leurs mots de passe |
-| `mcplain_app` | API, chef d'atelier, rédacteur | lire et écrire les tables de MCPlain ; **rien** dans `auth`, rien dans `mail_outbox` |
+| `mcplain_app` | API, chef d'atelier, rédacteur | lire et écrire les tables de MCPlain (quotas et historique compris) ; **rien** dans `auth`, rien dans `mail_outbox` |
 | `mcplain_guichet` | guichet | tout dans son schéma `auth` ; seulement ajouter des lignes à `mail_outbox` |
 | `mcplain_facteur` | facteur | lire et effacer `mail_outbox` ; lire `ai_admin_alerts` et remplir `emailed_at` |
 
@@ -159,6 +166,8 @@ sans toucher aux vraies données. Ce droit ne donne aucun accès au schéma `aut
 3. Crée ton compte dans le navigateur (`http://localhost:<MCPLAIN_WEB_PORT>/fr/account/sign-up`).
 4. Ouvre Mailpit : `http://127.0.0.1:8025`. L'e-mail de confirmation y est. Clique sur le lien.
 5. `scripts/make-admin.sh ton@adresse` : passe ce compte en admin, seulement si son adresse est vérifiée.
+6. `scripts/make-bench-account.sh` : crée le compte du banc d'essai (section 18), avec l'adresse et le mot de passe que
+   `init-secrets.sh` a mis dans `.env`. Jamais ton compte personnel.
 
 **Aucun secret ne va dans GitHub.** La CI tourne avec des valeurs écrites en dur, marquées « test only ».
 
@@ -176,6 +185,13 @@ le vérifie. À la mise en ligne, on choisira un vrai fournisseur SMTP (jamais u
   `X-Forwarded-For` en passant à côté du site. À la mise en ligne, ce port ne sera pas publié.
 - Le renvoi d'un lien de confirmation (`/send-verification-email`) n'a pas d'ALTCHA : seul le limiteur de Better Auth le freine.
 - La route `/internal/auth-guard` vérifie que l'appel vient bien du conteneur du guichet (son adresse sur le réseau compose).
+  `/internal/account-erase` (section 17) fait la même vérification.
+- L'empreinte d'IP change chaque jour UTC (nouveau sel) : à minuit, l'anti-rafale d'un réseau sans compte repart de zéro.
+- L'anti-rafale lit puis compte en deux temps : deux demandes au même instant peuvent passer à 31. La prise de jeton du quota,
+  elle, est atomique.
+- Un compte banni n'existe pas encore (séance 9c).
+- Appeler l'API en direct (port 8000, en développement seulement) donne une adresse inconnue : tous ces appels partagent une
+  seule empreinte, donc un seul quota de 3.
 
 ## 13. Les tests
 
@@ -184,4 +200,102 @@ le vérifie. À la mise en ligne, on choisira un vrai fournisseur SMTP (jamais u
 - `cd api && uv run pytest` : lecture d'IP, empreinte, sel, ALTCHA (valide, expiré, mauvaise signature, rejoué), garde (limite de
   30, compteur des refus), `current_user()`, facteur, fichier compose.
 - `cd api && MCPLAIN_TEST_POSTGRES_URL=... uv run pytest -m postgres` : les droits de chaque rôle sur une vraie base (en CI).
-- `cd web && pnpm test:stack` : le parcours complet dans un vrai navigateur, avec Mailpit, et la mesure d'ALTCHA.
+- `cd web && pnpm test:stack` : le parcours complet dans un vrai navigateur, avec Mailpit, et la mesure d'ALTCHA ; en 9b, un
+  visiteur qui use ses 3 analyses puis voit « Créer un compte », le cache toujours ouvert, un compte qui voit 10, son historique
+  affiché puis effacé (captures clair et sombre, 1280 et 390 px). Les compteurs sont remis à zéro par `psql` en propriétaire,
+  jamais par l'API : il n'existe aucun réglage qui coupe les quotas.
+- `cd api && uv run pytest tests/test_quotas.py tests/test_refunds.py` : quotas 3 et 10, admin et banc, cache et liste non
+  comptés, jeton rendu ou gardé, jamais rendu deux fois, 5 demandes simultanées pour 3 jetons, anti-rafale par réseau et par
+  compte, faux `X-Forwarded-For`, ALTCHA rejoué, historique, effacement à la suppression du compte, et la table des codes.
+
+## 14. Les quotas : combien d'analyses par jour
+
+Une **nouvelle** analyse coûte un jeton. Les jetons reviennent chaque nuit à minuit UTC (01:00 ou 02:00 à Paris, selon
+l'heure d'été ; le site affiche l'heure locale du visiteur).
+
+| Qui | Jetons par jour | Compté sur |
+| --- | --- | --- |
+| Sans compte | 3 (`MCPLAIN_QUOTA_ANONYMOUS`) | l'empreinte de l'adresse IP (tout le réseau ensemble) |
+| Avec un compte | 10 (`MCPLAIN_QUOTA_ACCOUNT`) | le compte, quel que soit le réseau |
+| Admin | sans limite | |
+| Compte du banc (section 18) | sans limite si `MCPLAIN_ALLOW_BENCH_ROLE` est vrai, sinon 10 comme un compte | |
+
+**Ce qui ne compte pas** :
+
+- un MCP déjà analysé, servi par le cache : le rapport le dit (« Cette analyse n'a pas été décomptée. ») ;
+- un lien qui donne une liste de plusieurs MCP (le clic sur un MCP de la liste, lui, compte) ;
+- une demande refusée avant création : format (400, 415), ALTCHA raté, anti-rafale, file pleine (503) ;
+- les notices et traductions de l'IA (`/notice`, `/translation`) : elles ne lisent ni ne touchent les quotas.
+
+**Comment c'est compté.** Le jeton est pris à la création de l'analyse, en **une seule instruction SQL** (insérer à 1, ou
+ajouter 1 seulement sous la limite). Dix clics au même instant ne peuvent pas prendre plus de jetons qu'il n'en reste. Le cache
+et la liste ne sont connus qu'après : c'est le chef d'atelier qui **rend** alors le jeton, une seule fois par analyse.
+
+**Quand il n'y a plus de jeton**, la demande est quand même acceptée, en « cache seulement ». Le chef d'atelier demande OSV
+comme d'habitude et sert le cache s'il existe. Sinon, il s'arrête **sans rien télécharger**, avec l'état `quota_exhausted`. Ce
+n'est pas un verdict : la page n'a ni jauge ni « NON VÉRIFIÉ », seulement le message :
+
+- sans compte : les 3 analyses du réseau sont utilisées, le réseau partagé expliqué, et un bouton « Créer un compte » ;
+- avec un compte : « Tu as utilisé tes 10 analyses du jour. Elles reviennent à {heure}. » ;
+- dans les deux cas : « Les MCP déjà analysés restent consultables. »
+
+Ces demandes ne vont jamais dans l'historique ni dans le cache. Elles sont comptées par jour, sans adresse (table
+`quota_refusals`), pour le tableau admin de la séance 9c.
+
+**Le compteur** de l'en-tête lit `GET /api/quota` (rien n'est compté, pas d'ALTCHA) et se met à jour après chaque analyse.
+Sans compte, une phrase propose un compte gratuit pour les réseaux partagés (entreprise, open space, école).
+
+## 15. Le jeton rendu : faute de MCPlain ou faute du lien
+
+Une seule table décide (`REFUND_BY_CODE` dans `api/src/mcplain_api/refunds.py`). Un test échoue si un code d'échec écrit
+quelque part dans le moteur ou dans l'API n'y est pas. Un code inconnu rendrait le jeton, mais ce cas ne doit jamais arriver.
+
+| Ce qui s'est passé | Codes | Jeton |
+| --- | --- | --- |
+| L'atelier ou le chef d'atelier a échoué | `internal_error`, `interrupted`, `atelier_timeout`, `atelier_invalid_result`, `atelier_error` (et les refus internes `analyze.job_*`, `analyze.archive_mismatch`) | rendu |
+| Le registre ou le réseau a eu un souci | `fetch.timeout`, `fetch.network_error`, `fetch.http_error`, `fetch.github_rate_limited`, `fetch.unexpected_response`, `fetch.invalid_json` | rendu |
+| Fichier abîmé ou empreinte absente (ce n'est pas la faute du visiteur) | `fetch.integrity_missing`, `fetch.integrity_mismatch` | rendu |
+| Le lien mène nulle part | `fetch.not_found`, `fetch.npm_not_found`, `fetch.pypi_not_found`, `fetch.github_repo_not_found`, `fetch.github_ref_not_found`, `fetch.pypi_no_files`, `input.reference_not_found`, `analyze.subdir_not_found`, `analyze.not_a_directory` | gardé |
+| Le paquet sort de la liste blanche ou n'est pas sûr | `fetch.host_not_allowed`, `fetch.insecure_url`, `fetch.bad_redirect`, `fetch.too_many_redirects` | gardé |
+| Paquet trop gros, format refusé, archive refusée par l'atelier | `fetch.too_large`, `archive.*` | gardé |
+| Entrée refusée (en pratique déjà refusée par l'API avant création) | `input.*` | gardé |
+
+Une analyse qui aboutit (verte, orange, rouge, ou grise parce que le langage n'est pas pris en charge, le code est compilé…)
+garde son jeton : l'analyse a vraiment eu lieu.
+
+## 16. L'anti-rafale
+
+Au plus **30 demandes d'analyse par heure glissante** (`MCPLAIN_BURST_PER_HOUR`), cache compris : par empreinte d'IP sans compte,
+**par compte** quand on est connecté. Une classe de 25 élèves connectés sur le même réseau n'est donc pas bloquée. L'admin et le
+banc ne sont pas freinés. La 31e demande reçoit 429 (code `burst_limit`) avec l'en-tête `Retry-After`, et le site dit : « Trop de
+demandes en peu de temps. Réessaie dans {minutes} minutes. »
+
+Ordre des contrôles de `POST /api/analyses` : format (400, 415) ; anti-rafale (429) ; ALTCHA (403, `altcha_invalid`, le site dit
+« La vérification anti-robot n'a pas abouti. Réessaie. ») ; validation de l'entrée (400) ; jeton (pris, ou « cache seulement ») ;
+création.
+
+## 17. L'historique
+
+Toute analyse demandée par un compte connecté va dans son historique (table `user_history`), cache compris. Le même lien
+redemandé dans la minute n'est gardé qu'une fois. La page « Mon compte » montre les 100 dernières : date, lien collé (en texte
+brut), couleur avec son mot, lien vers le rapport, mention « depuis le cache ». Le bouton « Effacer mon historique » demande une
+confirmation (`DELETE /api/account/history`).
+
+**Supprimer son compte efface aussi l'historique et les quotas.** Avant de supprimer un compte (une fois le mot de passe
+vérifié), le guichet appelle `POST /internal/account-erase` de l'API, sur le réseau `back`, hors du relais du site. Si l'appel
+échoue, la suppression est annulée et le site dit : « La suppression n'a pas pu se faire. Réessaie dans un instant. »
+
+## 18. Le compte du banc d'essai
+
+Le banc (`bench/`) lance 52 analyses d'un coup : il lui faut un compte sans quota. Ce n'est **jamais** un compte admin (en 9c,
+l'admin aura la double authentification, et un robot ne doit jamais être admin). C'est le rôle `bench` :
+
+- sans quota ni anti-rafale, mais ALTCHA obligatoire comme pour tout le monde, et **aucun pouvoir admin** ;
+- seulement si `MCPLAIN_ALLOW_BENCH_ROLE` est vrai : faux par défaut, vrai dans la pile de test, en CI et dans ton `.env` local.
+  Faux, un compte `bench` est un compte normal (10 par jour) ;
+- le rôle ne se donne que par la base, avec `scripts/make-bench-account.sh` : il inscrit le compte par le guichet comme un
+  navigateur, puis `psql` en propriétaire confirme l'adresse et pose le rôle. Il ne touche jamais un admin.
+
+L'adresse et le mot de passe du compte banc sont créés par `scripts/init-secrets.sh` (`MCPLAIN_BENCH_EMAIL`,
+`MCPLAIN_BENCH_PASSWORD`). En CI, des valeurs « test only » sont écrites en dur dans `bench.yml`. Le banc se connecte par le
+site, puis demande chaque analyse avec le cookie et une solution ALTCHA neuve. `scripts/notice-smoke.sh` utilise le même compte.
