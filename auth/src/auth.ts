@@ -13,6 +13,7 @@ export const COOKIE_PREFIX = "mcplain";
 export const BASE_PATH = "/api/auth";
 const DELETE_USER_PATH = "/delete-user";
 const SIGN_UP_PATH = "/sign-up/email";
+const SESSION_PATH = "/get-session";
 export const SIGN_UP_ANSWER = { token: null, user: null } as const;
 const ROLE_FIELD = "role";
 
@@ -90,7 +91,7 @@ export function authOptions(settings: Settings, dependencies: Dependencies) {
       defaultCookieAttributes: { httpOnly: true, sameSite: "lax" as const, secure: isSecure(settings) },
       ipAddress: { ipAddressHeaders: [LIMITER_IP_HEADER], ipv6Subnet: 64 as const },
     },
-    rateLimit: { enabled: true, storage: "memory" as const, window: 60, max: 100 },
+    rateLimit: { enabled: true, storage: "memory" as const, window: 60, max: 100, customRules: { [SESSION_PATH]: false as const } },
     databaseHooks: {
       session: {
         create: {

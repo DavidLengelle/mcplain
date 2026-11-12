@@ -120,6 +120,7 @@ describe("settings of the counter", () => {
       defaultCookieAttributes: { httpOnly: true, sameSite: "lax", secure: false },
     });
     expect(options.rateLimit.enabled).toBe(true);
+    expect(options.rateLimit.customRules).toEqual({ "/get-session": false });
     expect(options.telemetry.enabled).toBe(false);
     expect(options).not.toHaveProperty("socialProviders");
     expect(options).not.toHaveProperty("plugins");
@@ -283,6 +284,17 @@ describe("accounts", () => {
       throw new TypeError("down");
     }) as typeof fetch);
     expect(await down("u1")).toBe(false);
+  });
+
+  it("never limits the reading of a session: the API asks it for every visitor, from one address", async () => {
+    const { auth, mails } = setup();
+    const cookie = await signUpAndVerify(auth, mails, "ada@example.com");
+    const statuses = new Set<number>();
+    for (let count = 0; count < 150; count += 1) {
+      const answer = await auth.handler(new Request(`${ORIGIN}/api/auth/get-session`, { headers: { Cookie: cookie } }));
+      statuses.add(answer.status);
+    }
+    expect([...statuses]).toEqual([200]);
   });
 
   it("keeps no visitor address nor browser in the session", async () => {
