@@ -4,6 +4,38 @@ on:
   schedule:
     - cron: "17 5 * * 1"
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "engine/**"
+      - "bench/**"
+      - "api/**"
+      - "auth/**"
+      - "web/**"
+      - "docker/**"
+      - ".dockerignore"
+      - "compose*.yaml"
+      - "docker-compose*.yml"
+      - "scripts/make-bench-account.sh"
+      - ".github/workflows/bench.yml"
+  pull_request:
+    paths:
+      - "engine/**"
+      - "bench/**"
+      - "api/**"
+      - "auth/**"
+      - "web/**"
+      - "docker/**"
+      - ".dockerignore"
+      - "compose*.yaml"
+      - "docker-compose*.yml"
+      - "scripts/make-bench-account.sh"
+      - ".github/workflows/bench.yml"
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
