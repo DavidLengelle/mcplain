@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 
 const SCREENS = join(__dirname, "..", "..", "test-results", "screens");
 const THEMES = ["light", "dark"] as const;

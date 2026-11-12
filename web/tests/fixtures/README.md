@@ -27,8 +27,8 @@ engine output, with the stack built from the same commit (`docker compose build 
 
 ## ALTCHA challenge of the simulated API
 
-`altcha-challenge.json` is a challenge of cost 1 that expires in 2099, signed with a test only key. The simulated API of
-`pnpm test:e2e` (`tests/e2e/messages-server.mjs`) serves it on `GET /api/altcha/challenge`, so that the invisible widget
-solves it as in a real browser. It was made from `api/` with
+`altcha-challenge.json` is a challenge of cost 1 that expires in 2099, signed with a test only key. The fixture of
+`pnpm test:e2e` (`tests/e2e/test.ts`) answers it to the browser on `GET /api/altcha/challenge` (and a 404 on `/api/quota`,
+unless a test answers its own quota), so that the invisible widget solves it as in a real browser, with or without a stack. It was made from `api/` with
 `uv run python -c "...create_challenge('PBKDF2/SHA-256', 1, expires_at=datetime(2099, 1, 1, tzinfo=UTC), hmac_secret=...)..."`.
 The real API never accepts it: its key is another one.

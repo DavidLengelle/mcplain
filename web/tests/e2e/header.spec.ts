@@ -1,4 +1,6 @@
-import { expect, test, type Locator } from "@playwright/test";
+import type { Locator } from "@playwright/test";
+
+import { expect, test } from "./test";
 
 import { ID, serveAnalysis, withoutQuota } from "./fake-api";
 import { reportView } from "./reports";

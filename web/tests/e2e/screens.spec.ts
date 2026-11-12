@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 
 import { ID, serveAnalysis } from "./fake-api";
 import { reportView, type ReportName } from "./reports";

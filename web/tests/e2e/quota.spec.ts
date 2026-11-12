@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 
 import { fulfill, ID, serveAnalysis, view } from "./fake-api";
 

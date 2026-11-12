@@ -3,7 +3,6 @@ import { createServer } from "node:http";
 
 const LOCALES = new URL("../../../engine/src/mcplain/locales/", import.meta.url);
 const API_LOCALES = new URL("../../../api/src/mcplain_api/locales/", import.meta.url);
-const ALTCHA_CHALLENGE = new URL("../fixtures/altcha-challenge.json", import.meta.url);
 const LANGUAGES = new Set(["en", "fr"]);
 const port = Number(process.argv[2]);
 
@@ -16,10 +15,6 @@ const server = createServer(async (request, response) => {
   const match = /^\/api\/messages\/([a-z]+)$/.exec(request.url ?? "");
   if (request.url === "/health") {
     send(response, 200, { status: "ok" });
-    return;
-  }
-  if (request.method === "GET" && request.url === "/api/altcha/challenge") {
-    send(response, 200, JSON.parse(await readFile(ALTCHA_CHALLENGE, "utf-8")));
     return;
   }
   if (request.method !== "GET" || match === null || !LANGUAGES.has(match[1])) {
