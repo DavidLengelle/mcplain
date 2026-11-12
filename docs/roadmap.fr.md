@@ -203,8 +203,14 @@ Guide : `docs/accounts.fr.md`.
 
 - Choisir un fournisseur SMTP (jamais un serveur d'e-mails maison) ; régler `MCPLAIN_SMTP_*` avec STARTTLS.
 - Un rôle PostgreSQL par service existant (API, chef d'atelier, rédacteur), au lieu du rôle commun `mcplain_app`.
-- `MCPLAIN_PUBLIC_URL` en `https://` (cookies `Secure`) ; `MCPLAIN_TRUSTED_PROXY_HOPS=2` avec un relais TLS devant le site ; ne
-  plus publier le port 8000 de l'API.
+- `MCPLAIN_PUBLIC_URL` en `https://` (cookies `Secure`) ; ne plus publier le port 8000 de l'API.
+- `MCPLAIN_TRUSTED_PROXY_HOPS` réglé selon le relais réel du VPS : 2 avec un relais TLS devant le site (le relais, puis le site),
+  plus un par relais en plus. Avec une valeur trop basse, tous les visiteurs auraient l'adresse du relais et partageraient un
+  seul quota. À vérifier une fois en ligne : deux visiteurs sur deux réseaux différents doivent voir deux compteurs.
+- Retirer `CREATEDB` au rôle `mcplain_app` en production (donné par la migration `0006`) : ce droit ne sert qu'aux tests de
+  la pile.
+- Surveiller la prochaine demande de Dependabot pour uv : elle doit rester compatible avec `required-version = ">=0.13.6"` de
+  `engine/`, `api/` et `bench/` (sinon `uv lock` échoue en CI).
 - Mentions de confidentialité : le cookie de session est exempté de consentement (il sert seulement à rester connecté) ; les
   empreintes d'IP (HMAC avec un sel du jour, effacé après 2 jours) ; les e-mails (adresse du compte, liens à usage unique).
 - Relever `MCPLAIN_SIGNUPS_PER_IP_PER_DAY` si le tableau admin montre des refus fréquents.

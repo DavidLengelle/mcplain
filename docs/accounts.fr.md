@@ -127,6 +127,8 @@ s'inscrire le même jour depuis le même réseau.
 - Seule la **création** est limitée, jamais la connexion ni le mot de passe oublié.
 - Une inscription compte quand elle passe la garde, même si l'adresse avait déjà un compte : on ne dit jamais si une adresse est
   inscrite.
+- Pour une adresse déjà inscrite, le guichet répond exactement comme pour une adresse nouvelle (code 200, même corps, même
+  page « Regarde tes e-mails »), mais n'envoie aucun e-mail. Un test le vérifie.
 - Chaque refus est compté par jour, **sans adresse** (table `signup_refusals`). Le tableau admin de la séance 9c le montrera ; si
   les refus sont fréquents, on relèvera la limite.
 

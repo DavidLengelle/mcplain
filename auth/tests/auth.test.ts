@@ -186,8 +186,13 @@ describe("accounts", () => {
   it("does not tell whether an email already has an account", async () => {
     const { auth, mails } = setup();
     await signUpAndVerify(auth, mails, "ada@example.com");
+    const mailsBefore = mails.length;
     const again = await auth.handler(post("/sign-up/email", { email: "ada@example.com", password: PASSWORD, name: "" }));
-    expect(again.status).toBe(200);
+    const fresh = await auth.handler(post("/sign-up/email", { email: "grace@example.com", password: PASSWORD, name: "" }));
+    expect([again.status, fresh.status]).toEqual([200, 200]);
+    expect(await again.text()).toBe(await fresh.text());
+    expect(sessionCookie(again)).toBe(sessionCookie(fresh));
+    expect(mails.slice(mailsBefore).map((mail) => mail.recipient)).toEqual(["grace@example.com"]);
     const wrong = await auth.handler(post("/sign-in/email", { email: "ada@example.com", password: "a wrong password" }));
     const unknown = await auth.handler(post("/sign-in/email", { email: "nobody@example.com", password: PASSWORD }));
     expect([wrong.status, unknown.status]).toEqual([401, 401]);

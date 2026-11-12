@@ -11,6 +11,8 @@ export const MAX_PASSWORD_LENGTH = 128;
 export const COOKIE_PREFIX = "mcplain";
 export const BASE_PATH = "/api/auth";
 const DELETE_USER_PATH = "/delete-user";
+const SIGN_UP_PATH = "/sign-up/email";
+export const SIGN_UP_ANSWER = { token: null, user: null } as const;
 const ROLE_FIELD = "role";
 
 const REFUSALS: Record<string, { status: "FORBIDDEN" | "TOO_MANY_REQUESTS" | "SERVICE_UNAVAILABLE"; code: string }> = {
@@ -103,6 +105,12 @@ export function authOptions(settings: Settings, dependencies: Dependencies) {
         if (!answer.ok) {
           throw refusal(answer.code);
         }
+      }),
+      after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== SIGN_UP_PATH || ctx.context.returned instanceof APIError) {
+          return;
+        }
+        return ctx.json(SIGN_UP_ANSWER);
       }),
     },
   } satisfies BetterAuthOptions;
