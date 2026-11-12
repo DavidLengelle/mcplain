@@ -9,6 +9,7 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { EngineNotice } from "@/components/engine-notice";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { VisitorProvider } from "@/components/visitor-context";
 import { routing } from "@/i18n/routing";
 import { TOP_ID } from "@/lib/constants";
 import { NONCE_HEADER } from "@/lib/security-headers";
@@ -50,12 +51,14 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
           >
             {t("skipToContent")}
           </a>
-          <SiteHeader />
-          {!engineAvailable && <EngineNotice />}
-          <main id="main" className="w-full flex-1">
-            {children}
-          </main>
-          <SiteFooter />
+          <VisitorProvider>
+            <SiteHeader />
+            {!engineAvailable && <EngineNotice />}
+            <main id="main" className="w-full flex-1">
+              {children}
+            </main>
+            <SiteFooter />
+          </VisitorProvider>
         </NextIntlClientProvider>
       </body>
     </html>

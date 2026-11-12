@@ -8,6 +8,7 @@ export type AuthErrorKey =
   | "invalidToken"
   | "wrongPassword"
   | "invalidEmail"
+  | "eraseUnavailable"
   | "unavailable";
 
 export type AuthError = { code?: string | undefined; status?: number | undefined } | null | undefined;
@@ -26,6 +27,7 @@ const BY_CODE: Record<string, AuthErrorKey> = {
   SIGNUP_LIMIT: "signupLimit",
   INVALID_TOKEN: "invalidToken",
   TOKEN_EXPIRED: "invalidToken",
+  ERASE_UNAVAILABLE: "eraseUnavailable",
 };
 
 export function authErrorKey(error: AuthError): AuthErrorKey {

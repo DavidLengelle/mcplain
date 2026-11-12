@@ -24,3 +24,11 @@ enters the repository.
 the test helpers (`tests/unit/reports.ts`, `tests/e2e/reports.ts`). Generate them again after a change of the
 engine output, with the stack built from the same commit (`docker compose build atelier`, then
 `docker compose up -d --build`).
+
+## ALTCHA challenge of the simulated API
+
+`altcha-challenge.json` is a challenge of cost 1 that expires in 2099, signed with a test only key. The simulated API of
+`pnpm test:e2e` (`tests/e2e/messages-server.mjs`) serves it on `GET /api/altcha/challenge`, so that the invisible widget
+solves it as in a real browser. It was made from `api/` with
+`uv run python -c "...create_challenge('PBKDF2/SHA-256', 1, expires_at=datetime(2099, 1, 1, tzinfo=UTC), hmac_secret=...)..."`.
+The real API never accepts it: its key is another one.

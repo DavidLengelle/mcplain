@@ -8,6 +8,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { authClient } from "@/lib/auth-client";
 
 import { AccountCard, BUTTON_CLASS, FormMessage, LINK_CLASS, SECONDARY_BUTTON_CLASS } from "./form-parts";
+import { HistorySection } from "./history-section";
 import { PasswordField } from "./password-field";
 import { useAuthAction } from "./use-auth-action";
 
@@ -139,6 +140,7 @@ export function AccountPanel({ linkFailed = false }: { linkFailed?: boolean }) {
           {t("menu.signOut")}
         </button>
       </div>
+      <HistorySection />
       <DeleteAccount onDeleted={() => setDeleted(true)} />
     </AccountCard>
   );

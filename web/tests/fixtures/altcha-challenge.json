@@ -1,0 +1,12 @@
+{
+  "parameters": {
+    "algorithm": "PBKDF2/SHA-256",
+    "cost": 1,
+    "keyLength": 32,
+    "keyPrefix": "00",
+    "nonce": "4e4e2849833eef316faf72cbded30cff",
+    "salt": "1fc984bf61bd21c3c5bcf2725899da40",
+    "expiresAt": 4070908800
+  },
+  "signature": "9fff999590cc4af790eae937f7e00e11eacffe204c475ac332ce9b18fb8de108"
+}

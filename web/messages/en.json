@@ -334,7 +334,9 @@
   "form": {
     "empty": "Paste a GitHub link, an npx command or a uvx command.",
     "busy": "The queue is full, try again in a minute.",
-    "unavailable": "MCPlain does not answer right now. Try again in a few minutes."
+    "unavailable": "MCPlain does not answer right now. Try again in a few minutes.",
+    "burst": "Too many requests in a short time. Try again in {minutes, plural, one {# minute} other {# minutes}}.",
+    "altcha": "The robot check did not go through. Try again."
   },
   "tracker": {
     "heading": "ANALYSIS IN PROGRESS",
@@ -513,7 +515,7 @@
   },
   "reportEnd": {
     "readOn": "This report describes the code read on {date}. It does not prove that a server is safe.",
-    "fromCache": "Result taken from an analysis of {date}."
+    "fromCache": "Result taken from an analysis of {date}. This analysis was not counted."
   },
   "report": {
     "backToTop": "Back to the top of the page",
@@ -601,7 +603,7 @@
       "signedOut": "No account is signed in on this browser.",
       "signInLink": "Sign in",
       "deleteTitle": "Delete my account",
-      "deleteIntro": "Your account and its sessions are deleted at once. This cannot be undone.",
+      "deleteIntro": "Your account and its sessions are deleted at once, and so is the history of your analyses. There is no way back.",
       "deleteStart": "DELETE MY ACCOUNT",
       "deleteConfirmIntro": "To confirm, write your password.",
       "deleteConfirm": "YES, DELETE FOR GOOD",
@@ -618,7 +620,37 @@
       "invalidToken": "This link does not work any more. Ask for a new one.",
       "wrongPassword": "Wrong password.",
       "invalidEmail": "This email address does not look valid.",
-      "unavailable": "The accounts do not answer right now. Try again in a moment."
+      "unavailable": "The accounts do not answer right now. Try again in a moment.",
+      "eraseUnavailable": "The deletion could not be done. Try again in a moment."
+    },
+    "history": {
+      "title": "My analyses",
+      "loading": "Loading…",
+      "empty": "No analysis yet.",
+      "error": "The history does not answer right now. Try again in a moment.",
+      "fromCache": "from the cache",
+      "open": "See the report",
+      "running": "IN PROGRESS",
+      "list": "LIST OF SERVERS",
+      "clear": "CLEAR MY HISTORY",
+      "clearConfirmIntro": "The whole list will be cleared. The reports themselves can still be viewed.",
+      "clearConfirm": "YES, CLEAR IT",
+      "clearCancel": "Cancel"
+    }
+  },
+  "quota": {
+    "remaining": "{count, plural, =0 {No analysis left today} one {# analysis left today} other {# analyses left today}}",
+    "resets": "They come back at {time}",
+    "admin": "Admin: no limit",
+    "bench": "Bench account: no limit",
+    "sharedNetwork": "Shared network (company, open space, school…)? Create a free account: 10 analyses a day, just for you.",
+    "exhausted": {
+      "title": "No new analysis left for today",
+      "anonymous": "The 3 free analyses of the day are used on this network. They come back at {time}.",
+      "sharedNetwork": "On a shared network (company, open space, school…), everybody counts together. With a free account, you get 10 analyses a day, just for you.",
+      "createAccount": "Create an account",
+      "account": "You used your {limit} analyses of the day. They come back at {time}.",
+      "cacheOpen": "MCP servers already analyzed can still be viewed."
     }
   }
 }

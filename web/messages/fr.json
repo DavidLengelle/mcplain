@@ -334,7 +334,9 @@
   "form": {
     "empty": "Colle un lien GitHub, une commande npx ou une commande uvx.",
     "busy": "La file est pleine, réessaie dans une minute.",
-    "unavailable": "MCPlain ne répond pas pour l'instant. Réessaie dans quelques minutes."
+    "unavailable": "MCPlain ne répond pas pour l'instant. Réessaie dans quelques minutes.",
+    "burst": "Trop de demandes en peu de temps. Réessaie dans {minutes, plural, one {# minute} other {# minutes}}.",
+    "altcha": "La vérification anti-robot n'a pas abouti. Réessaie."
   },
   "tracker": {
     "heading": "ANALYSE EN COURS",
@@ -513,7 +515,7 @@
   },
   "reportEnd": {
     "readOn": "Ce rapport décrit le code lu le {date}. Il ne prouve pas qu'un serveur est sûr.",
-    "fromCache": "Résultat repris d'une analyse du {date}."
+    "fromCache": "Résultat repris d'une analyse du {date}. Cette analyse n'a pas été décomptée."
   },
   "report": {
     "backToTop": "Remonter en haut de la page",
@@ -601,7 +603,7 @@
       "signedOut": "Aucun compte n'est connecté sur ce navigateur.",
       "signInLink": "Se connecter",
       "deleteTitle": "Supprimer mon compte",
-      "deleteIntro": "Ton compte et ses connexions sont supprimés tout de suite. Impossible de revenir en arrière.",
+      "deleteIntro": "Ton compte et ses connexions sont supprimés tout de suite, ainsi que l'historique de tes analyses. Impossible de revenir en arrière.",
       "deleteStart": "SUPPRIMER MON COMPTE",
       "deleteConfirmIntro": "Pour confirmer, écris ton mot de passe.",
       "deleteConfirm": "OUI, SUPPRIMER POUR DE BON",
@@ -618,7 +620,37 @@
       "invalidToken": "Ce lien ne marche plus. Demandes-en un nouveau.",
       "wrongPassword": "Mot de passe incorrect.",
       "invalidEmail": "Cette adresse e-mail ne semble pas valide.",
-      "unavailable": "Les comptes ne répondent pas pour le moment. Réessaie dans un instant."
+      "unavailable": "Les comptes ne répondent pas pour le moment. Réessaie dans un instant.",
+      "eraseUnavailable": "La suppression n'a pas pu se faire. Réessaie dans un instant."
+    },
+    "history": {
+      "title": "Mes analyses",
+      "loading": "Chargement…",
+      "empty": "Aucune analyse pour l'instant.",
+      "error": "L'historique ne répond pas pour le moment. Réessaie dans un instant.",
+      "fromCache": "depuis le cache",
+      "open": "Voir le rapport",
+      "running": "EN COURS",
+      "list": "LISTE DE SERVEURS",
+      "clear": "EFFACER MON HISTORIQUE",
+      "clearConfirmIntro": "Toute la liste sera effacée. Les rapports eux-mêmes restent consultables.",
+      "clearConfirm": "OUI, EFFACER",
+      "clearCancel": "Annuler"
+    }
+  },
+  "quota": {
+    "remaining": "{count, plural, =0 {Aucune analyse restante aujourd'hui} one {# analyse restante aujourd'hui} other {# analyses restantes aujourd'hui}}",
+    "resets": "Elles reviennent à {time}",
+    "admin": "Admin : sans limite",
+    "bench": "Compte du banc d'essai : sans limite",
+    "sharedNetwork": "Réseau partagé (entreprise, open space, école…) ? Crée un compte gratuit : 10 analyses par jour rien que pour toi",
+    "exhausted": {
+      "title": "Plus d'analyse nouvelle pour aujourd'hui",
+      "anonymous": "Les 3 analyses gratuites du jour sont utilisées sur ce réseau. Elles reviennent à {time}.",
+      "sharedNetwork": "Sur un réseau partagé (entreprise, open space, école…), tout le monde compte ensemble. Avec un compte gratuit, tu as 10 analyses par jour rien que pour toi.",
+      "createAccount": "Créer un compte",
+      "account": "Tu as utilisé tes {limit} analyses du jour. Elles reviennent à {time}.",
+      "cacheOpen": "Les MCP déjà analysés restent consultables."
     }
   }
 }

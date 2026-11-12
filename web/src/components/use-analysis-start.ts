@@ -6,6 +6,7 @@ import { useRouter } from "@/i18n/navigation";
 import { INPUT_MAX_CHARACTERS, startAnalysis } from "@/lib/api-client";
 
 import type { StartError } from "./start-error";
+import { useVisitor } from "./visitor-context";
 
 export type AnalysisStart = {
   pending: boolean;
@@ -16,6 +17,7 @@ export type AnalysisStart = {
 
 export function useAnalysisStart(): AnalysisStart {
   const router = useRouter();
+  const { solveAltcha, refreshQuota } = useVisitor();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<StartError | null>(null);
 
@@ -27,8 +29,15 @@ export function useAnalysisStart(): AnalysisStart {
     }
     setPending(true);
     setError(null);
-    const outcome = await startAnalysis(input, select);
+    const altcha = await solveAltcha();
+    if (altcha === null) {
+      setPending(false);
+      setError({ kind: "altcha" });
+      return false;
+    }
+    const outcome = await startAnalysis(input, select, altcha);
     if (outcome.kind === "accepted") {
+      refreshQuota();
       router.push(`/analyses/${outcome.id}`);
       return true;
     }

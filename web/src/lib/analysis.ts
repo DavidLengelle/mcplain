@@ -1,5 +1,5 @@
 export const VERDICT_COLORS = ["red", "orange", "green", "gray"] as const;
-export const ANALYSIS_STATES = ["queued", "fetching", "analyzing", "done", "failed"] as const;
+export const ANALYSIS_STATES = ["queued", "fetching", "analyzing", "done", "failed", "quota_exhausted"] as const;
 export const RUNNING_STATES = ["queued", "fetching", "analyzing"] as const;
 export const ANALYSIS_STATUSES = [
   "ok",
@@ -228,6 +228,7 @@ export type AnalysisView = {
   finished_at: string | null;
   analyzed_at: string | null;
   from_cache: boolean;
+  cache_only: boolean;
   error_code: string | null;
   result: AnalysisResult | null;
 };
@@ -703,6 +704,7 @@ function view(value: unknown): AnalysisView {
     finished_at: optionalText(fields.finished_at),
     analyzed_at: optionalText(fields.analyzed_at),
     from_cache: flag(fields.from_cache),
+    cache_only: flag(fields.cache_only),
     error_code: errorCode,
     result: parsed,
   };

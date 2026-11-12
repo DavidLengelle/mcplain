@@ -11,5 +11,8 @@ export function StartErrorText({ error }: { error: StartError }) {
   if (error.kind === "invalid") {
     return <EngineText code={error.code} params={error.params} />;
   }
+  if (error.kind === "burst") {
+    return <>{t("burst", { minutes: error.minutes })}</>;
+  }
   return <>{t(error.kind)}</>;
 }

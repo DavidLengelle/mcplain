@@ -10,9 +10,11 @@ import { fetchAnalysis } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 import { CheckIcon, CircleIcon, SpinnerIcon } from "./icons";
+import { QuotaExhausted } from "./report/quota-exhausted";
 import { ReportView } from "./report/report-view";
 import { RetryButton } from "./report/retry-button";
 import { VerdictFrame } from "./report/verdict-block";
+import { useVisitor } from "./visitor-context";
 
 export const POLL_MILLISECONDS = 1000;
 export const MAX_WAIT_MILLISECONDS = 3 * 60 * 1000;
@@ -116,6 +118,14 @@ function GrayState({ kind, last }: { kind: "unverified" | "timeout"; last: Analy
 
 export function AnalysisTracker({ id }: { id: string }) {
   const [view, setView] = useState<TrackerView>({ kind: "loading" });
+  const { quota, refreshQuota } = useVisitor();
+  const finished = view.kind === "finished";
+
+  useEffect(() => {
+    if (finished) {
+      refreshQuota();
+    }
+  }, [finished, refreshQuota]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -187,6 +197,9 @@ export function AnalysisTracker({ id }: { id: string }) {
   }
   if (view.kind === "unverified" || view.kind === "timeout") {
     return <GrayState kind={view.kind} last={view.last} />;
+  }
+  if (view.analysis.state === "quota_exhausted") {
+    return <QuotaExhausted quota={quota} />;
   }
   return <ReportView analysis={view.analysis} />;
 }

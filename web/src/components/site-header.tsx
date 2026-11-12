@@ -6,6 +6,7 @@ import { AccountMenu } from "./account/account-menu";
 import { HeaderField } from "./header-field";
 import { HeaderHeight } from "./header-height";
 import { LocaleSwitcher } from "./locale-switcher";
+import { QuotaCounter } from "./quota-counter";
 import { ThemeSwitcher } from "./theme-switcher";
 
 export const SITE_HEADER_ID = "site-header";
@@ -28,6 +29,7 @@ export function SiteHeader() {
           <AccountMenu />
         </div>
       </div>
+      <QuotaCounter />
     </header>
   );
 }
