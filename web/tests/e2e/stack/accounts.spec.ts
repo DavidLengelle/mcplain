@@ -3,16 +3,23 @@ import { join } from "node:path";
 
 import { expect, test } from "@playwright/test";
 
-import { linkOf, RESULTS, screens, signIn, site, waitForMail } from "./helpers";
+import { cleanUp, linkOf, RESULTS, screens, signIn, site, waitForMail } from "./helpers";
 
 const PASSWORD = "first password, long enough";
 const NEW_PASSWORD = "second password, long enough";
 const ALTCHA_RUNS = 10;
 const MID_PHONE_SLOWDOWN = 4;
 const SIGN_IN_WINDOW_MS = 11_000;
+const addresses: string[] = [];
+
+test.afterEach(async ({ request }) => {
+  await cleanUp(request, addresses.splice(0));
+});
 
 test("an account is created, verified, used, recovered and deleted", async ({ page, request, baseURL }) => {
   const email = `ada-${Date.now()}@example.com`;
+  const nobody = `nobody-${Date.now()}@example.com`;
+  addresses.push(email, nobody);
 
   await screens(page, baseURL, "/fr/account/sign-up", "account-sign-up", "form");
   await page.goto(site(baseURL, "/fr/account/sign-up"));
@@ -44,7 +51,7 @@ test("an account is created, verified, used, recovered and deleted", async ({ pa
   await expect(page.getByTestId("header-sign-in")).toBeVisible();
 
   await page.goto(site(baseURL, "/fr/account/forgot-password"));
-  await page.getByLabel("Adresse e-mail").fill(`nobody-${Date.now()}@example.com`);
+  await page.getByLabel("Adresse e-mail").fill(nobody);
   await page.getByRole("button", { name: "ENVOYER LE LIEN" }).click();
   await expect(page.getByTestId("forgot-done")).toBeVisible({ timeout: 30_000 });
   await page.goto(site(baseURL, "/fr/account/forgot-password"));

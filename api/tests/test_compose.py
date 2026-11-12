@@ -19,21 +19,32 @@ pytestmark = pytest.mark.docker
 REPOSITORY = Path(__file__).resolve().parents[2]
 WEB_PORT_VARIABLE = "MCPLAIN_WEB_PORT"
 DEFAULT_WEB_PORT = "3000"
+MAILPIT_PORT_VARIABLE = "MCPLAIN_MAILPIT_PORT"
+DEFAULT_MAILPIT_PORT = "8025"
+MAIL_WAIT_SECONDS = 60
+FETCH_INPUT = "uvx mcp-server-fetch==2026.11.11"
+FILESYSTEM_INPUT = "npx -y @modelcontextprotocol/server-filesystem@2.3.0"
 
 
-def web_port() -> str:
-    """Return the host port of the website, as compose reads it: environment, then .env, then 3000"""
+def compose_port(variable: str, default: str) -> str:
+    """Return a host port as compose reads it: environment, then .env, then the default"""
 
-    value = os.environ.get(WEB_PORT_VARIABLE)
+    value = os.environ.get(variable)
     if value:
         return value
     env_file = REPOSITORY / ".env"
     if env_file.is_file():
         for line in env_file.read_text(encoding="utf-8").splitlines():
             name, _, setting = line.partition("=")
-            if name.strip() == WEB_PORT_VARIABLE and setting.strip():
+            if name.strip() == variable and setting.strip():
                 return setting.strip()
-    return DEFAULT_WEB_PORT
+    return default
+
+
+def web_port() -> str:
+    """Return the host port of the website, as compose reads it: environment, then .env, then 3000"""
+
+    return compose_port(WEB_PORT_VARIABLE, DEFAULT_WEB_PORT)
 
 API_URL = os.environ.get("MCPLAIN_API_URL", "http://127.0.0.1:8000")
 PROJECT = "mcplain"
@@ -307,22 +318,24 @@ def test_web_container_is_closed(client: DockerClient) -> None:
 
 
 @pytest.mark.network
-def test_fetch_server_is_orange_with_fetch_url_first(http: httpx.Client) -> None:
-    """uvx mcp-server-fetch is orange, and O01 cites the request of fetch_url first"""
+def test_fetch_server_is_orange_with_its_request_of_stream_get(http: httpx.Client) -> None:
+    """mcp-server-fetch 2026.11.11 is orange with O01, O04 and O08; O01 cites the request of stream_get, reached by either path"""
 
-    body = analyze(http, "uvx mcp-server-fetch")
+    body = analyze(http, FETCH_INPUT)
     assert body["state"] == "done", body
     verdict = body["result"]["verdict"]
     assert verdict["color"] == "orange"
+    assert {alert["rule"] for alert in verdict["alerts"]} == {"O01", "O04", "O08"}
     open_network = [alert for alert in verdict["alerts"] if alert["rule"] == "O01"]
-    assert open_network[0]["function"] == "fetch_url"
+    assert open_network[0]["function"] == "stream_get"
+    assert open_network[0]["steps"][0]["function"] in {"fetch_url", "check_may_autonomously_fetch_url"}
 
 
 @pytest.mark.network
 def test_filesystem_server_is_orange_with_o08(http: httpx.Client) -> None:
-    """npx -y @modelcontextprotocol/server-filesystem is orange with O08"""
+    """@modelcontextprotocol/server-filesystem 2.3.0 is orange with O08"""
 
-    body = analyze(http, "npx -y @modelcontextprotocol/server-filesystem")
+    body = analyze(http, FILESYSTEM_INPUT)
     assert body["state"] == "done", body
     verdict = body["result"]["verdict"]
     assert verdict["color"] == "orange"
@@ -333,9 +346,9 @@ def test_filesystem_server_is_orange_with_o08(http: httpx.Client) -> None:
 def test_second_request_is_served_from_the_cache(http: httpx.Client, client: DockerClient) -> None:
     """The second request for the same package starts no atelier and is served from the cache"""
 
-    first = analyze(http, "npx -y @modelcontextprotocol/server-filesystem")
+    first = analyze(http, FILESYSTEM_INPUT)
     start = time.time()
-    second = analyze(http, "npx -y @modelcontextprotocol/server-filesystem")
+    second = analyze(http, FILESYSTEM_INPUT)
     end = time.time()
     assert second["state"] == "done"
     assert second["result"]["verdict"] == first["result"]["verdict"]
@@ -407,6 +420,33 @@ def postgres_lines(client: DockerClient, statement: str) -> list[str]:
     return (stdout or b"").decode("utf-8").splitlines()
 
 
+def mail_ids(mailpit: httpx.Client, email: str) -> list[str]:
+    """Return the ids of the Mailpit messages sent to one address"""
+
+    found = mailpit.get("/api/v1/search", params={"query": f'to:"{email}"', "limit": "200"})
+    found.raise_for_status()
+    return [message["ID"] for message in found.json()["messages"]]
+
+
+def clear_mails(client: DockerClient, emails: list[str]) -> None:
+    """Wait until the postman has sent the mails of these addresses, then delete them in Mailpit through its API"""
+
+    if not emails:
+        return
+    quoted = ", ".join("'" + email.replace("'", "''") + "'" for email in emails)
+    deadline = time.monotonic() + MAIL_WAIT_SECONDS
+    while postgres_lines(client, f"SELECT count(*) FROM mail_outbox WHERE recipient IN ({quoted});") != ["0"]:
+        assert time.monotonic() < deadline, "the postman did not send the mails of the test"
+        time.sleep(0.5)
+    address = f"http://127.0.0.1:{compose_port(MAILPIT_PORT_VARIABLE, DEFAULT_MAILPIT_PORT)}"
+    with httpx.Client(base_url=address, timeout=30, trust_env=False) as mailpit:
+        for email in emails:
+            identifiers = mail_ids(mailpit, email)
+            if identifiers:
+                mailpit.request("DELETE", "/api/v1/messages", json={"IDs": identifiers}).raise_for_status()
+            assert mail_ids(mailpit, email) == []
+
+
 def test_a_fake_forwarded_for_from_the_browser_does_not_change_the_counted_network(client: DockerClient) -> None:
     """Two sign-ups with two fake addresses count for the one real network: one fingerprint, two sign-ups"""
 
@@ -421,6 +461,7 @@ def test_a_fake_forwarded_for_from_the_browser_does_not_change_the_counted_netwo
     finally:
         postgres_lines(client, "DELETE FROM auth.\"user\" WHERE email LIKE 'ip-check-%@example.com'")
         postgres_lines(client, "DELETE FROM mail_outbox WHERE recipient LIKE 'ip-check-%@example.com'")
+        clear_mails(client, emails)
     changed = {key: int(value) - int(before.get(key, "0")) for key, value in after.items() if value != before.get(key)}
     assert list(changed.values()) == [2]
     stored = " ".join(postgres_lines(client, "SELECT ip_hash FROM signup_counts"))

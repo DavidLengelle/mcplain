@@ -8,7 +8,7 @@ import docker
 import httpx
 import pytest
 from docker import DockerClient
-from test_compose import compose_container, postgres_lines, web_port
+from test_compose import clear_mails, compose_container, postgres_lines, web_port
 
 pytestmark = pytest.mark.docker
 
@@ -38,6 +38,17 @@ def reset(client: DockerClient) -> None:
     postgres_lines(client, "DELETE FROM quota_usage; DELETE FROM burst_counts; DELETE FROM analysis_tokens;")
 
 
+@pytest.fixture
+def emails(client: DockerClient) -> Iterator[list[str]]:
+    """Return the list of the test addresses; at the end, their accounts and their mails in Mailpit are deleted"""
+
+    made: list[str] = []
+    yield made
+    for email in made:
+        drop_account(client, email)
+    clear_mails(client, made)
+
+
 def solved(site: httpx.Client) -> str:
     """Solve a fresh ALTCHA challenge of the API, as the widget would"""
 
@@ -58,10 +69,11 @@ def ask(site: httpx.Client, body: dict[str, str], fake_address: str | None = Non
     return site.post("/api/analyses", json=body, headers=headers)
 
 
-def make_account(client: DockerClient, site: httpx.Client, role: str) -> str:
+def make_account(client: DockerClient, site: httpx.Client, role: str, emails: list[str]) -> str:
     """Sign up through the website, then mark the address verified and set the role with psql; return the email"""
 
     email = f"quota-{uuid.uuid4().hex[:10]}@example.com"
+    emails.append(email)
     origin = str(site.base_url).rstrip("/")
     answer = site.post(
         "/api/auth/sign-up/email",
@@ -119,13 +131,15 @@ def test_the_burst_limit_stops_the_31st_request_of_a_network(client: DockerClien
     reset(client)
 
 
-def test_the_bench_role_has_no_quota_nor_burst_limit_but_altcha(client: DockerClient, site: httpx.Client) -> None:
+def test_the_bench_role_has_no_quota_nor_burst_limit_but_altcha(
+    client: DockerClient, site: httpx.Client, emails: list[str]
+) -> None:
     """A bench account passes 35 requests in a row and has no limit, but still needs ALTCHA"""
 
     if not bench_allowed(client):
         pytest.skip("start the stack with MCPLAIN_ALLOW_BENCH_ROLE=true")
     reset(client)
-    email = make_account(client, site, "bench")
+    make_account(client, site, "bench", emails)
     try:
         assert site.get("/api/quota").json()["kind"] == "bench"
         for _ in range(35):
@@ -133,15 +147,16 @@ def test_the_bench_role_has_no_quota_nor_burst_limit_but_altcha(client: DockerCl
         refused = site.post("/api/analyses", json=INVALID)
         assert (refused.status_code, refused.json()["error"]["code"]) == (403, "altcha_invalid")
     finally:
-        drop_account(client, email)
         reset(client)
 
 
-def test_deleting_an_account_erases_its_history_and_its_quota(client: DockerClient, site: httpx.Client) -> None:
+def test_deleting_an_account_erases_its_history_and_its_quota(
+    client: DockerClient, site: httpx.Client, emails: list[str]
+) -> None:
     """The counter asks the API to erase the history and the quota rows before it deletes the account"""
 
     reset(client)
-    email = make_account(client, site, "user")
+    email = make_account(client, site, "user", emails)
     identifier = ask(site, {"input": f"npx -y @mcplain-demo/not-there-{uuid.uuid4().hex[:8]}"}).json()["id"]
     user_id = postgres_lines(client, f"SELECT id FROM auth.\"user\" WHERE email = '{email}';")[0]
     assert site.get("/api/quota").json()["kind"] == "account"

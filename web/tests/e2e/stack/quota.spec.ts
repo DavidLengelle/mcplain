@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { linkOf, psql, resetCounters, screens, site, waitForMail } from "./helpers";
+import { cleanUp, linkOf, psql, resetCounters, screens, site, waitForMail } from "./helpers";
 
 const PASSWORD = "quota password, long enough";
-const CACHED = "uvx mcp-server-time";
+const CACHED = "uvx mcp-server-time==2026.11.11";
 const NEVER_ANALYZED = "npx -y is-number@7.0.0";
 const VERDICT_WAIT = 150_000;
 
@@ -27,8 +27,11 @@ test.beforeEach(() => {
   resetCounters();
 });
 
-test.afterEach(() => {
+const addresses: string[] = [];
+
+test.afterEach(async ({ request }) => {
   resetCounters();
+  await cleanUp(request, addresses.splice(0));
 });
 
 test("a visitor without account uses 3 analyses, then is offered an account, and the cache stays open", async ({ page, baseURL }) => {
@@ -62,6 +65,7 @@ test("a visitor without account uses 3 analyses, then is offered an account, and
 
 test("an account sees its ten analyses, finds them in its history, then clears it", async ({ page, request, baseURL }) => {
   const email = `quota-${Date.now()}@example.com`;
+  addresses.push(email);
   await page.goto(site(baseURL, "/fr/account/sign-up"));
   await page.getByLabel("Adresse e-mail").fill(email);
   await page.getByLabel("Mot de passe", { exact: true }).fill(PASSWORD);

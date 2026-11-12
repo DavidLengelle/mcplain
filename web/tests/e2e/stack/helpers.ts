@@ -38,6 +38,39 @@ export async function waitForMail(request: APIRequestContext, address: string, s
   throw new Error(`no mail for ${address}`);
 }
 
+function quoted(addresses: string[]): string {
+  return addresses.map((address) => `'${address.replaceAll("'", "''")}'`).join(", ");
+}
+
+async function mailsOf(request: APIRequestContext, address: string): Promise<string[]> {
+  const found = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:"${address}"`, limit: "200" } });
+  expect(found.ok()).toBe(true);
+  const body = (await found.json()) as { messages: MailSummary[] };
+  return body.messages.map((message) => message.ID);
+}
+
+export async function cleanUp(request: APIRequestContext, addresses: string[]): Promise<void> {
+  if (addresses.length === 0) {
+    return;
+  }
+  psql(`DELETE FROM auth."user" WHERE email IN (${quoted(addresses)});`);
+  const deadline = Date.now() + 60_000;
+  while (psql(`SELECT count(*) FROM mail_outbox WHERE recipient IN (${quoted(addresses)});`).trim() !== "0") {
+    if (Date.now() > deadline) {
+      throw new Error("the postman did not send the mails of the test");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  for (const address of addresses) {
+    const identifiers = await mailsOf(request, address);
+    if (identifiers.length > 0) {
+      const deleted = await request.delete(`${MAILPIT}/api/v1/messages`, { data: { IDs: identifiers } });
+      expect(deleted.ok()).toBe(true);
+    }
+    expect(await mailsOf(request, address)).toEqual([]);
+  }
+}
+
 export function linkOf(text: string): string {
   const match = LINK.exec(text);
   if (match === null) {
