@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { fulfill, ID, serveAnalysis, view } from "./fake-api";
+import { fulfill, ID, serveAnalysis, view, withoutQuota } from "./fake-api";
 
 const THEMES = ["light", "dark"] as const;
 const WIDTHS = [1280, 390] as const;
@@ -66,6 +66,7 @@ test("the header has its field again on a report page", async ({ page }) => {
 for (const width of WIDTHS) {
   test(`a chapter of the table of contents stops under the fixed header, ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
+    await withoutQuota(page);
     await page.goto("/fr");
     await page.locator('a[data-toc="danger"]').click();
     await expect(page).toHaveURL(/#danger$/);
@@ -143,6 +144,7 @@ for (const width of WIDTHS) {
   test(`the big submit button shows its whole text while sending, ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.route("**/api/analyses", () => new Promise(() => {}));
+    await withoutQuota(page);
     await page.goto("/fr");
     const button = page.locator("#analyser button[type=submit]");
     const before = await button.boundingBox();

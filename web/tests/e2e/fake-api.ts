@@ -40,3 +40,9 @@ export async function serveAnalysis(page: Page, answers: Json[], id: string = ID
   });
   return seen;
 }
+
+export async function withoutQuota(page: Page): Promise<void> {
+  await page.route("**/api/quota", async (route) => {
+    await fulfill(route, 404, { error: { code: "api.not_found", params: {} } });
+  });
+}

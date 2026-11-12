@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
 
-import { ID, serveAnalysis } from "./fake-api";
+import { ID, serveAnalysis, withoutQuota } from "./fake-api";
 import { reportView } from "./reports";
 
 const WIDTHS = [390, 1280] as const;
@@ -24,6 +24,7 @@ for (const width of WIDTHS) {
     test(`the header submit button shows its whole text while sending, ${language.idle}, ${width} px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
       await serveAnalysis(page, [reportView("green")]);
+      await withoutQuota(page);
       await page.route("**/api/analyses", () => new Promise(() => {}));
       await page.goto(`${language.prefix}/analyses/${ID}`);
       await expect(page.locator("[data-verdict]")).toBeVisible();
