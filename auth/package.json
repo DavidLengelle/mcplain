@@ -10,13 +10,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "better-auth": "1.7.15",
+    "better-auth": "1.7.18",
     "pg": "8.23.1"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",
     "typescript": "6.0.3",
-    "vitest": "5.0.4"
+    "vitest": "5.1.0"
   },
   "packageManager": "pnpm@11.28.1"
 }
