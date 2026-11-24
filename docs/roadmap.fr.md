@@ -303,6 +303,10 @@ Dans l'emplacement déjà prêt de la page `/admin`, réservé à l'admin avec d
   français).
 - Lire les paquets tout-en-un fabriqués par un bundler (cas de sentry 0.49.0) pour y reconnaître les outils, afin qu'ils ne
   finissent plus en gris. Pas codé.
+- sequential-thinking 2.2.0 gris (suivi incomplet) : dans l'outil `sequentialthinking`, l'appel
+  `thinkingServer.processThought(args)` (`dist/index.js`, ligne 121) n'est pas suivi, car le moteur ne connaît pas le type de
+  `thinkingServer` (raison `unknown_type`) ; il ne peut donc pas rejoindre la méthode qui fait le travail. La 2.1.1 était verte.
+  Référence du banc passée de vert à gris le 24 novembre 2026, moteur inchangé.
 
 ## PROTECTIONS CONTRE LES ROBOTS ET QUOTAS (décidé le 23 octobre 2026)
 

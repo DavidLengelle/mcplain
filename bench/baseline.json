@@ -40,9 +40,9 @@
       "version": "2.1.1"
     },
     "sequential-thinking": {
-      "color": "green",
-      "gray_case": null,
-      "version": "2.1.1"
+      "color": "gray",
+      "gray_case": "incomplete_tracking",
+      "version": "2.2.0"
     },
     "pdf": {
       "color": "orange",
