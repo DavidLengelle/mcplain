@@ -4,7 +4,8 @@
 # scripts/init-secrets.sh). The account signs up through the counter like a browser, with an ALTCHA solved inside the api
 # container; then psql, as the owner, marks its address verified and gives it the role bench. The role has no admin power, and
 # the API treats it as a normal account (10 a day) unless MCPLAIN_ALLOW_BENCH_ROLE is true. An admin is never changed.
-# Nothing is printed but the result: never the password. Usage: scripts/make-bench-account.sh
+# The address and the password of the CI (bench.yml, public test values) are refused outside GitHub Actions: they never make an
+# account on another stack. Nothing is printed but the result: never the password. Usage: scripts/make-bench-account.sh
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -34,6 +35,19 @@ case "$EMAIL" in
         exit 2
         ;;
 esac
+CI_EMAIL="bench@bench.mcplain.invalid"
+if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
+    case "$PASSWORD" in
+        *test-only*)
+            echo "make-bench-account: this password is a public test value of the CI (bench.yml); it only lives in the throwaway stack of GitHub Actions. Run scripts/init-secrets.sh and use the bench account of your .env." >&2
+            exit 2
+            ;;
+    esac
+    if [ "$EMAIL" = "$CI_EMAIL" ]; then
+        echo "make-bench-account: $CI_EMAIL is the bench account of the CI only. Run scripts/init-secrets.sh and use the bench account of your .env." >&2
+        exit 2
+    fi
+fi
 ORIGIN="$(docker compose exec -T guichet printenv MCPLAIN_PUBLIC_URL)"
 
 SIGN_UP='
