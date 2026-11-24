@@ -25,7 +25,7 @@ from mcplain_api.settings import Settings
 TEST_KEY = "test only altcha key, never a real one"
 NOW = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
 GUICHET = "http://guichet:3100"
-SESSION_URL = f"{GUICHET}/api/auth/get-session"
+SESSION_URL = f"{GUICHET}/internal/session"
 SESSION_COOKIE = "mcplain.session_token=abc.def"
 
 
@@ -330,7 +330,7 @@ def test_current_user_reads_the_session_and_keeps_it_30_seconds() -> None:
     """The cookie is forwarded to the counter; the answer is kept 30 seconds, keyed by the fingerprint of the cookie"""
 
     route = respx.get(SESSION_URL).mock(
-        return_value=httpx.Response(200, json={"session": {}, "user": {"id": "u1", "emailVerified": True, "role": "admin"}})
+        return_value=httpx.Response(200, json={"user": {"id": "u1", "emailVerified": True, "role": "admin", "twoFactorEnabled": False, "banned": False}})
     )
     moment = [100.0]
     reader = SessionReader(make_settings(), clock=lambda: moment[0])
@@ -353,10 +353,58 @@ def test_current_user_is_none_without_a_session_or_on_error() -> None:
     assert reader.current_user("theme=dark") is None
     respx.get(SESSION_URL).mock(return_value=httpx.Response(200, json=None))
     assert reader.current_user(SESSION_COOKIE) is None
-    respx.get(SESSION_URL).mock(return_value=httpx.Response(200, json={"user": {"id": "u2", "role": "root"}}))
+    respx.get(SESSION_URL).mock(return_value=httpx.Response(200, json={"user": {"id": "u2", "role": "root", "banned": False}}))
     assert reader.current_user("mcplain.session_token=other") == CurrentUser(id="u2", email_verified=False, role="user")
     respx.get(SESSION_URL).mock(side_effect=httpx.ConnectError("down"))
     assert reader.current_user("mcplain.session_token=third") is None
     respx.get(SESSION_URL).mock(return_value=httpx.Response(500))
     assert reader.current_user("mcplain.session_token=fourth") is None
     assert "mcplain.session_token=fourth" not in str(reader.cache)
+
+
+@respx.mock
+def test_current_user_asks_the_internal_route_and_doubts_closed() -> None:
+    """The API reads the session on the internal route of the counter; a missing ban state means banned, no second factor"""
+
+    respx.get(SESSION_URL).mock(return_value=httpx.Response(200, json={"user": {"id": "u3", "role": "admin"}}))
+    user = SessionReader(make_settings()).current_user(SESSION_COOKIE)
+    assert user == CurrentUser(id="u3", email_verified=False, role="admin", two_factor=False, banned=True)
+    assert user is not None and not user.is_admin
+    assert SESSION_URL.endswith("/internal/session")
+
+
+def test_the_admin_power_needs_the_role_and_the_second_factor() -> None:
+    """Only the admin role with an active second factor, and not banned, has the admin power"""
+
+    assert CurrentUser(id="a", email_verified=True, role="admin", two_factor=True, banned=False).is_admin
+    assert not CurrentUser(id="a", email_verified=True, role="admin", two_factor=False, banned=False).is_admin
+    assert not CurrentUser(id="a", email_verified=True, role="admin", two_factor=True, banned=True).is_admin
+    assert not CurrentUser(id="b", email_verified=True, role="bench", two_factor=True, banned=False).is_admin
+    assert not CurrentUser(id="u", email_verified=True, role="user", two_factor=True, banned=False).is_admin
+
+
+@respx.mock
+def test_forgetting_an_account_drops_all_its_sessions_from_the_cache() -> None:
+    """After a ban, no kept answer of the account survives, whatever the session; other accounts stay"""
+
+    answers = {
+        "mcplain.session_token=one": {"id": "u1"},
+        "mcplain.session_token=two": {"id": "u1"},
+        "mcplain.session_token=three": {"id": "u2"},
+    }
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        """Answer the user of the cookie"""
+
+        user = {**answers[request.headers["cookie"]], "emailVerified": True, "role": "user", "banned": False}
+        return httpx.Response(200, json={"user": user})
+
+    route = respx.get(SESSION_URL).mock(side_effect=reply)
+    reader = SessionReader(make_settings())
+    for cookie in answers:
+        reader.current_user(cookie)
+    reader.forget_user("u1")
+    assert len(reader.cache) == 1
+    for cookie in answers:
+        reader.current_user(cookie)
+    assert route.call_count == 5

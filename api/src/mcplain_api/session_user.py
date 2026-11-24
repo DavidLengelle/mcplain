@@ -1,4 +1,4 @@
-"""Who is signed in: the API hands the session cookie to the counter (guichet) and keeps its answer for 30 seconds"""
+"""Who is signed in: the API hands the session cookie to the internal route of the counter (guichet) and keeps its answer 30 seconds"""
 
 import hashlib
 import time
@@ -10,7 +10,7 @@ import httpx
 
 from mcplain_api.settings import Settings
 
-SESSION_PATH = "/api/auth/get-session"
+SESSION_PATH = "/internal/session"
 COOKIE_PREFIXES: tuple[str, ...] = ("mcplain.", "__Secure-mcplain.")
 CACHE_SECONDS = 30.0
 CACHE_MAX_ENTRIES = 10_000
@@ -27,6 +27,14 @@ class CurrentUser:
     id: str
     email_verified: bool
     role: str
+    two_factor: bool = False
+    banned: bool = False
+
+    @property
+    def is_admin(self) -> bool:
+        """Tell whether the account has the admin power: the admin role and an active second factor, never one alone"""
+
+        return self.role == ROLE_ADMIN and self.two_factor and not self.banned
 
 
 def account_cookies(cookie_header: str | None) -> str | None:
@@ -59,7 +67,13 @@ def user_from_answer(body: object) -> CurrentUser | None:
     role = ROLE_USER
     if user.get("role") in (ROLE_ADMIN, ROLE_BENCH):
         role = str(user.get("role"))
-    return CurrentUser(id=identifier, email_verified=user.get("emailVerified") is True, role=role)
+    return CurrentUser(
+        id=identifier,
+        email_verified=user.get("emailVerified") is True,
+        role=role,
+        two_factor=user.get("twoFactorEnabled") is True,
+        banned=user.get("banned") is not False,
+    )
 
 
 class SessionReader:
@@ -103,6 +117,11 @@ class SessionReader:
             return None
         self.remember(key, now, user)
         return user
+
+    def forget_user(self, user_id: str) -> None:
+        """Drop every kept answer of one account, whatever its session, so that a ban takes effect at once"""
+
+        self.cache = {key: item for key, item in self.cache.items() if item[1] is None or item[1].id != user_id}
 
     def remember(self, key: str, now: float, user: CurrentUser | None) -> None:
         """Keep an answer for 30 seconds, dropping the expired ones, then the oldest, when the cache is full"""
