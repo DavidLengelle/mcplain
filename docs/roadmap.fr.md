@@ -1,7 +1,7 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8, 9a et 9b, le corpus partie 2 et l'enquête fetch sont faits. Les parties
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8, 9a, 9b, 9c-1 et 9c-2, le corpus partie 2 et l'enquête fetch sont faits. Les parties
 « Protections » et « Adresses IP partagées » sont codées (séances 8, 9a et 9b).
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
@@ -150,7 +150,7 @@ Guide : `docs/ai.fr.md`.
 À faire :
 
 - [x] E-mail à l'admin : envoyé par le facteur (séance 9a), au plus un par code d'alerte et par 24 h, 20 par jour au plus.
-- [ ] La dépense et le solde dans un tableau admin.
+- [x] La dépense et le solde dans un tableau admin (séance 9c-2, `docs/admin.fr.md`).
 - [ ] La traduction vers l'anglais.
 - [x] ALTCHA sur les formulaires du compte (séance 9a) ; sur l'analyse en séance 9b.
 - [ ] Décision sur httpx2 : le SDK anthropic actuel en dépend, respx ne l'intercepte pas, et Starlette le demande pour son client de test.
@@ -161,9 +161,10 @@ Guide : `docs/ai.fr.md`.
       JSON et notre contrôle le relit ; prompts `notice-v3` et `translation-v2`.
 - [x] Matrice du 10 novembre : l'encodage cassé est un défaut intermittent. Nouvel essai sur rejet `encoding`, 4 appels par jour au plus
       pour une même notice, journal des appels `ai_calls`.
-- [ ] Surveiller le taux de rejets encoding dans le tableau admin ; si un jour il reste à 0, retirer le nouvel essai.
+- [ ] Surveiller le taux de rejets encoding dans le tableau admin (cadran « Rejets de l'IA », séance 9c-2) ; s'il reste à 0, retirer le
+      nouvel essai.
 - [ ] Mise en ligne : vrai filtre de sortie réseau (pare-feu ou proxy) pour le chef d'atelier et le rédacteur.
-- [ ] Séance 9 : bouton admin pour relancer une notice rejetée.
+- [x] Bouton admin pour relancer une notice rejetée ou en échec (séance 9c-2), sans jamais contourner le budget.
 
 ## SÉANCE 9A : LE GUICHET (faite le 10 novembre 2026, moteur et règles inchangés)
 
@@ -251,22 +252,35 @@ Guide : `docs/accounts.fr.md`, sections 19 à 23. La séance 9c est découpée e
 - [ ] À surveiller : 600 lectures de session par minute et par adresse ; si un grand réseau partagé (école, entreprise) voit des
       comptes affichés comme déconnectés, relever ce chiffre (`SESSION_READS_MAX` dans `auth/src/auth.ts`).
 
-## SÉANCE 9C-2 : LE TABLEAU DE BORD (à faire)
+## SÉANCE 9C-2 : LE TABLEAU DE BORD (faite le 24 novembre 2026, moteur, règles et banc inchangés)
 
-Dans l'emplacement déjà prêt de la page `/admin`, réservé à l'admin avec double authentification :
+Guide : `docs/admin.fr.md`.
 
-- Jauges : dépense de l'IA du jour et du mois face au budget, taux de rejets `encoding`, refus « trop de comptes créés depuis ce
-  réseau » par jour (table `signup_refusals`), demandes arrivées quota épuisé par jour et par type de visiteur (table
-  `quota_refusals`).
-- Solde estimé de l'espace de travail Anthropic (budget moins dépense comptée par MCPlain) ; e-mail à l'admin quand il passe sous
-  2 $ (par le facteur, au plus un par jour).
-- Boutons : relancer une analyse, relancer une notice rejetée.
+- [x] Cadrans sur `/admin`, période 7 j ou 30 j (jours UTC), bouton « Actualiser », chiffres globaux seulement : dépense de l'IA
+      (la même fonction que les fusibles, sortie du rédacteur dans `ai_budget.py` par un déplacement pur, décision de David),
+      solde estimé, alertes de l'IA, rejets et taux `encoding`, notices à relancer, échecs d'analyse (jeton rendu ou gardé),
+      analyses par jour, couleurs et cas gris, 20 MCP les plus analysés, langages non pris en charge, refus, comptes créés par jour.
+- [x] Barres en CSS avec leur chiffre écrit, jetons existants, cuivre pour les alertes seulement, une colonne sur téléphone.
+- [x] Solde estimé = dernier relevé + recharges − dépense depuis ce relevé ; table d'écritures, suppression de la dernière seulement.
+- [x] E-mail sous 2 $ (`MCPLAIN_BALANCE_ALERT_USD`) envoyé une fois par le facteur, sans `mail_outbox` (décision de David : le rôle de
+      l'API n'a aucun droit sur cette table), avec quatre droits de lecture en plus ; réarmé quand une écriture fait remonter le
+      solde au-dessus du seuil ; jamais sans relevé. Remplace « au plus un par jour » prévu plus haut.
+- [x] Relancer une notice rejetée ou en échec (fusibles, budget, pause et plafond de 4 toujours appliqués) ; relancer une analyse
+      sans le cache (une réussite devient ce que le cache sert, un échec garde l'ancien résultat) ; marquer une alerte comme lue.
+- [x] Journal admin (table `admin_actions`), bannissements de la 9c-1 compris ; les 50 dernières lignes sur `/admin`.
+- [x] Comptes créés par jour : route interne du guichet `/internal/accounts/created-per-day` (dates et nombres seulement).
+- [x] L'API reçoit les mêmes réglages de l'IA que le rédacteur (jamais la clé), pour lire le même budget et les mêmes prix.
+- [ ] À faire par David : saisir un premier relevé ; régler `MCPLAIN_ADMIN_EMAIL` pour recevoir l'e-mail du solde.
 
 ## SÉANCE 9C-3 : LA BOÎTE À RÉCLAMATIONS (à faire)
 
 - Signalements sur un rapport, dont « Tu es l'auteur ? Signale une erreur » (texte brut, affiché avec `RawText`, jamais donné à
-  l'IA) ; leur liste dans la page `/admin`.
-- Umami (mesure d'audience auto-hébergée, sans cookie).
+  l'IA, ni à la notice ni à une traduction) ; leur liste dans la page `/admin`, à côté des cadrans de la 9c-2, avec les mêmes
+  règles (routes sous `/api/admin/*`, aucune donnée par personne en dehors de ce que le signalement contient, action notée dans
+  le journal admin).
+- À décider : la protection des signalements contre les robots (ALTCHA, comme une analyse ? une limite par jour ?).
+- Umami (mesure d'audience auto-hébergée, sans cookie, aucune donnée chez un tiers) : à brancher sur le site, son tableau à part ;
+  le cadran « Fréquentation » de la 9c-2 ne compte que les comptes créés.
 
 ## MISE EN LIGNE (comptes)
 
@@ -295,6 +309,10 @@ Dans l'emplacement déjà prêt de la page `/admin`, réservé à l'admin avec d
 - `MCPLAIN_PUBLIC_URL` est aussi lu par l'API : c'est la seule origine acceptée pour les changements de la page `/admin`.
 
 ## PLUS TARD
+
+- Les refus de l'anti-rafale (`burst_limit`) et les ALTCHA ratés (`altcha_invalid`) ne sont comptés nulle part : le cadran « Refus »
+  de la 9c-2 ne les montre donc pas (décision de David du 24 novembre 2026). À ajouter si un jour on veut les suivre (une table par
+  jour, sans adresse, comme `quota_refusals`).
 
 - Surveiller les nouvelles versions des serveurs de référence (fetch, filesystem, time, git...) : être prévenu quand une version
   sort, pour vérifier son verdict et mettre à jour la version épinglée des tests de pile. Pas codé.

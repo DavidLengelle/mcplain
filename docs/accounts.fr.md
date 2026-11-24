@@ -70,6 +70,8 @@ Le facteur (`api/src/mcplain_api/facteur.py`, service `facteur`) est le **seul**
 - Il envoie aussi les alertes admin du rédacteur (table `ai_admin_alerts`) à `MCPLAIN_ADMIN_EMAIL` : au plus un e-mail par code
   d'alerte toutes les 24 heures, et 20 e-mails admin par jour au maximum. L'e-mail donne le code, les dates et le nombre, jamais
   une clé ni un texte de tiers.
+- Une fois par minute, il calcule le solde estimé du crédit Anthropic et envoie un seul e-mail à l'admin quand il passe sous
+  `MCPLAIN_BALANCE_ALERT_USD` (séance 9c-2, `docs/admin.fr.md`, section 6).
 - Il ne donne jamais le mot de passe SMTP sans STARTTLS.
 
 Les modèles d'e-mails sont dans `api/src/mcplain_api/mail_texts/en.json` et `fr.json`.
@@ -153,7 +155,7 @@ ponctuel `migrate` l'utilise.
 | `mcplain` (propriétaire) | service `migrate`, qui s'arrête ensuite | migrations Alembic, création des rôles et de leurs mots de passe |
 | `mcplain_app` | API, chef d'atelier, rédacteur | lire et écrire les tables de MCPlain (quotas et historique compris) ; **rien** dans `auth`, rien dans `mail_outbox` |
 | `mcplain_guichet` | guichet | tout dans son schéma `auth` ; seulement ajouter des lignes à `mail_outbox` |
-| `mcplain_facteur` | facteur | lire et effacer `mail_outbox` ; lire `ai_admin_alerts` et remplir `emailed_at` |
+| `mcplain_facteur` | facteur | lire et effacer `mail_outbox` ; lire `ai_admin_alerts` et remplir `emailed_at` ; depuis la 9c-2, lire `created_at` et `cost_usd` de `ai_calls`, lire `credit_entries`, lire `balance_alert` et remplir `sent_at` |
 
 Les tables de Better Auth sont créées par la migration Alembic `0006`, à partir du SQL que Better Auth génère lui-même : une
 seule source de migrations. Un test compare la base à ce que Better Auth attend (`auth/tests/schema.test.ts`).

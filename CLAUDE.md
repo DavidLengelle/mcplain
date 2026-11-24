@@ -69,8 +69,10 @@ Planned work and decisions for future sessions are in docs/roadmap.fr.md: read t
   active only when `MCPLAIN_ALLOW_BENCH_ROLE=true` (never on the VPS), given by `scripts/make-bench-account.sh`. Stack tests reset
   the counters with psql as the owner, never through the API.
 - **Postman** (facteur, `api/src/mcplain_api/facteur.py`, command `mcplain-facteur`): the only service that receives the SMTP
-  credentials. It sends the rows of `mail_outbox` in plain text, then deletes them, and mails the admin alerts of the writer.
-  Role `mcplain_facteur`. In development the mails go to Mailpit (profile `dev`, `http://127.0.0.1:8025`).
+  credentials. It sends the rows of `mail_outbox` in plain text, then deletes them, and mails the admin alerts of the writer and,
+  once, the estimated Anthropic credit under `MCPLAIN_BALANCE_ALERT_USD` (`estimated_balance` of `ai_budget.py`, the one place the
+  writer, the dashboard and the postman read the AI spend from). Role `mcplain_facteur`. Admin dashboard guide: `docs/admin.fr.md`.
+  In development the mails go to Mailpit (profile `dev`, `http://127.0.0.1:8025`).
 - **Migrate** (command `mcplain-migrate`, one-shot service): the only service with the owner password of the database. It runs
   the Alembic migrations (the tables of Better Auth included) and gives the service roles their passwords, then stops. The API,
   the dispatcher and the writer connect as `mcplain_app`, which has no right on `auth` nor on `mail_outbox`.

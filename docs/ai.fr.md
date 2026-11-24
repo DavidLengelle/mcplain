@@ -175,14 +175,16 @@ est le SHA-256 du formulaire en JSON canonique.
   `SELECT ... FOR UPDATE SKIP LOCKED`.
 - Un échec n'est jamais gardé comme prêt.
 - Un texte rejeté reste rejeté : on ne paie pas deux fois. Pour réessayer, on change la version du prompt
-  (`NOTICE_PROMPT_VERSION`, `TRANSLATION_PROMPT_VERSION`). Seule exception : l'encodage cassé (voir 4 bis).
+  (`NOTICE_PROMPT_VERSION`, `TRANSLATION_PROMPT_VERSION`). Exceptions : l'encodage cassé (voir 4 bis), et le bouton « Relancer la
+  notice » de l'admin (séance 9c-2, `docs/admin.fr.md`), qui passe toujours par la pause, le plafond de 4 et les fusibles.
 
 Pas d'appel non plus sans outil reconnu, pour une analyse échouée, ou sans description à traduire. Le banc ne demande jamais
 de notice : un test le vérifie.
 
 ## 7. Les fusibles
 
-Avant chaque appel, le rédacteur calcule le **pire coût** : l'entrée estimée (taille de la requête en octets, divisée par 2)
+Ces calculs vivent dans `api/src/mcplain_api/ai_budget.py` (séance 9c-2) : le rédacteur, le tableau admin et le facteur lisent la
+dépense avec la même fonction, `spent_since`. Avant chaque appel, le rédacteur calcule le **pire coût** : l'entrée estimée (taille de la requête en octets, divisée par 2)
 plus tout `max_tokens` au prix de sortie. Il ajoute la dépense déjà enregistrée dans `ai_calls` :
 
 - au-delà du **budget du mois** (`MCPLAIN_AI_MONTHLY_BUDGET_USD`, 10 dollars) : pas d'appel, retour le mois prochain ;
