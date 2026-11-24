@@ -398,7 +398,7 @@ async function readJson<T>(path: string, parse: (value: unknown) => T | null): P
   }
 }
 
-export type DialName = "spend" | "ai" | "analyses" | "refusals" | "accounts";
+export type DialName = "spend" | "ai" | "analyses" | "refusals" | "reports" | "accounts";
 
 function dialPath(name: DialName, days: Days): string {
   return `${DASHBOARD_PATH}/${name}?${new URLSearchParams({ days: String(days) }).toString()}`;
@@ -418,6 +418,10 @@ export function readAnalyses(days: Days): Promise<Read<Analyses>> {
 
 export function readRefusals(days: Days): Promise<Read<Refusals>> {
   return readJson(dialPath("refusals", days), parseRefusals);
+}
+
+export function readReportsPerDay(days: Days): Promise<Read<Refusals>> {
+  return readJson(dialPath("reports", days), parseRefusals);
 }
 
 export function readAccounts(days: Days): Promise<Read<Accounts>> {

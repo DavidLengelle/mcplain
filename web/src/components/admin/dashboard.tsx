@@ -11,6 +11,7 @@ import { HealthGroup } from "./health";
 import { Journal } from "./journal";
 import { BalanceDial, SpendDial } from "./money";
 import { DialCard, GroupTitle, useDial } from "./parts";
+import { NewReportsCount, ReportsPerDay, ReportsSection } from "./reports-section";
 import { UsageGroup } from "./usage";
 
 function PeriodPicker({ days, onPick }: { days: Days; onPick: (days: Days) => void }) {
@@ -49,7 +50,10 @@ export function Dashboard() {
   return (
     <div data-testid="admin-dashboard" className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 rounded-[18px] bg-panel p-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:p-6">
-        <p className="text-ink2">{t("intro")}</p>
+        <div className="flex flex-col gap-1">
+          <p className="text-ink2">{t("intro")}</p>
+          <NewReportsCount refresh={refresh} />
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <PeriodPicker days={days} onPick={setDays} />
           <button type="button" onClick={changed} className={SECONDARY_BUTTON_CLASS}>
@@ -65,6 +69,12 @@ export function Dashboard() {
       <section aria-labelledby="admin-health-title" className="flex flex-col gap-4">
         <GroupTitle id="admin-health-title">{t("groups.health")}</GroupTitle>
         <HealthGroup ai={ai} analyses={analyses} onChanged={changed} />
+        <DialCard id="admin-reports-title" title={t("reports.title")} testId="admin-reports-dial">
+          <ReportsSection refresh={refresh} onChanged={changed} />
+        </DialCard>
+        <DialCard id="admin-reports-days-title" title={t("reports.perDayTitle")} testId="admin-reports-days-dial">
+          <ReportsPerDay days={days} refresh={refresh} />
+        </DialCard>
       </section>
       <section aria-labelledby="admin-usage-title" className="flex flex-col gap-4">
         <GroupTitle id="admin-usage-title">{t("groups.usage")}</GroupTitle>

@@ -13,7 +13,7 @@ import { useOutcomeText } from "./outcome";
 import { BarList, BarRow, DialCard, DialMessage, Empty, useDay, useDial } from "./parts";
 
 const KNOWN_COLORS = new Set(["red", "orange", "gray", "green"]);
-const KNOWN_REFUSALS = new Set(["signup_limit", "quota_exhausted_anonymous", "quota_exhausted_account"]);
+const KNOWN_REFUSALS = new Set(["signup_limit", "quota_exhausted_anonymous", "quota_exhausted_account", "report_limit", "report_global"]);
 
 function highestOf(items: Counted[]): number {
   return Math.max(0, ...items.map((item) => item.count));

@@ -517,6 +517,44 @@
     "readOn": "Ce rapport décrit le code lu le {date}. Il ne prouve pas qu'un serveur est sûr.",
     "fromCache": "Résultat repris d'une analyse du {date}. Cette analyse n'a pas été décomptée."
   },
+  "reportBox": {
+    "title": "Une erreur dans ce rapport ?",
+    "intro": "Dis-le à MCPlain : chaque signalement aide à corriger les règles.",
+    "open": "Signaler",
+    "legend": "Que veux-tu signaler ?",
+    "kinds": {
+      "false_alarm": {
+        "label": "Alerte injustifiée",
+        "hint": "Le rapport annonce un risque qui n'existe pas dans ce serveur."
+      },
+      "missed_danger": {
+        "label": "Danger non détecté",
+        "hint": "Ce serveur fait quelque chose de risqué que le rapport ne dit pas."
+      },
+      "author_error": {
+        "label": "Tu es l'auteur ? Signale une erreur",
+        "hint": "Tu as écrit ce serveur et le rapport se trompe. MCPlain ne peut pas vérifier que tu en es l'auteur."
+      }
+    },
+    "commentLabel": "Commentaire (facultatif)",
+    "commentHelp": "Texte simple. N'écris ni ton e-mail ni une information personnelle. Seul l'admin le lit, et il n'est jamais envoyé à l'IA.",
+    "remaining": "{count, plural, one {# caractère restant} other {# caractères restants}}",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "cancel": "Annuler",
+    "thanks": "Merci ! Ton signalement est bien arrivé. L'admin le lira pour corriger les règles si besoin.",
+    "errors": {
+      "no_kind": "Choisis d'abord ce que tu veux signaler.",
+      "duplicate": "Tu as déjà envoyé ce type de signalement pour ce rapport.",
+      "limit": "La limite de 10 signalements par jour est atteinte. Tu pourras en envoyer d'autres à {time}.",
+      "limitTomorrow": "La limite de 10 signalements par jour est atteinte. Réessaie demain.",
+      "full": "La boîte est pleine, réessaie demain.",
+      "altcha": "La vérification anti-robot n'a pas abouti. Réessaie.",
+      "blocked": "Ce compte est bloqué.",
+      "too_long": "Le commentaire fait 500 caractères au plus.",
+      "unavailable": "Le signalement n'a pas pu partir. Réessaie dans un instant."
+    }
+  },
   "report": {
     "backToTop": "Remonter en haut de la page",
     "pasteAbove": "Colle son lien dans le champ en haut de la page."
@@ -881,7 +919,9 @@
         "kind": {
           "signup_limit": "Inscriptions refusées (trop de comptes depuis un réseau)",
           "quota_exhausted_anonymous": "Quota épuisé, sans compte",
-          "quota_exhausted_account": "Quota épuisé, avec un compte"
+          "quota_exhausted_account": "Quota épuisé, avec un compte",
+          "report_limit": "Signalements refusés (limite du jour ou doublon)",
+          "report_global": "Signalements refusés (boîte pleine)"
         }
       },
       "accounts": {
@@ -899,14 +939,17 @@
           "analysis_rerun": "Analyse relancée",
           "alert_read": "Alerte marquée comme lue",
           "credit_add": "Écriture ajoutée",
-          "credit_delete": "Écriture supprimée"
+          "credit_delete": "Écriture supprimée",
+          "report_handled": "Signalement traité",
+          "report_rejected": "Signalement rejeté"
         },
         "target": {
           "account": "compte",
           "analysis": "analyse",
           "text": "notice",
           "alert": "alerte",
-          "credit": "écriture"
+          "credit": "écriture",
+          "report": "signalement"
         }
       },
       "outcome": {
@@ -930,7 +973,47 @@
         "credit_not_last": "Seule la dernière écriture peut être supprimée.",
         "admin_required": "Le bureau admin t'est fermé : reconnecte-toi avec ton code.",
         "origin_refused": "Ce changement doit venir du site de MCPlain."
+      },
+      "reports": {
+        "title": "Signalements",
+        "perDayTitle": "Signalements par jour"
       }
+    },
+    "reports": {
+      "intro": "Les 50 derniers signalements des visiteurs, les plus récents d'abord. Le commentaire est effacé 90 jours après « Traité » ou « Rejeté » ; le reste de la ligne est gardé.",
+      "newCount": "{count, plural, =0 {Aucun signalement nouveau} one {# signalement nouveau} other {# signalements nouveaux}}",
+      "statusLabel": "Statut",
+      "kindLabel": "Type",
+      "all": "Tous",
+      "status": {
+        "new": "Nouveau",
+        "handled": "Traité",
+        "rejected": "Rejeté"
+      },
+      "kind": {
+        "false_alarm": "Alerte injustifiée",
+        "missed_danger": "Danger non détecté",
+        "author_error": "Erreur signalée par l'auteur"
+      },
+      "unverified": "non vérifié",
+      "sentAt": "Envoyé le {date}",
+      "colorLabel": "Couleur du rapport",
+      "versionsLabel": "Versions",
+      "versions": "moteur {engine}, règles {rules}",
+      "reporterLabel": "Envoyé par",
+      "reporter": {
+        "anonymous": "Sans compte",
+        "account": "Compte",
+        "deleted": "Compte supprimé depuis"
+      },
+      "noComment": "Pas de commentaire.",
+      "erased": "Commentaire effacé 90 jours après la décision.",
+      "report": "Voir le rapport",
+      "markHandled": "Traité",
+      "markRejected": "Rejeté",
+      "changed": "C'est noté dans le journal admin.",
+      "failed": "Le changement n'a pas pu se faire. Réessaie dans un instant.",
+      "none": "Aucun signalement ici."
     }
   }
 }

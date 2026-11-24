@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 import { CheckIcon, CircleIcon, SpinnerIcon } from "./icons";
 import { QuotaExhausted } from "./report/quota-exhausted";
+import { ReportBox } from "./report/report-box";
 import { ReportView } from "./report/report-view";
 import { RetryButton } from "./report/retry-button";
 import { VerdictFrame } from "./report/verdict-block";
@@ -201,5 +202,10 @@ export function AnalysisTracker({ id }: { id: string }) {
   if (view.analysis.state === "quota_exhausted") {
     return <QuotaExhausted quota={quota} />;
   }
-  return <ReportView analysis={view.analysis} />;
+  return (
+    <div className="flex flex-col gap-7">
+      <ReportView analysis={view.analysis} />
+      <ReportBox analysisId={view.analysis.id} />
+    </div>
+  );
 }

@@ -9,8 +9,18 @@ import { readJournal, type Days } from "@/lib/admin-dashboard";
 
 import { DialMessage, Empty, useDial, useMoment } from "./parts";
 
-const KNOWN_ACTIONS = new Set(["ban", "unban", "text_retry", "analysis_rerun", "alert_read", "credit_add", "credit_delete"]);
-const KNOWN_TARGETS = new Set(["account", "analysis", "text", "alert", "credit"]);
+const KNOWN_ACTIONS = new Set([
+  "ban",
+  "unban",
+  "text_retry",
+  "analysis_rerun",
+  "alert_read",
+  "credit_add",
+  "credit_delete",
+  "report_handled",
+  "report_rejected",
+]);
+const KNOWN_TARGETS = new Set(["account", "analysis", "text", "alert", "credit", "report"]);
 
 function readJournalAnyDays(): ReturnType<typeof readJournal> {
   return readJournal();
