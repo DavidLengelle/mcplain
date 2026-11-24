@@ -108,6 +108,8 @@ export function authOptions(settings: Settings, dependencies: Dependencies) {
     user: {
       additionalFields: {
         [ROLE_FIELD]: { type: ["user", "admin", "bench"] as const, required: false, defaultValue: "user", input: false },
+        bannedAt: { type: "date" as const, required: false, input: false, returned: false },
+        banReason: { type: "string" as const, required: false, input: false, returned: false },
       },
       deleteUser: {
         enabled: true,
