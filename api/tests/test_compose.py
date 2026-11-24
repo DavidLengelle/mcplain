@@ -450,6 +450,7 @@ def clear_mails(client: DockerClient, emails: list[str]) -> None:
 def test_a_fake_forwarded_for_from_the_browser_does_not_change_the_counted_network(client: DockerClient) -> None:
     """Two sign-ups with two fake addresses count for the one real network: one fingerprint, two sign-ups"""
 
+    postgres_lines(client, "DELETE FROM signup_counts;")
     today = "signup_counts WHERE day = (now() AT TIME ZONE 'utc')::date"
     before = dict(line.split("|") for line in postgres_lines(client, f"SELECT ip_hash, count FROM {today}"))
     stamp = uuid.uuid4().hex[:10]

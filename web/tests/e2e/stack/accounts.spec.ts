@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { expect, test } from "@playwright/test";
 
-import { cleanUp, linkOf, RESULTS, screens, signIn, site, waitForMail } from "./helpers";
+import { cleanUp, linkOf, resetSignups, RESULTS, screens, signIn, site, waitForMail } from "./helpers";
 
 const PASSWORD = "first password, long enough";
 const NEW_PASSWORD = "second password, long enough";
@@ -11,6 +11,10 @@ const ALTCHA_RUNS = 10;
 const MID_PHONE_SLOWDOWN = 4;
 const SIGN_IN_WINDOW_MS = 11_000;
 const addresses: string[] = [];
+
+test.beforeEach(() => {
+  resetSignups();
+});
 
 test.afterEach(async ({ request }) => {
   await cleanUp(request, addresses.splice(0));

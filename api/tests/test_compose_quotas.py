@@ -74,6 +74,7 @@ def make_account(client: DockerClient, site: httpx.Client, role: str, emails: li
 
     email = f"quota-{uuid.uuid4().hex[:10]}@example.com"
     emails.append(email)
+    postgres_lines(client, "DELETE FROM signup_counts;")
     origin = str(site.base_url).rstrip("/")
     answer = site.post(
         "/api/auth/sign-up/email",

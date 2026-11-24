@@ -108,6 +108,10 @@ export function psql(statement: string): string {
   });
 }
 
+export function resetSignups(): void {
+  psql("DELETE FROM signup_counts;");
+}
+
 export function resetCounters(): void {
   psql("DELETE FROM quota_usage; DELETE FROM burst_counts; DELETE FROM analysis_tokens;");
 }

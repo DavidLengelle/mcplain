@@ -1,12 +1,16 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { cleanUp, psql, screens, signIn, site } from "./helpers";
+import { cleanUp, psql, resetSignups, screens, signIn, site } from "./helpers";
 import { totpCode } from "./totp";
 
 const PASSWORD = "admin password, long enough";
 const SIGN_IN_WINDOW_MS = 11_000;
 const PERIOD_MS = 30_000;
 const addresses: string[] = [];
+
+test.beforeEach(() => {
+  resetSignups();
+});
 
 test.afterEach(async ({ request }) => {
   await cleanUp(request, addresses.splice(0));

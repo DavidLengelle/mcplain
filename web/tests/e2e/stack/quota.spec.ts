@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { cleanUp, linkOf, psql, resetCounters, screens, site, waitForMail } from "./helpers";
+import { cleanUp, linkOf, psql, resetCounters, resetSignups, screens, site, waitForMail } from "./helpers";
 
 const PASSWORD = "quota password, long enough";
 const CACHED = "uvx mcp-server-time==2026.11.11";
@@ -25,6 +25,7 @@ async function analyzeToTheEnd(page: Page, baseURL: string | undefined, input: s
 
 test.beforeEach(() => {
   resetCounters();
+  resetSignups();
 });
 
 const addresses: string[] = [];
