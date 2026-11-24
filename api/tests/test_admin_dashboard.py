@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from helpers import altcha_settings, make_settings
 from sqlalchemy.engine import Engine
@@ -26,6 +27,7 @@ from mcplain_api.ai_budget import budget_reason, spent_since
 from mcplain_api.app import create_app
 from mcplain_api.db import (
     AI_STATE_ROW,
+    AdminAction,
     AiAdminAlert,
     AiCall,
     AiState,
@@ -34,6 +36,9 @@ from mcplain_api.db import (
     Base,
     QuotaRefusal,
     QuotaUsage,
+    Report,
+    ReportCount,
+    ReportMark,
     SignupCount,
     SignupRefusal,
     UserHistory,
@@ -42,7 +47,8 @@ from mcplain_api.db import (
 )
 
 NOW = datetime(2026, 12, 1, 10, 0, tzinfo=UTC)
-DASHBOARD_ROUTES: tuple[str, ...] = ("spend", "ai", "analyses", "refusals", "accounts")
+DASHBOARD_ROUTES: tuple[str, ...] = ("spend", "ai", "analyses", "refusals", "reports", "accounts")
+ACCOUNT_ID_ANSWERS: frozenset[str] = frozenset({"/api/admin/accounts", "/api/admin/journal", "/api/admin/reports"})
 PERSON_EMAIL = "carol@example.com"
 PERSON_ID = "carol-account-id-0123"
 IP_HASH = "f" * 64
@@ -309,12 +315,12 @@ def test_the_refusals_dial_counts_sign_ups_and_used_up_quotas_per_day(engine: En
     )
     with read(engine) as session:
         week = refusals_view(session, NOW, 7)
-    assert week["kinds"] == ["signup_limit", "quota_exhausted_anonymous", "quota_exhausted_account"]
+    assert week["kinds"] == ["signup_limit", "quota_exhausted_anonymous", "quota_exhausted_account", "report_limit", "report_global"]
     days = {item["day"]: item["counts"] for item in week["per_day"]}
-    assert days["2026-12-01"] == {"signup_limit": 3, "quota_exhausted_anonymous": 2, "quota_exhausted_account": 0}
-    assert days["2026-11-28"] == {"signup_limit": 0, "quota_exhausted_anonymous": 0, "quota_exhausted_account": 1}
-    assert days["2026-11-26"] == {"signup_limit": 0, "quota_exhausted_anonymous": 0, "quota_exhausted_account": 0}
-    assert week["totals"] == {"signup_limit": 3, "quota_exhausted_anonymous": 2, "quota_exhausted_account": 1}
+    assert days["2026-12-01"] == {"signup_limit": 3, "quota_exhausted_anonymous": 2, "quota_exhausted_account": 0, "report_limit": 0, "report_global": 0}
+    assert days["2026-11-28"] == {"signup_limit": 0, "quota_exhausted_anonymous": 0, "quota_exhausted_account": 1, "report_limit": 0, "report_global": 0}
+    assert days["2026-11-26"] == {"signup_limit": 0, "quota_exhausted_anonymous": 0, "quota_exhausted_account": 0, "report_limit": 0, "report_global": 0}
+    assert week["totals"] == {"signup_limit": 3, "quota_exhausted_anonymous": 2, "quota_exhausted_account": 1, "report_limit": 0, "report_global": 0}
 
 
 def test_the_accounts_dial_fills_the_days_the_counter_did_not_give() -> None:
@@ -411,6 +417,10 @@ def test_no_dial_ever_tells_anything_about_a_person(engine: Engine, admin_client
         SignupCount(day=today.date(), ip_hash=IP_HASH, count=30),
         SignupRefusal(day=today.date(), count=1),
         UserHistory(user_id=PERSON_ID, analysis_id=done.id, created_at=now),
+        Report(analysis_id=done.id, kind="author_error", status="new", comment="secret-input-of-a-person", reporter_kind="account", reporter_user_id=PERSON_ID, created_at=now),
+        ReportCount(day=today.date(), subject="ip:" + IP_HASH, kind="anonymous", count=1),
+        ReportMark(subject="ip:" + IP_HASH, analysis_id=done.id, kind="author_error", day=today.date()),
+        QuotaRefusal(day=today.date(), kind="report_limit", count=1),
     )
     add(
         engine,
@@ -425,3 +435,29 @@ def test_no_dial_ever_tells_anything_about_a_person(engine: Engine, admin_client
             for secret in (PERSON_EMAIL, PERSON_ID, IP_HASH, REQUEST_ID, ALERT_REQUEST_ID, "secret-input-of-a-person", "req_"):
                 assert secret not in text, (name, secret)
             assert not keys_of(answer.json()) & PERSONAL_KEYS, name
+
+
+def test_only_three_admin_answers_name_an_account_and_none_an_address(
+    engine: Engine, admin_client: tuple[TestClient, dict[str, str], FakeDesk]
+) -> None:
+    """Rule 2 of the dashboard: an account id only in Accounts, the journal and the reports; an address fingerprint nowhere"""
+
+    client, headers, desk = admin_client
+    now = datetime.now(UTC)
+    done = Analysis(id=uuid.uuid4(), input_raw="uvx demo", state="done", result=result("orange", "pypi", "demo"), created_at=now, finished_at=now)
+    add(engine, done)
+    add(
+        engine,
+        Report(analysis_id=done.id, kind="false_alarm", status="new", reporter_kind="account", reporter_user_id=PERSON_ID, created_at=now),
+        ReportMark(subject="ip:" + IP_HASH, analysis_id=done.id, kind="false_alarm", day=now.date()),
+        ReportCount(day=now.date(), subject="ip:" + IP_HASH, kind="anonymous", count=1),
+        AdminAction(id=uuid.uuid4(), action="ban", target_kind="account", target_id=PERSON_ID, created_at=now),
+    )
+    paths = sorted({route.path for route in client.app.routes if isinstance(route, APIRoute) and "GET" in route.methods and route.path.startswith("/api/admin")})
+    assert ACCOUNT_ID_ANSWERS <= set(paths)
+    for path in paths:
+        answer = client.get(path, params={"days": "30", "email": "eve@example.com"}, headers=headers)
+        assert IP_HASH not in answer.text, path
+        if path not in ACCOUNT_ID_ANSWERS:
+            assert PERSON_ID not in answer.text, path
+    assert PERSON_ID in client.get("/api/admin/reports", headers=headers).text

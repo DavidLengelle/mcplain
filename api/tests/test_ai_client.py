@@ -23,7 +23,7 @@ from mcplain_api.ai_prompts import (
     TRANSLATION_SCHEMA,
     notice_message,
 )
-from mcplain_api.db import AiAdminAlert, AiCall, AiState, AiText, Analysis, Base, make_engine, make_sessions
+from mcplain_api.db import AiAdminAlert, AiCall, AiState, AiText, Analysis, Base, Report, make_engine, make_sessions
 from mcplain_api.redacteur import Redacteur, next_day, next_month
 
 KEY = "sk-ant-test-CANARY"
@@ -703,3 +703,25 @@ def test_translation_sends_parameters_and_never_their_names(api: respx.MockRoute
     row = bench.row()
     assert (row.status, row.reject_reason) == ("ready", "length")
     assert row.content == {"items": [{"id": "tool_0", "text": "Donne l'heure."}, {"id": "tool_0_param_0", "text": "Fuseau horaire"}]}
+
+
+def test_a_report_comment_never_reaches_the_ai(api: respx.MockRouter) -> None:
+    """A report about the analysis holds the canary in its comment: neither the notice nor the translation sends it"""
+
+    canary = "CANARY-REPORT-7f3a"
+    notice = api.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
+    bench = Bench()
+    bench.queue("notice")
+    bench.queue("translation")
+    with bench.sessions.begin() as session:
+        for analysis in session.query(Analysis).all():
+            for kind in ("false_alarm", "missed_danger", "author_error"):
+                session.add(
+                    Report(analysis_id=analysis.id, kind=kind, status="new", comment=canary, reporter_kind="anonymous", created_at=NOW)
+                )
+    bench.redacteur.run_once()
+    bench.redacteur.run_once()
+    assert len(notice.calls) == 2
+    for call in notice.calls:
+        assert canary not in call.request.content.decode("utf-8")
+        assert canary not in json.dumps(dict(call.request.headers))

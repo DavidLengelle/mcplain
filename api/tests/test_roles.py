@@ -22,18 +22,23 @@ from mcplain_api.analysis_gate import enqueue
 from mcplain_api.credit import add_entry
 from mcplain_api.db import (
     BALANCE_ALERT_ROW,
+    AiAdminAlert,
     AiCall,
     Analysis,
     AnalysisToken,
     BalanceAlert,
     CreditEntry,
     QuotaUsage,
+    Report,
+    ReportCount,
     make_engine,
     make_sessions,
 )
+from mcplain_api import reports as reports_module
 from mcplain_api.facteur import Facteur, FacteurSettings
 from mcplain_api.migrate import set_role_passwords
-from mcplain_api.quota import Visitor, VisitorKind
+from mcplain_api.quota import Visitor, VisitorKind, take_slot
+from mcplain_api.reports import reports_list, send_report
 
 pytestmark = pytest.mark.postgres
 
@@ -311,3 +316,109 @@ def test_the_postman_mails_the_low_balance_with_its_own_role(database: str) -> N
             session.get(BalanceAlert, BALANCE_ALERT_ROW).sent_at = None
         app.dispose()
         postman_engine.dispose()
+
+
+def test_the_postman_erases_old_comments_and_never_reads_one(database: str) -> None:
+    """The postman may empty the comment of a report closed long ago, but never read a comment nor anything else"""
+
+    url = make_url(os.environ[ADMIN_URL_VARIABLE]).set(database=database)
+    app_url = url.set(username="mcplain_app", password=TEST_PASSWORDS["mcplain_app"]).render_as_string(hide_password=False)
+    postman_url = url.set(username="mcplain_facteur", password=TEST_PASSWORDS["mcplain_facteur"]).render_as_string(hide_password=False)
+    now = datetime.now(UTC)
+    app_engine = make_engine(app_url)
+    with make_sessions(app_engine).begin() as session:
+        analysis = Analysis(id=uuid.uuid4(), input_raw="uvx demo", state="done", result={"verdict": {"color": "green"}}, created_at=now)
+        session.add(analysis)
+        session.flush()
+        session.add(
+            Report(
+                analysis_id=analysis.id,
+                kind="author_error",
+                status="handled",
+                comment="old comment",
+                reporter_kind="account",
+                reporter_user_id="someone",
+                created_at=now - timedelta(days=120),
+                closed_at=now - timedelta(days=100),
+            )
+        )
+    postman_engine = make_engine(postman_url)
+    facteur = Facteur(FacteurSettings(database_url=postman_url), make_sessions(postman_engine), sender=lambda settings, message: None)
+    facteur.erase_comments(now)
+    postman_engine.dispose()
+    with make_sessions(app_engine)() as session:
+        row = session.scalars(select(Report)).one()
+    app_engine.dispose()
+    assert (row.comment, row.kind, row.status, row.reporter_user_id) == (None, "author_error", "handled", "someone")
+    assert row.comment_erased_at is not None
+    with connect(database, "mcplain_facteur") as connection:
+        assert denied(connection, "SELECT comment FROM reports")
+        assert denied(connection, "SELECT reporter_user_id FROM reports")
+        assert denied(connection, "SELECT * FROM reports")
+        assert denied(connection, "UPDATE reports SET status = 'new'")
+        assert denied(connection, "DELETE FROM reports")
+        assert denied(connection, "SELECT * FROM report_counts")
+        assert denied(connection, "SELECT * FROM report_marks")
+    with connect(database, "mcplain_guichet") as connection:
+        assert denied(connection, "SELECT * FROM public.reports")
+
+
+def test_the_report_slots_are_atomic_on_postgresql(database: str) -> None:
+    """Twenty reports at the same instant of one network take ten slots, never more"""
+
+    url = make_url(os.environ[ADMIN_URL_VARIABLE]).set(database=database)
+    app_url = url.set(username="mcplain_app", password=TEST_PASSWORDS["mcplain_app"]).render_as_string(hide_password=False)
+    engine = make_engine(app_url)
+    sessions = make_sessions(engine)
+    day = datetime.now(UTC).date()
+    subject = "ip:" + uuid.uuid4().hex
+    results: list[bool] = []
+    barrier = threading.Barrier(20)
+
+    def take() -> None:
+        """Take one slot after every thread is ready"""
+
+        barrier.wait()
+        with sessions.begin() as session:
+            results.append(take_slot(session, ReportCount, day, subject, "anonymous", 10))
+
+    threads = [threading.Thread(target=take) for _ in range(20)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    with sessions() as session:
+        count = session.scalar(select(ReportCount.count).where(ReportCount.subject == subject))
+    engine.dispose()
+    assert results.count(True) == 10
+    assert count == 10
+
+
+def test_a_report_goes_through_postgresql_as_the_app_role(database: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kept once, the duplicate refused by its savepoint, the full box refused with its alert, the list read back"""
+
+    monkeypatch.setattr(reports_module, "accept_solution", lambda session, settings, text, moment: True)
+    url = make_url(os.environ[ADMIN_URL_VARIABLE]).set(database=database)
+    app_url = url.set(username="mcplain_app", password=TEST_PASSWORDS["mcplain_app"]).render_as_string(hide_password=False)
+    engine = make_engine(app_url)
+    sessions = make_sessions(engine)
+    settings = altcha_settings(database_url=app_url, reports_global_per_day=1)
+    now = datetime.now(UTC)
+    with sessions.begin() as session:
+        analysis = Analysis(id=uuid.uuid4(), input_raw="uvx demo", state="done", result={"verdict": {"color": "orange"}}, created_at=now)
+        other = Analysis(id=uuid.uuid4(), input_raw="uvx other", state="done", result={"verdict": {"color": "red"}}, created_at=now)
+        session.add_all([analysis, other])
+    with sessions.begin() as session:
+        session.execute(delete(ReportCount))
+    outcomes = [
+        send_report(sessions, settings, None, "203.0.113.5", "x", analysis.id, "false_alarm", "a\u0000b", now).value,
+        send_report(sessions, settings, None, "203.0.113.5", "x", analysis.id, "false_alarm", None, now).value,
+        send_report(sessions, settings, None, "198.51.100.7", "x", other.id, "false_alarm", None, now).value,
+    ]
+    with sessions.begin() as session:
+        listed = reports_list(session, now, None, None)
+        codes = session.scalars(select(AiAdminAlert.code)).all()
+    engine.dispose()
+    assert outcomes == ["sent", "report_duplicate", "report_global"]
+    assert [(item["color"], item["comment"]) for item in listed["reports"] if item["analysis_id"] == str(analysis.id)] == [("orange", "ab")]
+    assert "report_box_full" in codes
