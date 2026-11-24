@@ -293,8 +293,8 @@ Guides : `docs/admin.fr.md` (section 11) et `docs/analytics.fr.md`. **La séance
 - [x] Script `scripts/umami-first-setup.sh` ; page de confidentialité (fr, en) : Umami, cookies, empreintes d'IP, e-mails.
 - [ ] À faire par David : `scripts/init-secrets.sh` (trois secrets d'Umami), relancer la pile, puis `scripts/umami-first-setup.sh`
       et la double authentification d'Umami.
-- [ ] À décider : le cookie `NEXT_LOCALE` de next-intl (il retient la langue quand elle n'est pas celle du navigateur). Le garder
-      (dit sur la page de confidentialité) ou le couper (`localeCookie: false`).
+- [x] Cookie `NEXT_LOCALE` de next-intl (il retient la langue quand elle n'est pas celle du navigateur) : **gardé** (décision de
+      David du 24 novembre 2026), il est dit sur la page de confidentialité.
 
 ## PROCHAINE ÉTAPE
 
@@ -316,7 +316,7 @@ Une passe de finition visuelle du site, puis la mise en ligne chez OVH (points c
   seul quota.
 - Surveiller la prochaine demande de Dependabot pour uv : elle doit rester compatible avec `required-version = ">=0.13.6"` de
   `engine/`, `api/` et `bench/` (sinon `uv lock` échoue en CI).
-- Mentions de confidentialité : faites en 9c-3 (page `/privacy`) ; les relire une fois en ligne avec le vrai nom de domaine.
+- Mentions de confidentialité : faites en 9c-3 (page `/privacy`) ; les relire une fois en ligne sur le domaine prévu, `mcplain.dev`.
 - Tableau Umami par tunnel SSH seulement (`docs/analytics.fr.md`, section 8) : jamais de port public, jamais de relais TLS vers lui.
 - Mot de passe et double authentification d'Umami réglés avant l'ouverture (`scripts/umami-first-setup.sh <domaine>`, puis la 2FA
   dans le tableau), avec ses codes de secours rangés.

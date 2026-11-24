@@ -119,7 +119,7 @@ Umami reçoit aussi `CLIENT_IP_HEADER=x-mcplain-visitor-ip`, `SALT_ROTATION=day`
 Umami crée tout seul un compte `admin` avec le mot de passe public `umami`. **Juste après le premier démarrage** :
 
 ```
-scripts/umami-first-setup.sh mcplain.fr
+scripts/umami-first-setup.sh mcplain.dev
 ```
 
 (le domaine du site ; `localhost` par défaut, sur ta machine). Le script :
