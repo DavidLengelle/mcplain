@@ -113,7 +113,8 @@ Décisions du 3 novembre 2026, codées :
       5 gris), jugés par `engine/tests/test_corpus.py` (OK, ACCEPTABLE, ÉCHEC). Guide : `docs/corpus.fr.md`.
 - [x] Corpus privé des pièges (`engine/tests/fixtures/corpus-private/`, hors de git) : `.gitignore`, test de garde,
       hook `.githooks/pre-commit`, rapport `bench/private/corpus.md`.
-- [ ] Les 5 pièges écrits en chat, déposés par David dans le dossier privé.
+- [x] ~~Les 5 pièges écrits en chat, déposés par David dans le dossier privé.~~ Abandonné (décision de David du
+      4 novembre 2026) : plus aucun piège écrit en chat, les cas positifs viennent de DVMCP.
 - [ ] Écart à revoir avec David (attendu inchangé, `known_gap`) : `green/slug-ts-class` sort gris
       (`dynamic_descriptions`, outils rangés dans un champ de classe et enregistrés par `Object.entries`).
 - [ ] MCPTox (arXiv 2508.14925) : dépôt `github.com/zhiqiangwang4/MCPTox-Benchmark` sans licence, rien importé.
@@ -270,7 +271,8 @@ Guide : `docs/admin.fr.md`.
 - [x] Journal admin (table `admin_actions`), bannissements de la 9c-1 compris ; les 50 dernières lignes sur `/admin`.
 - [x] Comptes créés par jour : route interne du guichet `/internal/accounts/created-per-day` (dates et nombres seulement).
 - [x] L'API reçoit les mêmes réglages de l'IA que le rédacteur (jamais la clé), pour lire le même budget et les mêmes prix.
-- [ ] À faire par David : saisir un premier relevé ; régler `MCPLAIN_ADMIN_EMAIL` pour recevoir l'e-mail du solde.
+- [x] Fait par David le 24 novembre 2026 : premier relevé saisi (4,34 $) ; `MCPLAIN_ADMIN_EMAIL` réglé pour recevoir l'e-mail du
+      solde.
 
 ## SÉANCE 9C-3 : LA BOÎTE À RÉCLAMATIONS (faite le 24 novembre 2026, moteur, règles, banc et rédacteur inchangés)
 
@@ -291,8 +293,8 @@ Guides : `docs/admin.fr.md` (section 11) et `docs/analytics.fr.md`. **La séance
       relais ; Do Not Track et Global Privacy Control respectés, chemins normalisés, `/admin` et `/account` jamais suivis, aucun
       cookie d'Umami. `SALT_ROTATION=day` (visiteurs uniques sur plusieurs jours surestimés).
 - [x] Script `scripts/umami-first-setup.sh` ; page de confidentialité (fr, en) : Umami, cookies, empreintes d'IP, e-mails.
-- [ ] À faire par David : `scripts/init-secrets.sh` (trois secrets d'Umami), relancer la pile, puis `scripts/umami-first-setup.sh`
-      et la double authentification d'Umami.
+- [x] Fait par David en local le 24 novembre 2026 : `scripts/init-secrets.sh` (trois secrets d'Umami), pile relancée,
+      `scripts/umami-first-setup.sh` et double authentification d'Umami. Sur le VPS : voir « Mise en ligne ».
 - [x] Cookie `NEXT_LOCALE` de next-intl (il retient la langue quand elle n'est pas celle du navigateur) : **gardé** (décision de
       David du 24 novembre 2026), il est dit sur la page de confidentialité.
 
@@ -318,8 +320,9 @@ Une passe de finition visuelle du site, puis la mise en ligne chez OVH (points c
   `engine/`, `api/` et `bench/` (sinon `uv lock` échoue en CI).
 - Mentions de confidentialité : faites en 9c-3 (page `/privacy`) ; les relire une fois en ligne sur le domaine prévu, `mcplain.dev`.
 - Tableau Umami par tunnel SSH seulement (`docs/analytics.fr.md`, section 8) : jamais de port public, jamais de relais TLS vers lui.
-- Mot de passe et double authentification d'Umami réglés avant l'ouverture (`scripts/umami-first-setup.sh <domaine>`, puis la 2FA
-  dans le tableau), avec ses codes de secours rangés.
+- Umami sur le VPS, avant l'ouverture : `scripts/init-secrets.sh` (dont les trois secrets d'Umami), pile démarrée, puis
+  `scripts/umami-first-setup.sh mcplain.dev` (mot de passe), `docker compose up -d web`, puis la 2FA dans le tableau (par le
+  tunnel SSH), avec ses codes de secours rangés.
 - Relever `MCPLAIN_SIGNUPS_PER_IP_PER_DAY` si le tableau admin montre des refus fréquents.
 - Avant d'ouvrir le site : active la double authentification de ton compte admin sur le VPS, **imprime les codes de secours**
   (bouton « Imprimer ») et range-les loin de ton téléphone. Sans eux, seul `scripts/reset-admin-2fa.sh` sur le VPS te rendra la
