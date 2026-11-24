@@ -47,9 +47,10 @@ function setup(
     erasures.push(userId);
     return erased;
   };
-  const database = memoryAdapter({ user: [], session: [], account: [], verification: [] });
+  const tables = { user: [] as Record<string, unknown>[], session: [] as Record<string, unknown>[], account: [] as Record<string, unknown>[], verification: [] as Record<string, unknown>[], twoFactor: [] as Record<string, unknown>[] };
+  const database = memoryAdapter(tables);
   const auth = createAuth(SETTINGS, { database, guard, deposit: async (mail) => void mails.push(mail), erase });
-  return { auth, calls, mails, erasures };
+  return { auth, calls, mails, erasures, tables };
 }
 
 let visitor = 0;
@@ -129,7 +130,7 @@ describe("settings of the counter", () => {
     expect(options.rateLimit).not.toHaveProperty("customRules");
     expect(options.telemetry.enabled).toBe(false);
     expect(options).not.toHaveProperty("socialProviders");
-    expect(options).not.toHaveProperty("plugins");
+    expect(options.plugins.map((plugin) => plugin.id)).toEqual(["two-factor"]);
     const secure = authOptions({ ...SETTINGS, publicUrl: "https://mcplain.example" }, {
       database: undefined,
       guard: async () => ({ ok: true }),
@@ -310,7 +311,7 @@ describe("accounts", () => {
   });
 
   it("keeps no visitor address nor browser in the session", async () => {
-    const database = { user: [], session: [] as Record<string, unknown>[], account: [], verification: [] };
+    const database = { user: [], session: [] as Record<string, unknown>[], account: [], verification: [], twoFactor: [] };
     const mails: Mail[] = [];
     const auth = createAuth(SETTINGS, { database: memoryAdapter(database), guard: async () => ({ ok: true }), deposit: async (mail) => void mails.push(mail), erase: async () => true });
     await auth.handler(post("/sign-up/email", { email: "ada@example.com", password: PASSWORD, name: "" }));

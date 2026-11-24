@@ -5,6 +5,7 @@ import pg from "pg";
 
 import { createAuth, BASE_PATH } from "./auth.ts";
 import { setLimiterAddress } from "./client-ip.ts";
+import { dropTrustDevice } from "./cookies.ts";
 import { apiErase } from "./erase.ts";
 import { apiGuard } from "./guard.ts";
 import { INTERNAL_BODY_MAX_BYTES, INTERNAL_PREFIX, internalRoutes } from "./internal.ts";
@@ -78,6 +79,7 @@ const server = createServer((request, response) => {
     return;
   }
   setLimiterAddress(request.headers, settings.trustedProxyHops);
+  dropTrustDevice(request.headers);
   void handle(request, response);
 });
 
