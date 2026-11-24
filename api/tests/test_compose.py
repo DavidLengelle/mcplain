@@ -305,16 +305,30 @@ def test_web_reaches_the_api_and_nothing_behind_it(client: DockerClient) -> None
 
 
 def test_web_container_is_closed(client: DockerClient) -> None:
-    """The web container is only on the front network, read-only, not root, and without the Docker socket"""
+    """The web container is only on the front and umami_web networks, read-only, not root, and without the Docker socket"""
 
     web = compose_container(client, "web")
     attrs = web.attrs
-    assert [name.split("_")[-1] for name in attrs["NetworkSettings"]["Networks"]] == ["front"]
+    assert sorted(name.split("_", 1)[-1] for name in attrs["NetworkSettings"]["Networks"]) == ["front", "umami_web"]
     assert attrs["HostConfig"]["ReadonlyRootfs"] is True
     assert attrs["HostConfig"]["CapDrop"] == ["ALL"]
     assert attrs["Config"]["User"] == "10003:10003"
     assert all("docker.sock" not in mount["Source"] for mount in attrs["Mounts"])
     assert attrs["HostConfig"]["PortBindings"] == {"3000/tcp": [{"HostIp": "127.0.0.1", "HostPort": web_port()}]}
+
+
+def test_umami_container_is_closed(client: DockerClient) -> None:
+    """Umami: its two networks only, read-only, no capability, not root, its dashboard on 127.0.0.1 only"""
+
+    umami = compose_container(client, "umami")
+    attrs = umami.attrs
+    assert sorted(name.split("_", 1)[-1] for name in attrs["NetworkSettings"]["Networks"]) == ["umami_db", "umami_web"]
+    assert attrs["HostConfig"]["ReadonlyRootfs"] is True
+    assert attrs["HostConfig"]["CapDrop"] == ["ALL"]
+    assert attrs["Config"]["User"] not in ("", "0", "root")
+    assert all(mount["Type"] != "bind" for mount in attrs["Mounts"])
+    bindings = [binding for items in attrs["NetworkSettings"]["Ports"].values() if items for binding in items]
+    assert bindings and {binding["HostIp"] for binding in bindings} == {"127.0.0.1"}
 
 
 @pytest.mark.network
