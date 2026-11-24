@@ -44,10 +44,10 @@ class FakeUsers:
 
         self.users: dict[str, CurrentUser] = {}
 
-    def add(self, role: str = "user") -> dict[str, str]:
+    def add(self, role: str = "user", two_factor: bool = False, banned: bool = False) -> dict[str, str]:
         """Sign in a new user and return the Cookie header of its session"""
 
-        user = CurrentUser(id=uuid.uuid4().hex, email_verified=True, role=role)
+        user = CurrentUser(id=uuid.uuid4().hex, email_verified=True, role=role, two_factor=two_factor, banned=banned)
         cookie = f"mcplain.session_token={user.id}"
         self.users[cookie] = user
         return {"Cookie": cookie}
@@ -153,15 +153,27 @@ def test_an_account_has_ten_whatever_its_network(client: TestClient, users: Fake
 
 
 def test_the_admin_has_no_quota_nor_burst_limit(client: TestClient, users: FakeUsers, sessions: sessionmaker) -> None:
-    """The admin never takes a token, is never cache-only, and is not stopped by the burst limit"""
+    """The admin with its second factor never takes a token, is never cache-only, and is not stopped by the burst limit"""
 
-    admin = {**users.add("admin"), **from_network("203.0.113.7")}
+    admin = {**users.add("admin", two_factor=True), **from_network("203.0.113.7")}
     answers = [post_analysis(client, FETCH, admin) for _ in range(35)]
     assert {answer.status_code for answer in answers} == {202}
     assert not any(answer.json()["cache_only"] for answer in answers)
     assert count(sessions, AnalysisToken) == 0
     quota = client.get("/api/quota", headers=admin).json()
     assert (quota["kind"], quota["limit"], quota["remaining"]) == ("admin", None, None)
+
+
+def test_an_admin_without_second_factor_is_a_normal_account(client: TestClient, users: FakeUsers) -> None:
+    """Without its second factor, the admin role has ten analyses a day and the burst limit, like any account"""
+
+    admin = {**users.add("admin", two_factor=False), **from_network("203.0.113.7")}
+    answers = [post_analysis(client, FETCH, admin).json()["cache_only"] for _ in range(11)]
+    assert answers == [False] * 10 + [True]
+    quota = client.get("/api/quota", headers=admin).json()
+    assert (quota["kind"], quota["limit"], quota["remaining"]) == ("account", 10, 0)
+    statuses = [post_analysis(client, FETCH, admin).status_code for _ in range(25)]
+    assert statuses[-1] == 429
 
 
 def test_the_bench_role_is_a_normal_account_unless_the_setting_allows_it(sessions: sessionmaker, users: FakeUsers) -> None:

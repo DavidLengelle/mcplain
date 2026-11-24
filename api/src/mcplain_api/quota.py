@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from mcplain_api.db import AnalysisToken, BurstCount, QuotaRefusal, QuotaUsage, UserHistory
 from mcplain_api.ip_fingerprint import utc_day
-from mcplain_api.session_user import ROLE_ADMIN, ROLE_BENCH, CurrentUser
+from mcplain_api.session_user import ROLE_BENCH, CurrentUser
 from mcplain_api.settings import Settings
 
 BURST_WINDOW = timedelta(hours=1)
@@ -45,11 +45,11 @@ class Visitor:
 
 
 def visitor_kind(user: CurrentUser | None, settings: Settings) -> VisitorKind:
-    """Return the kind of a visitor; a bench account counts as a normal one unless the setting allows the bench role"""
+    """Return the kind of a visitor; an admin without second factor, or a bench account without the setting, is a normal one"""
 
     if user is None:
         return VisitorKind.ANONYMOUS
-    if user.role == ROLE_ADMIN:
+    if user.is_admin:
         return VisitorKind.ADMIN
     if user.role == ROLE_BENCH and settings.allow_bench_role:
         return VisitorKind.BENCH
