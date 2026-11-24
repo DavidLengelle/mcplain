@@ -18,9 +18,17 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from mcplain_api.ai_budget import (
+    CALLS_PER_TEXT_PER_DAY,
+    budget_reason,
+    calls_today,
+    next_day,
+    next_month,
+    worst_cost,
+)
 from mcplain_api.ai_check import Checked, OutputRejected, RejectReason, check_notice, check_translation
 from mcplain_api.ai_client import CallKind, Reply, call_api, call_cost, notice_body, translation_body
-from mcplain_api.ai_form import build_form, canonical_json, content_hash, translation_items
+from mcplain_api.ai_form import build_form, content_hash, translation_items
 from mcplain_api.ai_logging import install_secret_filter
 from mcplain_api.db import (
     AI_STATE_ROW,
@@ -45,15 +53,11 @@ LIMIT_PAUSE = timedelta(hours=1)
 FAILURE_WAIT = timedelta(minutes=10)
 ALERT_SPACING = timedelta(hours=24)
 ENCODING_WAIT = timedelta(hours=1)
-CALLS_PER_TEXT_PER_DAY = 4
 ATTEMPTS_ON_ENCODING = 2
-BYTES_PER_TOKEN_ESTIMATE = 2
 END_TURN = "end_turn"
 NO_KEY = "no_key"
 AUTH_REFUSED = "auth"
 REASON_USAGE_LIMIT = "usage_limit"
-REASON_DAILY_FUSE = "daily_fuse"
-REASON_MONTHLY_BUDGET = "monthly_budget"
 REASON_UNAVAILABLE = "unavailable"
 REASON_BAD_REQUEST = "bad_request"
 REASON_NO_REPORT = "no_report"
@@ -107,19 +111,6 @@ def validated_report(session: Session, row: AiText) -> AnalysisResult | None:
         return AnalysisResult.model_validate(analysis.result)
     except ValidationError:
         return None
-
-
-def next_day(moment: datetime) -> datetime:
-    """Return the start of the next UTC day"""
-
-    return moment.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-
-
-def next_month(moment: datetime) -> datetime:
-    """Return the start of the next UTC month"""
-
-    first = moment.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    return (first + timedelta(days=32)).replace(day=1)
 
 
 class Redacteur:
@@ -223,38 +214,6 @@ class Redacteur:
         body = translation_body(self.settings, items)
         return Prepared(body, lambda text: check_translation(text, items))
 
-    def worst_cost(self, body: dict[str, Any]) -> float:
-        """Return the most a call can cost: the input estimated from its size, and all of max_tokens as output"""
-
-        size = len(canonical_json(body).encode("utf-8"))
-        return call_cost(self.settings, size // BYTES_PER_TOKEN_ESTIMATE, body["max_tokens"])
-
-    def _spent_since(self, session: Session, start: datetime) -> float:
-        """Return what the calls recorded since a moment cost"""
-
-        total = session.scalar(select(func.coalesce(func.sum(AiCall.cost_usd), 0.0)).where(AiCall.created_at >= start))
-        return float(total or 0.0)
-
-    def _budget_reason(self, session: Session, worst: float, now: datetime) -> tuple[str, datetime] | None:
-        """Return why the budget forbids a call of this cost, and when it can come back"""
-
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        if self._spent_since(session, month_start) + worst > self.settings.ai_monthly_budget_usd:
-            return REASON_MONTHLY_BUDGET, next_month(now)
-        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        if self._spent_since(session, day_start) + worst > self.settings.daily_fuse():
-            return REASON_DAILY_FUSE, next_day(now)
-        return None
-
-    def _calls_today(self, session: Session, row: AiText, now: datetime) -> int:
-        """Return how many calls this text made since the start of the UTC day"""
-
-        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        count = session.scalar(
-            select(func.count()).select_from(AiCall).where(AiCall.text_id == row.id).where(AiCall.created_at >= day_start)
-        )
-        return int(count or 0)
-
     def _process(self, session: Session, state: AiState, row: AiText) -> None:
         """Call the API, and once more at once when the text came back with broken encoding, in the transaction of the lock"""
 
@@ -280,11 +239,11 @@ class Redacteur:
         """Check the cap of calls of this text today, then the fuses with the worst cost; pause the text otherwise"""
 
         now = self.clock()
-        if self._calls_today(session, row, now) >= CALLS_PER_TEXT_PER_DAY:
+        if calls_today(session, row.id, now) >= CALLS_PER_TEXT_PER_DAY:
             LOGGER.warning("text %s: not sent, %s", row.id, REASON_DAILY_TEXT_CAP)
             self._finish(row, AiStatus.PAUSED, REASON_DAILY_TEXT_CAP, next_day(now))
             return False
-        refused = self._budget_reason(session, self.worst_cost(prepared.body), now)
+        refused = budget_reason(session, self.settings, worst_cost(self.settings, prepared.body), now)
         if refused is not None:
             reason, back_at = refused
             LOGGER.warning("text %s: not sent, %s", row.id, reason)
