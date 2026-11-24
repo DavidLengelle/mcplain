@@ -244,7 +244,7 @@ describe("the admin desk", () => {
 
   it("finds an account, shows its reason as raw text, blocks and unblocks it", async () => {
     useSession.mockReturnValue({ isPending: false, data: { user: ADMIN } });
-    const reason = "spam ‮<b>x</b>";
+    const reason = "spam \u202E<b>x</b>";
     const states = [
       { id: "e1", email: "eve@example.com", role: "user", banned_at: null, ban_reason: null, created_at: "2026-11-01T10:00:00Z" },
       { id: "e1", email: "eve@example.com", role: "user", banned_at: "2026-11-24T10:00:00Z", ban_reason: reason, created_at: "2026-11-01T10:00:00Z" },
@@ -270,7 +270,7 @@ describe("the admin desk", () => {
     fireEvent.click(screen.getByRole("button", { name: "BLOQUER CE COMPTE" }));
     const shown = await screen.findByTestId("admin-account-reason");
     expect(shown.querySelector("b")).toBeNull();
-    expect(shown.textContent).not.toContain("‮");
+    expect(shown.textContent).not.toContain("\u202E");
     const ban = calls.find((call) => call.url.endsWith("/ban"));
     expect(ban?.url).toBe("/api/admin/accounts/e1/ban");
     expect(JSON.parse(String(ban?.init?.body))).toEqual({ reason });

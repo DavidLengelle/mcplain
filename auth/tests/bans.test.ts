@@ -10,7 +10,7 @@ import type { Settings } from "../src/settings.ts";
 
 const ORIGIN = "http://localhost:3010";
 const PASSWORD = "a long enough password";
-const REASON = "Spam ‮ <b>bold</b>";
+const REASON = "Spam \u202E <b>bold</b>";
 const SETTINGS: Settings = {
   databaseUrl: "postgres://unused",
   secret: "test only secret, never a real one, 0123456789",
