@@ -11,6 +11,7 @@ services:
       - postgres_data:/var/lib/postgresql
     networks:
       - back
+      - umami_db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mcplain -d mcplain"]
       interval: 2s
@@ -29,6 +30,7 @@ services:
       MCPLAIN_APP_DB_PASSWORD: ${MCPLAIN_APP_DB_PASSWORD:?run scripts/init-secrets.sh}
       MCPLAIN_GUICHET_DB_PASSWORD: ${MCPLAIN_GUICHET_DB_PASSWORD:?run scripts/init-secrets.sh}
       MCPLAIN_FACTEUR_DB_PASSWORD: ${MCPLAIN_FACTEUR_DB_PASSWORD:?run scripts/init-secrets.sh}
+      MCPLAIN_UMAMI_DB_PASSWORD: ${MCPLAIN_UMAMI_DB_PASSWORD:?run scripts/init-secrets.sh}
     networks:
       - back
     read_only: true
@@ -262,8 +264,45 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
-  # The website only talks to the API and to the counter: it is on the front network only, so it can reach neither
-  # PostgreSQL nor the dispatcher, and it has no Docker socket and no secret.
+  # Umami counts the visits of the website, without cookies. Its own database and role (made by migrate), its own two
+  # networks: umami_db to PostgreSQL only, umami_web to the relay of the website. Its dashboard is published on 127.0.0.1
+  # only, never relayed by the website (only /umami/script.js and /umami/api/send are); on the VPS, reach it by SSH tunnel.
+  umami:
+    image: ghcr.io/umami-software/umami:3.4.1@sha256:e69d1a7932e9dab0fc523edc7be1f3a53f3c261f57856fc2167ae74a8fc022e8
+    environment:
+      DATABASE_URL: postgresql://umami:${MCPLAIN_UMAMI_DB_PASSWORD:?run scripts/init-secrets.sh}@postgres:5432/umami
+      APP_SECRET: ${MCPLAIN_UMAMI_APP_SECRET:?run scripts/init-secrets.sh}
+      TWO_FACTOR_ENCRYPTION_KEY: ${MCPLAIN_UMAMI_TWO_FACTOR_KEY:?run scripts/init-secrets.sh}
+      CLIENT_IP_HEADER: x-mcplain-visitor-ip
+      SALT_ROTATION: day
+      DISABLE_TELEMETRY: "1"
+      DISABLE_UPDATES: "1"
+    ports:
+      - "127.0.0.1:${MCPLAIN_UMAMI_PORT:-3200}:3000"
+    networks:
+      - umami_db
+      - umami_web
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/heartbeat').then((response) => { if (!response.ok) process.exit(1); }, () => process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # The website only talks to the API, to the counter and to the two public paths of Umami: it is on the front and
+  # umami_web networks only, so it can reach neither PostgreSQL nor the dispatcher, and it has no Docker socket and no secret.
   web:
     build:
       context: .
@@ -272,10 +311,14 @@ services:
     environment:
       MCPLAIN_API_URL: http://api:8000
       MCPLAIN_GUICHET_URL: http://guichet:3100
+      MCPLAIN_UMAMI_URL: http://umami:3000
+      MCPLAIN_UMAMI_WEBSITE_ID: ${MCPLAIN_UMAMI_WEBSITE_ID:-}
+      MCPLAIN_TRUSTED_PROXY_HOPS: ${MCPLAIN_TRUSTED_PROXY_HOPS:-1}
     ports:
       - "127.0.0.1:${MCPLAIN_WEB_PORT:-3000}:3000"
     networks:
       - front
+      - umami_web
     read_only: true
     cap_drop:
       - ALL
@@ -304,6 +347,9 @@ services:
 networks:
   front:
   back:
+  umami_db:
+    internal: true
+  umami_web:
 
 volumes:
   postgres_data:

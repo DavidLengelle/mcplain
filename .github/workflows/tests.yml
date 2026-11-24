@@ -63,6 +63,7 @@ jobs:
       MCPLAIN_APP_DB_PASSWORD: test-only-app-password-0123456789
       MCPLAIN_GUICHET_DB_PASSWORD: test-only-guichet-password-0123456789
       MCPLAIN_FACTEUR_DB_PASSWORD: test-only-facteur-password-0123456789
+      MCPLAIN_UMAMI_DB_PASSWORD: test-only-umami-password-0123456789
       MCPLAIN_TEST_GUICHET_DATABASE_URL: postgres://mcplain_guichet:test-only-guichet-password-0123456789@127.0.0.1:5432/mcplain
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
