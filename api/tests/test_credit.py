@@ -240,7 +240,7 @@ def test_the_routes_add_and_delete_entries_and_write_the_journal(admin: tuple[Te
     client, headers, sessions = admin
     empty = client.get("/api/admin/credit", headers=headers).json()
     assert empty["balance_usd"] is None
-    note = "Console ‮ <b>read</b>"
+    note = "Console \u202E <b>read</b>"
     added = client.post("/api/admin/credit", json={"kind": "statement", "amount_usd": 9.5, "note": "  " + note + " "}, headers=headers)
     assert added.status_code == 201
     view = added.json()

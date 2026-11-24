@@ -18,7 +18,7 @@ const ANALYSIS = "11111111-1111-4111-8111-111111111111";
 const TEXT = "22222222-2222-4222-8222-222222222222";
 const ALERT = "33333333-3333-4333-8333-333333333333";
 const ENTRY = "44444444-4444-4444-8444-444444444444";
-const TRAPPED_NAME = "@evil/pkg‮<b>x</b>";
+const TRAPPED_NAME = "@evil/pkg\u202E<b>x</b>";
 
 function days(count: number, make: (day: string) => Record<string, unknown>): Record<string, unknown>[] {
   const items: Record<string, unknown>[] = [];
@@ -91,7 +91,7 @@ function credit(balance: number | null, low = false) {
   if (balance !== null) {
     statementAt = "2026-12-01T08:00:00+00:00";
     lastEntry = ENTRY;
-    entries = [{ id: ENTRY, kind: "statement", amount_usd: balance, note: "lu ‮ <i>console</i>", created_at: "2026-12-01T08:00:00+00:00" }];
+    entries = [{ id: ENTRY, kind: "statement", amount_usd: balance, note: "lu \u202E <i>console</i>", created_at: "2026-12-01T08:00:00+00:00" }];
   }
   return {
     balance_usd: balance,
@@ -257,7 +257,7 @@ describe("the admin dashboard", () => {
     expect(plain((await screen.findByTestId("admin-balance-low")).textContent)).toBe("Sous le seuil de 2,00 $US.");
     const entries = screen.getByTestId("admin-credit-entries");
     expect(entries.querySelector("i")).toBeNull();
-    expect(entries.textContent).not.toContain("‮");
+    expect(entries.textContent).not.toContain("\u202E");
     expect(screen.getByTestId("admin-credit-delete")).toBeTruthy();
   });
 
@@ -290,7 +290,7 @@ describe("the admin dashboard", () => {
     renderWithIntl(<Dashboard />, "fr");
     const top = await screen.findByTestId("admin-top");
     expect(top.querySelector("b")).toBeNull();
-    expect(top.textContent).not.toContain("‮");
+    expect(top.textContent).not.toContain("\u202E");
     expect(top.textContent).toContain("@evil/pkg");
     for (const link of document.querySelectorAll("a")) {
       expect(link.getAttribute("href")).toMatch(/^\/analyses\/[0-9a-f-]{36}$/);
