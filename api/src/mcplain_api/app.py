@@ -24,6 +24,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from mcplain_api.admin_accounts import BAN_REASON_MAX_CHARS, EMAIL_MAX_CHARS, AccountDesk, DeskOutcome, GuichetDesk
+from mcplain_api.admin_journal import Action, record_action
 from mcplain_api.admin_routes import add_admin_routes
 from mcplain_api.ai_view import LANGUAGES_BY_KIND, ask_text, full_catalog, read_text
 from mcplain_api.altcha_gate import PAYLOAD_MAX_CHARS, new_challenge
@@ -34,6 +35,7 @@ from mcplain_api.db import (
     INPUT_MAX_CHARS,
     SELECT_MAX_CHARS,
     USER_ID_MAX_CHARS,
+    AdminTarget,
     AiKind,
     Analysis,
     AnalysisState,
@@ -521,7 +523,7 @@ def create_app(
         if payload.reason is not None and payload.reason.strip():
             reason = payload.reason.strip()
         outcome = await run_in_threadpool(desk.ban, account_id, reason)
-        return _desk_answer(outcome, account_id)
+        return await _desk_answer(outcome, account_id, Action.BAN)
 
     @app.post("/api/admin/accounts/{account_id}/unban")
     async def admin_unban(request: Request, account_id: str) -> JSONResponse:
@@ -530,13 +532,21 @@ def create_app(
         if not ACCOUNT_ID_PATTERN.fullmatch(account_id):
             return _no_store(error_response(404, "api.account_not_found"))
         outcome = await run_in_threadpool(desk.unban, account_id)
-        return _desk_answer(outcome, account_id)
+        return await _desk_answer(outcome, account_id, Action.UNBAN)
 
-    def _desk_answer(outcome: DeskOutcome, account_id: str) -> JSONResponse:
+    async def _desk_answer(outcome: DeskOutcome, account_id: str, action: Action) -> JSONResponse:
         """Answer a change of the accounts desk; after a change, no kept session of the account survives in the API"""
 
         if outcome is DeskOutcome.DONE:
             reader.forget_user(account_id)
+
+            def journal() -> None:
+                """Write the change in the journal of the admin"""
+
+                with sessions.begin() as session:
+                    record_action(session, action, AdminTarget.ACCOUNT, account_id, utc_now())
+
+            await run_in_threadpool(journal)
             return _no_store(JSONResponse({"ok": True}))
         status, code = DESK_ERRORS.get(outcome, DESK_ERRORS[DeskOutcome.UNAVAILABLE])
         return _no_store(error_response(status, code))

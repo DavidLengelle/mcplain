@@ -21,11 +21,13 @@ from mcplain.fetch import archive
 from mcplain.fetch.osv import QUERYBATCH_URL
 from mcplain.job import read_reputation
 from mcplain.models import AnalysisResult, Reputation, VerdictColor
+from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import sessionmaker
 
 from mcplain_api import dispatcher as dispatcher_module
-from mcplain_api.db import Analysis, AnalysisState, Base, as_utc, make_engine, make_sessions, utc_now
+from mcplain_api.admin_actions import Rerun, rerun_analysis
+from mcplain_api.db import Analysis, AnalysisState, AnalysisToken, Base, UserHistory, as_utc, make_engine, make_sessions, utc_now
 from mcplain_api.dispatcher import Dispatcher, safe_text
 from mcplain_api.launcher import ATELIER_ERROR, ATELIER_INVALID_RESULT, ATELIER_TIMEOUT, AtelierRun
 
@@ -587,3 +589,66 @@ def test_a_stored_result_without_lamps_is_never_served_from_the_cache(sessions: 
     assert dispatcher.run_once()
     assert len(launcher.calls) == 2
     assert load(sessions, second).from_cache is False
+
+
+def rerun_of(sessions: sessionmaker, identifier: uuid.UUID) -> uuid.UUID:
+    """Ask a rerun of an analysis as the admin route does"""
+
+    with sessions.begin() as session:
+        outcome, created = rerun_analysis(session, make_settings(), identifier, utc_now())
+    assert outcome is Rerun.QUEUED and created is not None
+    return created
+
+
+@respx.mock
+def test_a_rerun_of_the_admin_skips_the_cache_and_its_success_is_what_the_cache_serves(sessions: sessionmaker, jobs: Path) -> None:
+    """The rerun runs an atelier although the cache could serve; the next visitor gets the new result, never the old one"""
+
+    mock_registry()
+    launcher = FakeLauncher(AtelierRun(clean_result(), None))
+    dispatcher = make_dispatcher(sessions, jobs, launcher)
+    first = queue(sessions)
+    assert dispatcher.run_once()
+    renewed = clean_result().model_copy(update={"notes": ["analyzed again by the admin"]})
+    launcher.planned = AtelierRun(renewed, None)
+    rerun = rerun_of(sessions, first)
+    assert dispatcher.run_once()
+    assert len(launcher.calls) == 2
+    row = load(sessions, rerun)
+    assert (row.state, row.from_cache, row.ignore_cache) == ("done", False, True)
+    assert row.source_key == load(sessions, first).source_key
+    visitor = queue(sessions)
+    assert dispatcher.run_once()
+    assert len(launcher.calls) == 2
+    served = load(sessions, visitor)
+    assert served.from_cache is True
+    assert AnalysisResult.model_validate(served.result).notes == ["analyzed again by the admin"]
+    with sessions() as session:
+        assert session.scalars(select(AnalysisToken).where(AnalysisToken.analysis_id == rerun)).all() == []
+        assert session.scalars(select(UserHistory).where(UserHistory.analysis_id == rerun)).all() == []
+
+
+@respx.mock
+@pytest.mark.parametrize("failure", ["atelier", "download"])
+def test_a_failed_rerun_keeps_the_old_result_in_the_cache(sessions: sessionmaker, jobs: Path, failure: str) -> None:
+    """A rerun that fails is recorded as failed; the good result stays the one the cache serves"""
+
+    mock_registry()
+    launcher = FakeLauncher(AtelierRun(clean_result(), None))
+    dispatcher = make_dispatcher(sessions, jobs, launcher)
+    first = queue(sessions)
+    assert dispatcher.run_once()
+    if failure == "atelier":
+        launcher.planned = AtelierRun(None, ATELIER_TIMEOUT)
+    else:
+        respx.get(TARBALL).mock(return_value=httpx.Response(500))
+    rerun = rerun_of(sessions, first)
+    assert dispatcher.run_once()
+    assert load(sessions, rerun).state == "failed"
+    launcher.planned = AtelierRun(clean_result().model_copy(update={"notes": ["never"]}), None)
+    visitor = queue(sessions)
+    assert dispatcher.run_once()
+    served = load(sessions, visitor)
+    assert served.from_cache is True
+    assert AnalysisResult.model_validate(served.result).verdict == clean_result().verdict
+    assert AnalysisResult.model_validate(served.result).notes == clean_result().notes

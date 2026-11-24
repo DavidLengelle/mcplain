@@ -97,6 +97,7 @@ class Claimed:
     input_raw: str
     select: str | None
     cache_only: bool = False
+    ignore_cache: bool = False
 
 
 def safe_text(value: object, limit: int = LOG_TEXT_LIMIT) -> str:
@@ -178,7 +179,7 @@ class Dispatcher:
                 return None
             row.state = AnalysisState.FETCHING.value
             row.started_at = utc_now()
-            return Claimed(row.id, row.input_raw, row.select, bool(row.cache_only))
+            return Claimed(row.id, row.input_raw, row.select, bool(row.cache_only), bool(row.ignore_cache))
 
     def run_once(self) -> bool:
         """Claim and process one analysis in the current thread; return False when the queue is empty"""
@@ -232,7 +233,7 @@ class Dispatcher:
             shutil.rmtree(job_dir, ignore_errors=True)
 
     def _process(self, claimed: Claimed, job_dir: Path) -> None:
-        """Run the steps of one analysis; OSV is asked every time, even when the cache can serve"""
+        """Run the steps of one analysis; OSV is asked every time, even when the cache can serve; a rerun of the admin skips it"""
 
         LOGGER.info("analysis %s: start %s", claimed.id, safe_text(claimed.input_raw))
         spec = parse_input(claimed.input_raw)
@@ -243,7 +244,9 @@ class Dispatcher:
         reputation = check_source_reputation(resolved, transport=self.transport)
         fingerprint = reputation_sha256(reputation)
         self._update(claimed.id, source_key=resolved.source_key, reputation_sha256=fingerprint)
-        cached = self._cached(claimed.id, resolved, fingerprint)
+        cached = None
+        if not claimed.ignore_cache:
+            cached = self._cached(claimed.id, resolved, fingerprint)
         if cached is not None:
             LOGGER.info("analysis %s: served from the cache for %s", claimed.id, safe_text(resolved.source_key))
             self._record_result(claimed.id, _reuse(cached.result, resolved, spec), cached.analyzed_at, True)

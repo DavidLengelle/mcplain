@@ -169,6 +169,10 @@ def test_the_admin_routes_are_the_expected_ones() -> None:
         ("GET", "/api/admin/credit"),
         ("POST", "/api/admin/credit"),
         ("DELETE", "/api/admin/credit/00000000-0000-4000-8000-000000000000"),
+        ("POST", "/api/admin/texts/00000000-0000-4000-8000-000000000000/retry"),
+        ("POST", "/api/admin/analyses/00000000-0000-4000-8000-000000000000/rerun"),
+        ("POST", "/api/admin/alerts/00000000-0000-4000-8000-000000000000/read"),
+        ("GET", "/api/admin/journal"),
     ]
 
 

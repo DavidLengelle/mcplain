@@ -18,5 +18,14 @@
   "api.invalid_amount": "Write an amount in dollars, 0 or more for a statement, more than 0 for a top-up.",
   "api.note_too_long": "The note holds 100 characters at most.",
   "api.credit_not_found": "This entry does not exist.",
-  "api.credit_not_last": "Only the last entry can be deleted."
+  "api.credit_not_last": "Only the last entry can be deleted.",
+  "api.text_not_found": "This text of the AI does not exist.",
+  "api.text_not_retryable": "Only a rejected or failed text can be asked again.",
+  "api.text_no_report": "The report of this text can no longer be read.",
+  "api.ai_disabled": "The AI is switched off: no text is asked.",
+  "api.ai_paused": "The AI is paused for everyone after the limit of the console.",
+  "api.daily_text_cap": "This text was already asked 4 times today. It can be asked again tomorrow.",
+  "api.daily_fuse": "The daily AI budget is used up. It comes back tomorrow.",
+  "api.monthly_budget": "The monthly AI budget is used up. It comes back next month.",
+  "api.alert_not_found": "This alert does not exist."
 }

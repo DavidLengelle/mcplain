@@ -18,5 +18,14 @@
   "api.invalid_amount": "Écris un montant en dollars : 0 ou plus pour un relevé, plus de 0 pour une recharge.",
   "api.note_too_long": "La note fait 100 caractères au plus.",
   "api.credit_not_found": "Cette écriture n'existe pas.",
-  "api.credit_not_last": "Seule la dernière écriture peut être supprimée."
+  "api.credit_not_last": "Seule la dernière écriture peut être supprimée.",
+  "api.text_not_found": "Ce texte de l'IA n'existe pas.",
+  "api.text_not_retryable": "Seul un texte rejeté ou en échec peut être redemandé.",
+  "api.text_no_report": "Le rapport de ce texte ne se lit plus.",
+  "api.ai_disabled": "L'IA est coupée : aucun texte n'est demandé.",
+  "api.ai_paused": "L'IA est en pause pour tout le monde après le plafond de la console.",
+  "api.daily_text_cap": "Ce texte a déjà été demandé 4 fois aujourd'hui. Il pourra l'être de nouveau demain.",
+  "api.daily_fuse": "Le budget IA du jour est épuisé. Il revient demain.",
+  "api.monthly_budget": "Le budget IA du mois est épuisé. Il revient le mois prochain.",
+  "api.alert_not_found": "Cette alerte n'existe pas."
 }

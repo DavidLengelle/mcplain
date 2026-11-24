@@ -210,7 +210,7 @@ def test_the_ai_dial_counts_the_refusals_per_reason_and_the_encoding_rate(engine
         AiText(kind="notice", lang="fr", hash="a" * 64, prompt_version="v", model="m", status="rejected", reject_reason="link", updated_at=at("2026-12-01T07:00:00")),
         AiText(kind="translation", lang="fr", hash="b" * 64, prompt_version="v", model="m", status="failed", reject_reason="encoding", updated_at=at("2026-11-29T07:00:00")),
         AiText(kind="notice", lang="en", hash="c" * 64, prompt_version="v", model="m", status="ready", updated_at=at("2026-12-01T07:00:00")),
-        AiText(kind="notice", lang="en", hash="d" * 64, prompt_version="v", model="m", status="paused", reject_reason="daily_fuse", updated_at=at("2026-12-01T07:00:00")),
+        AiText(kind="notice", lang="en", hash="d" * 64, prompt_version="v", model="m", status="paused", reject_reason="daily_fuse", updated_at=at("2026-12-01T06:00:00")),
     )
     with read(engine) as session:
         week = ai_view(session, NOW, 7)
@@ -227,6 +227,7 @@ def test_the_ai_dial_counts_the_refusals_per_reason_and_the_encoding_rate(engine
     assert week["alerts"][1]["status"] == 400
     assert [(text["kind"], text["status"], text["reject_reason"]) for text in week["texts"]] == [
         ("notice", "rejected", "link"),
+        ("notice", "paused", "daily_fuse"),
         ("translation", "failed", "encoding"),
     ]
 

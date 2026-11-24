@@ -12,8 +12,9 @@ from pydantic import BaseModel, ConfigDict, StrictFloat, StrictStr, ValidationEr
 from sqlalchemy.orm import Session, sessionmaker
 
 from mcplain_api.admin_accounts import AccountDesk
+from mcplain_api.admin_actions import Rerun, Retry, RetryAnswer, mark_read, rerun_analysis, retry_text
 from mcplain_api.admin_dashboard import accounts_view, ai_view, analyses_view, parse_days, refusals_view, spend_view
-from mcplain_api.admin_journal import Action, record_action
+from mcplain_api.admin_journal import Action, journal_view, record_action
 from mcplain_api.credit import DeleteOutcome, add_entry, clean_note, credit_view, delete_last, note_fits, valid_amount
 from mcplain_api.db import AdminTarget, utc_now
 from mcplain_api.responses import error_response, no_store, read_body
@@ -23,6 +24,21 @@ DASHBOARD_PREFIX = "/api/admin/dashboard"
 CREDIT_PATH = "/api/admin/credit"
 JSON_MEDIA_TYPE = "application/json"
 BODY_MAX_BYTES = 1024
+RETRY_ERRORS: dict[Retry, tuple[int, str]] = {
+    Retry.NOT_FOUND: (404, "api.text_not_found"),
+    Retry.NOT_RETRYABLE: (409, "api.text_not_retryable"),
+    Retry.NO_REPORT: (409, "api.text_no_report"),
+    Retry.DISABLED: (409, "api.ai_disabled"),
+    Retry.PAUSED: (409, "api.ai_paused"),
+    Retry.DAILY_TEXT_CAP: (409, "api.daily_text_cap"),
+    Retry.DAILY_FUSE: (409, "api.daily_fuse"),
+    Retry.MONTHLY_BUDGET: (409, "api.monthly_budget"),
+}
+RERUN_ERRORS: dict[Rerun, tuple[int, str]] = {
+    Rerun.NOT_FOUND: (404, "api.analysis_not_found"),
+    Rerun.NOT_FINISHED: (409, "api.analysis_not_finished"),
+    Rerun.QUEUE_FULL: (503, "api.queue_full"),
+}
 Body = TypeVar("Body", bound=BaseModel)
 
 
@@ -188,4 +204,77 @@ def add_admin_routes(app: FastAPI, sessions: sessionmaker, settings: Settings, d
                 return credit_view(session, settings.balance_alert_usd)
 
         return no_store(JSONResponse(await run_in_threadpool(view)))
+
+    @app.post("/api/admin/texts/{text_id}/retry")
+    async def text_retry(text_id: str) -> JSONResponse:
+        """Ask a rejected or failed text of the AI again; the pause, the cap of 4 and the fuses always apply"""
+
+        identifier = uuid_of(text_id)
+        if identifier is None:
+            return no_store(error_response(404, "api.text_not_found"))
+
+        def run() -> RetryAnswer:
+            """Check and queue the text in one transaction"""
+
+            with sessions.begin() as session:
+                return retry_text(session, sessions, settings, identifier, utc_now())
+
+        answer = await run_in_threadpool(run)
+        if answer.outcome is not Retry.QUEUED:
+            status, code = RETRY_ERRORS[answer.outcome]
+            params = {}
+            if answer.detail is not None:
+                params["detail"] = answer.detail
+            return no_store(error_response(status, code, params))
+        return no_store(JSONResponse({"id": str(identifier), "status": "pending"}, status_code=202))
+
+    @app.post("/api/admin/analyses/{analysis_id}/rerun")
+    async def analysis_rerun(analysis_id: str) -> JSONResponse:
+        """Analyze the same request again without the cache, without quota nor token; a failure keeps the old cached result"""
+
+        identifier = uuid_of(analysis_id)
+        if identifier is None:
+            return no_store(error_response(404, "api.analysis_not_found"))
+
+        def run() -> tuple[Rerun, uuid.UUID | None]:
+            """Queue the new analysis in one transaction"""
+
+            with sessions.begin() as session:
+                return rerun_analysis(session, settings, identifier, utc_now())
+
+        outcome, created = await run_in_threadpool(run)
+        if outcome is not Rerun.QUEUED or created is None:
+            status, code = RERUN_ERRORS.get(outcome, RERUN_ERRORS[Rerun.NOT_FOUND])
+            return no_store(error_response(status, code))
+        return no_store(JSONResponse({"id": str(created), "state": "queued"}, status_code=202))
+
+    @app.post("/api/admin/alerts/{alert_id}/read")
+    async def alert_read(alert_id: str) -> JSONResponse:
+        """Mark an alert of the AI as read"""
+
+        identifier = uuid_of(alert_id)
+        if identifier is None:
+            return no_store(error_response(404, "api.alert_not_found"))
+
+        def run() -> bool:
+            """Mark it in one transaction"""
+
+            with sessions.begin() as session:
+                return mark_read(session, identifier, utc_now())
+
+        if not await run_in_threadpool(run):
+            return no_store(error_response(404, "api.alert_not_found"))
+        return no_store(JSONResponse({"ok": True}))
+
+    @app.get("/api/admin/journal")
+    async def journal_read() -> JSONResponse:
+        """Return the 50 last actions of the admin"""
+
+        def run() -> list[dict[str, Any]]:
+            """Read the journal"""
+
+            with sessions() as session:
+                return journal_view(session)
+
+        return no_store(JSONResponse({"lines": await run_in_threadpool(run)}))
 

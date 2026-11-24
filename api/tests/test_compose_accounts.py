@@ -122,3 +122,42 @@ def test_no_github_file_holds_a_real_secret() -> None:
                     assert "test-only" in line or "secrets." not in line, (path.name, line)
         assert "secrets.BETTER_AUTH" not in text
         assert "secrets.MCPLAIN_SMTP" not in text
+
+
+AI_SETTINGS_SHARED: tuple[str, ...] = (
+    "MCPLAIN_AI_MODEL",
+    "MCPLAIN_AI_EFFORT",
+    "MCPLAIN_AI_THINKING",
+    "MCPLAIN_AI_MAX_TOKENS",
+    "MCPLAIN_AI_TRANSLATION_MAX_TOKENS",
+    "MCPLAIN_AI_API_VERSION",
+    "MCPLAIN_AI_PRICE_INPUT_PER_MTOK",
+    "MCPLAIN_AI_PRICE_OUTPUT_PER_MTOK",
+    "MCPLAIN_AI_MONTHLY_BUDGET_USD",
+    "MCPLAIN_AI_DAILY_FUSE_USD",
+)
+
+
+def environment_of(block: str) -> dict[str, str]:
+    """Return the variables of the environment of one service, as written in compose.yaml"""
+
+    found: dict[str, str] = {}
+    for line in uncommented(block).splitlines():
+        match = re.match(r"^      ([A-Z_]+): (.*)$", line)
+        if match is not None:
+            found[match.group(1)] = match.group(2)
+    return found
+
+
+def test_the_api_reads_the_fuses_of_the_writer_but_never_its_key() -> None:
+    """The dashboard and the check before asking a text again see the same budget, fuse and prices as the writer"""
+
+    services = compose_services()
+    api = environment_of(services["api"])
+    writer = environment_of(services["redacteur"])
+    postman = environment_of(services["facteur"])
+    for name in AI_SETTINGS_SHARED:
+        assert api[name] == writer[name], name
+    assert "MCPLAIN_ANTHROPIC_API_KEY" not in api
+    assert api["MCPLAIN_BALANCE_ALERT_USD"] == postman["MCPLAIN_BALANCE_ALERT_USD"]
+    assert api["MCPLAIN_PUBLIC_URL"] == postman["MCPLAIN_PUBLIC_URL"]

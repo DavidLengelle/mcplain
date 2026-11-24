@@ -40,7 +40,7 @@ UNSUPPORTED_LANGUAGE = "unsupported_language"
 SIGNUP_LIMIT = "signup_limit"
 QUOTA_PREFIX = "quota_exhausted_"
 QUOTA_KINDS: tuple[str, ...] = ("anonymous", "account")
-RETRYABLE_TEXTS: tuple[str, ...] = (AiStatus.REJECTED.value, AiStatus.FAILED.value)
+RETRYABLE_TEXTS: tuple[str, ...] = (AiStatus.REJECTED.value, AiStatus.FAILED.value, AiStatus.PAUSED.value)
 FINISHED: tuple[str, ...] = (AnalysisState.DONE.value, AnalysisState.FAILED.value)
 AI_KINDS: tuple[str, ...] = tuple(kind.value for kind in AiKind)
 
@@ -162,7 +162,7 @@ def alert_view(alert: AiAdminAlert) -> dict[str, Any]:
 
 
 def text_view(row: AiText) -> dict[str, Any]:
-    """Return one rejected or failed text of the AI: its kind, its language, its state and its report, never a cost"""
+    """Return one rejected, failed or paused text of the AI: its kind, its language, its state and its report, never a cost"""
 
     analysis_id = None
     if row.analysis_id is not None:
