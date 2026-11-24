@@ -709,8 +709,6 @@
     "notAdmin": "Cette page est réservée à l'admin.",
     "needTwoFactor": "Active la double authentification",
     "securityLink": "Aller à la section Sécurité de mon compte",
-    "dashboardTitle": "Tableau de bord",
-    "dashboardLater": "Tableau de bord : séance 9c-2",
     "accounts": {
       "title": "Comptes",
       "intro": "Cherche un compte par son adresse e-mail exacte. Il n'existe pas de liste de tous les comptes.",
@@ -742,6 +740,196 @@
         "missing": "Ce compte n'existe plus.",
         "refused": "Le bureau admin t'est fermé : reconnecte-toi avec ton code.",
         "failed": "Le service des comptes ne répond pas. Réessaie dans un instant."
+      }
+    },
+    "dashboard": {
+      "intro": "Chiffres globaux seulement : jamais qui a analysé quoi. Les jours sont comptés en UTC.",
+      "periodLabel": "Période",
+      "period": "{days} j",
+      "refresh": "Actualiser",
+      "loading": "Chargement…",
+      "refused": "Le bureau admin t'est fermé : reconnecte-toi avec ton code.",
+      "unavailable": "Le service des comptes ne répond pas. Réessaie dans un instant.",
+      "failed": "Ce cadran n'a pas pu être lu. Réessaie avec « Actualiser ».",
+      "cancel": "Annuler",
+      "groups": {
+        "money": "L'argent",
+        "health": "La santé",
+        "usage": "L'usage"
+      },
+      "writer": {
+        "disabled": "L'IA est coupée (raison : {reason}). Aucune notice n'est demandée.",
+        "paused": "L'IA est en pause pour tout le monde jusqu'au {until}."
+      },
+      "spend": {
+        "title": "Dépense de l'IA",
+        "today": "Aujourd'hui, face au fusible du jour",
+        "month": "Ce mois-ci, face au budget du mois",
+        "ofLimit": "{value} sur {limit}",
+        "reached": "Atteint : les nouvelles notices attendent.",
+        "period": "Sur {days} jours : notices {notice}, traductions {translation}, {calls, plural, =0 {aucun appel payé} one {# appel payé} other {# appels payés}}.",
+        "perDay": "Par jour",
+        "dayDetail": "notices {notice} · traductions {translation} · {calls, plural, =0 {aucun appel payé} one {# appel payé} other {# appels payés}}",
+        "source": "Source : la table ai_calls, avec la même fonction que les fusibles. Le jour et le mois sont comptés en UTC."
+      },
+      "balance": {
+        "title": "Solde estimé du crédit Anthropic",
+        "noStatement": "Saisis un premier relevé (solde lu dans la console Anthropic).",
+        "estimated": "Solde estimé",
+        "low": "Sous le seuil de {threshold}.",
+        "formula": "Dernier relevé {statement} + recharges {topUps} − dépense notée {spent}",
+        "statementAt": "Dernier relevé : {date}",
+        "estimate": "Estimation : le vrai solde est dans la console Anthropic.",
+        "mailSent": "E-mail « solde bas » envoyé le {date}. Il repartira quand une écriture fera remonter le solde au-dessus du seuil.",
+        "mailArmed": "Un e-mail partira une fois si le solde estimé passe sous {threshold}.",
+        "formTitle": "Ajouter une écriture",
+        "kindLabel": "Type",
+        "kindHelp": {
+          "statement": "Relevé : le solde lu dans la console Anthropic",
+          "top_up": "Recharge : l'argent ajouté au crédit"
+        },
+        "kind": {
+          "statement": "Relevé",
+          "top_up": "Recharge"
+        },
+        "amountLabel": "Montant en dollars",
+        "amountHelp": "Par exemple 9,75. L'écriture est datée de maintenant.",
+        "amountInvalid": "Écris un montant en dollars, par exemple 9,75.",
+        "noteLabel": "Note (facultative)",
+        "noteHelp": "Encore {count} caractères.",
+        "add": "AJOUTER",
+        "entries": "Dernières écritures",
+        "noEntry": "Aucune écriture pour l'instant.",
+        "delete": "Supprimer (erreur de saisie)",
+        "deleteQuestion": "Supprimer la dernière écriture ?",
+        "deleteConfirm": "Oui, supprimer"
+      },
+      "alerts": {
+        "title": "Alertes de l'IA",
+        "none": "Aucune alerte sur la période.",
+        "unread": "Non lue",
+        "read": "Lue le {date}",
+        "detail": "Le {date} · texte : {kind} · code HTTP : {status}",
+        "emailed": "E-mail envoyé le {date}",
+        "markRead": "Marquer comme lue"
+      },
+      "rejections": {
+        "title": "Rejets de l'IA",
+        "rate": "Taux de rejets « encoding » : {rate} ({rejected} sur {calls} appels de notice payés)",
+        "rateNone": "Taux de rejets « encoding » : pas encore d'appel de notice payé sur la période.",
+        "none": "Aucun rejet sur la période.",
+        "perDay": "Par jour"
+      },
+      "texts": {
+        "title": "Notices à relancer",
+        "intro": "Les notices et traductions rejetées, en échec ou en pause. Relancer ne contourne jamais le budget : le fusible du jour, le budget du mois, la pause et les 4 appels par jour restent appliqués.",
+        "none": "Aucune notice rejetée, en échec ou en pause sur la période.",
+        "kind": {
+          "notice": "Notice",
+          "translation": "Traduction"
+        },
+        "status": {
+          "rejected": "Rejetée",
+          "failed": "En échec",
+          "paused": "En pause"
+        },
+        "report": "Voir le rapport",
+        "retry": "Relancer la notice",
+        "retryQuestion": "Relancer cette notice ?",
+        "retryConfirm": "Oui, relancer"
+      },
+      "rerun": {
+        "label": "Relancer l'analyse",
+        "question": "Relancer l'analyse sans le cache ?",
+        "confirm": "Oui, relancer"
+      },
+      "failures": {
+        "title": "Échecs d'analyse",
+        "none": "Aucun échec sur la période.",
+        "refund": {
+          "give_back": "Jeton rendu (faute de MCPlain)",
+          "keep": "Jeton gardé (faute du lien)"
+        }
+      },
+      "analyses": {
+        "title": "Analyses par jour",
+        "total": "{total, plural, =0 {Aucune analyse} one {# analyse} other {# analyses}} : {cached} servies par le cache, {fresh} nouvelles.",
+        "dayDetail": "cache {cached} · nouvelles {fresh}"
+      },
+      "colors": {
+        "title": "Couleurs des verdicts",
+        "red": "Rouge (DANGER)",
+        "orange": "Orange (À VÉRIFIER)",
+        "gray": "Gris (NON VÉRIFIÉ)",
+        "green": "Vert (RIEN TROUVÉ)",
+        "grayCases": "Cas gris, par code",
+        "noGray": "Aucun cas gris sur la période."
+      },
+      "top": {
+        "title": "MCP les plus analysés",
+        "none": "Aucune analyse terminée sur la période.",
+        "count": "{count, plural, one {# analyse} other {# analyses}}",
+        "lastReport": "Dernier rapport"
+      },
+      "languages": {
+        "title": "Langages non pris en charge demandés",
+        "none": "Aucun sur la période."
+      },
+      "refusals": {
+        "title": "Refus",
+        "perDay": "Par jour",
+        "kind": {
+          "signup_limit": "Inscriptions refusées (trop de comptes depuis un réseau)",
+          "quota_exhausted_anonymous": "Quota épuisé, sans compte",
+          "quota_exhausted_account": "Quota épuisé, avec un compte"
+        }
+      },
+      "accounts": {
+        "title": "Fréquentation : comptes créés",
+        "total": "{count, plural, =0 {Aucun compte créé} one {# compte créé} other {# comptes créés}} sur la période."
+      },
+      "journal": {
+        "title": "Journal admin",
+        "none": "Aucune action pour l'instant.",
+        "report": "Voir le rapport",
+        "action": {
+          "ban": "Compte bloqué",
+          "unban": "Compte débloqué",
+          "text_retry": "Notice relancée",
+          "analysis_rerun": "Analyse relancée",
+          "alert_read": "Alerte marquée comme lue",
+          "credit_add": "Écriture ajoutée",
+          "credit_delete": "Écriture supprimée"
+        },
+        "target": {
+          "account": "compte",
+          "analysis": "analyse",
+          "text": "notice",
+          "alert": "alerte",
+          "credit": "écriture"
+        }
+      },
+      "outcome": {
+        "done": "C'est fait.",
+        "failed": "L'action n'a pas abouti. Réessaie dans un instant.",
+        "text_not_found": "Cette notice n'existe plus.",
+        "text_not_retryable": "Seule une notice rejetée ou en échec peut être relancée.",
+        "text_no_report": "Le rapport de cette notice ne se lit plus.",
+        "ai_disabled": "Bloqué : l'IA est coupée, aucune notice n'est demandée.",
+        "ai_paused": "Bloqué : l'IA est en pause pour tout le monde après le plafond de la console.",
+        "daily_text_cap": "Bloqué : cette notice a déjà été demandée 4 fois aujourd'hui. Réessaie demain.",
+        "daily_fuse": "Bloqué : le budget IA du jour est épuisé. Il revient demain.",
+        "monthly_budget": "Bloqué : le budget IA du mois est épuisé. Il revient le mois prochain.",
+        "analysis_not_found": "Cette analyse n'existe plus.",
+        "analysis_not_finished": "Cette analyse n'est pas encore terminée.",
+        "queue_full": "Trop d'analyses attendent déjà. Réessaie dans un instant.",
+        "alert_not_found": "Cette alerte n'existe plus.",
+        "invalid_amount": "Écris un montant en dollars : 0 ou plus pour un relevé, plus de 0 pour une recharge.",
+        "note_too_long": "La note fait 100 caractères au plus.",
+        "credit_not_found": "Cette écriture n'existe plus.",
+        "credit_not_last": "Seule la dernière écriture peut être supprimée.",
+        "admin_required": "Le bureau admin t'est fermé : reconnecte-toi avec ton code.",
+        "origin_refused": "Ce changement doit venir du site de MCPlain."
       }
     }
   }

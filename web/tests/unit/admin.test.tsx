@@ -262,7 +262,9 @@ describe("the admin desk", () => {
       }),
     );
     renderWithIntl(<AdminPanel />, "fr");
-    expect(screen.getByTestId("admin-dashboard-slot").textContent).toContain("Tableau de bord : séance 9c-2");
+    const dashboard = screen.getByTestId("admin-dashboard");
+    const accounts = screen.getByRole("heading", { name: "Comptes" });
+    expect(dashboard.compareDocumentPosition(accounts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fill("Adresse e-mail exacte", "eve@example.com");
     fireEvent.click(screen.getByRole("button", { name: "CHERCHER" }));
     expect((await screen.findByTestId("admin-account-state")).textContent).toBe("Actif");

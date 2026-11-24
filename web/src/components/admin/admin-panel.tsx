@@ -8,6 +8,7 @@ import { authClient } from "@/lib/auth-client";
 import { hasTwoFactor, isAdminRole } from "@/lib/two-factor";
 
 import { AccountsSection } from "./accounts-section";
+import { Dashboard } from "./dashboard";
 
 export function AdminPanel() {
   const t = useTranslations("admin");
@@ -55,15 +56,10 @@ export function AdminPanel() {
     );
   }
   return (
-    <div className="mx-auto flex w-full max-w-[860px] flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-[960px] flex-col gap-6">
       <h1 className="font-condensed text-[38px] leading-tight font-bold sm:text-[44px]">{t("title")}</h1>
+      <Dashboard />
       <AccountsSection ownId={user.id} />
-      <section data-testid="admin-dashboard-slot" aria-labelledby="admin-dashboard-title" className="rounded-[18px] border-2 border-dashed border-btn-border p-6 sm:p-8">
-        <h2 id="admin-dashboard-title" className="font-condensed text-[30px] font-bold">
-          {t("dashboardTitle")}
-        </h2>
-        <p className="mt-2 text-ink2">{t("dashboardLater")}</p>
-      </section>
     </div>
   );
 }

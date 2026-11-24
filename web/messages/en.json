@@ -709,8 +709,6 @@
     "notAdmin": "This page is for the admin only.",
     "needTwoFactor": "Turn on two-step verification",
     "securityLink": "Go to the Security part of my account",
-    "dashboardTitle": "Dashboard",
-    "dashboardLater": "Dashboard: session 9c-2",
     "accounts": {
       "title": "Accounts",
       "intro": "Find an account by its exact email address. There is no list of all the accounts.",
@@ -742,6 +740,196 @@
         "missing": "This account no longer exists.",
         "refused": "The admin desk is closed to you: sign in again with your code.",
         "failed": "The accounts service does not answer. Try again in a moment."
+      }
+    },
+    "dashboard": {
+      "intro": "Totals only: never who analyzed what. Days are counted in UTC.",
+      "periodLabel": "Period",
+      "period": "{days} d",
+      "refresh": "Refresh",
+      "loading": "Loading…",
+      "refused": "The admin desk is closed to you: sign in again with your code.",
+      "unavailable": "The accounts service does not answer. Try again in a moment.",
+      "failed": "This dial could not be read. Try again with “Refresh”.",
+      "cancel": "Cancel",
+      "groups": {
+        "money": "Money",
+        "health": "Health",
+        "usage": "Usage"
+      },
+      "writer": {
+        "disabled": "The AI is switched off (reason: {reason}). No notice is asked.",
+        "paused": "The AI is paused for everyone until {until}."
+      },
+      "spend": {
+        "title": "AI spend",
+        "today": "Today, against the daily fuse",
+        "month": "This month, against the monthly budget",
+        "ofLimit": "{value} of {limit}",
+        "reached": "Reached: new notices wait.",
+        "period": "Over {days} days: notices {notice}, translations {translation}, {calls, plural, =0 {no paid call} one {# paid call} other {# paid calls}}.",
+        "perDay": "Per day",
+        "dayDetail": "notices {notice} · translations {translation} · {calls, plural, =0 {no paid call} one {# paid call} other {# paid calls}}",
+        "source": "Source: the ai_calls table, with the same function as the fuses. The day and the month are counted in UTC."
+      },
+      "balance": {
+        "title": "Estimated Anthropic credit",
+        "noStatement": "Enter a first statement (the balance read in the Anthropic console).",
+        "estimated": "Estimated balance",
+        "low": "Under the threshold of {threshold}.",
+        "formula": "Last statement {statement} + top-ups {topUps} − recorded spend {spent}",
+        "statementAt": "Last statement: {date}",
+        "estimate": "Estimate: the real balance is in the Anthropic console.",
+        "mailSent": "“Low balance” mail sent on {date}. It goes again once an entry brings the balance back over the threshold.",
+        "mailArmed": "One mail goes if the estimated balance goes under {threshold}.",
+        "formTitle": "Add an entry",
+        "kindLabel": "Kind",
+        "kindHelp": {
+          "statement": "Statement: the balance read in the Anthropic console",
+          "top_up": "Top-up: the money added to the credit"
+        },
+        "kind": {
+          "statement": "Statement",
+          "top_up": "Top-up"
+        },
+        "amountLabel": "Amount in dollars",
+        "amountHelp": "For example 9.75. The entry is dated now.",
+        "amountInvalid": "Write an amount in dollars, for example 9.75.",
+        "noteLabel": "Note (optional)",
+        "noteHelp": "{count} characters left.",
+        "add": "ADD",
+        "entries": "Last entries",
+        "noEntry": "No entry yet.",
+        "delete": "Delete (typing mistake)",
+        "deleteQuestion": "Delete the last entry?",
+        "deleteConfirm": "Yes, delete"
+      },
+      "alerts": {
+        "title": "AI alerts",
+        "none": "No alert over the period.",
+        "unread": "Unread",
+        "read": "Read on {date}",
+        "detail": "On {date} · text: {kind} · HTTP code: {status}",
+        "emailed": "Mail sent on {date}",
+        "markRead": "Mark as read"
+      },
+      "rejections": {
+        "title": "AI rejections",
+        "rate": "Rate of “encoding” rejections: {rate} ({rejected} of {calls} paid notice calls)",
+        "rateNone": "Rate of “encoding” rejections: no paid notice call yet over the period.",
+        "none": "No rejection over the period.",
+        "perDay": "Per day"
+      },
+      "texts": {
+        "title": "Notices to ask again",
+        "intro": "The rejected, failed or paused notices and translations. Asking again never goes around the budget: the daily fuse, the monthly budget, the pause and the 4 calls a day still apply.",
+        "none": "No rejected, failed or paused notice over the period.",
+        "kind": {
+          "notice": "Notice",
+          "translation": "Translation"
+        },
+        "status": {
+          "rejected": "Rejected",
+          "failed": "Failed",
+          "paused": "Paused"
+        },
+        "report": "See the report",
+        "retry": "Ask the notice again",
+        "retryQuestion": "Ask this notice again?",
+        "retryConfirm": "Yes, ask again"
+      },
+      "rerun": {
+        "label": "Analyze again",
+        "question": "Analyze again without the cache?",
+        "confirm": "Yes, analyze again"
+      },
+      "failures": {
+        "title": "Failed analyses",
+        "none": "No failure over the period.",
+        "refund": {
+          "give_back": "Token given back (MCPlain's fault)",
+          "keep": "Token kept (the link's fault)"
+        }
+      },
+      "analyses": {
+        "title": "Analyses per day",
+        "total": "{total, plural, =0 {No analysis} one {# analysis} other {# analyses}}: {cached} served by the cache, {fresh} new.",
+        "dayDetail": "cache {cached} · new {fresh}"
+      },
+      "colors": {
+        "title": "Colors of the verdicts",
+        "red": "Red (DANGER)",
+        "orange": "Orange (TO CHECK)",
+        "gray": "Gray (NOT VERIFIED)",
+        "green": "Green (NOTHING FOUND)",
+        "grayCases": "Gray cases, by code",
+        "noGray": "No gray case over the period."
+      },
+      "top": {
+        "title": "Most analyzed MCP",
+        "none": "No finished analysis over the period.",
+        "count": "{count, plural, one {# analysis} other {# analyses}}",
+        "lastReport": "Last report"
+      },
+      "languages": {
+        "title": "Unsupported languages asked for",
+        "none": "None over the period."
+      },
+      "refusals": {
+        "title": "Refusals",
+        "perDay": "Per day",
+        "kind": {
+          "signup_limit": "Refused sign-ups (too many accounts from one network)",
+          "quota_exhausted_anonymous": "Quota used up, without account",
+          "quota_exhausted_account": "Quota used up, with an account"
+        }
+      },
+      "accounts": {
+        "title": "Visits: accounts created",
+        "total": "{count, plural, =0 {No account created} one {# account created} other {# accounts created}} over the period."
+      },
+      "journal": {
+        "title": "Admin journal",
+        "none": "No action yet.",
+        "report": "See the report",
+        "action": {
+          "ban": "Account blocked",
+          "unban": "Account unblocked",
+          "text_retry": "Notice asked again",
+          "analysis_rerun": "Analysis run again",
+          "alert_read": "Alert marked as read",
+          "credit_add": "Entry added",
+          "credit_delete": "Entry deleted"
+        },
+        "target": {
+          "account": "account",
+          "analysis": "analysis",
+          "text": "notice",
+          "alert": "alert",
+          "credit": "entry"
+        }
+      },
+      "outcome": {
+        "done": "Done.",
+        "failed": "The action did not go through. Try again in a moment.",
+        "text_not_found": "This notice no longer exists.",
+        "text_not_retryable": "Only a rejected or failed notice can be asked again.",
+        "text_no_report": "The report of this notice can no longer be read.",
+        "ai_disabled": "Blocked: the AI is switched off, no notice is asked.",
+        "ai_paused": "Blocked: the AI is paused for everyone after the limit of the console.",
+        "daily_text_cap": "Blocked: this notice was already asked 4 times today. Try again tomorrow.",
+        "daily_fuse": "Blocked: the daily AI budget is used up. It comes back tomorrow.",
+        "monthly_budget": "Blocked: the monthly AI budget is used up. It comes back next month.",
+        "analysis_not_found": "This analysis no longer exists.",
+        "analysis_not_finished": "This analysis is not finished yet.",
+        "queue_full": "Too many analyses are already waiting. Try again in a moment.",
+        "alert_not_found": "This alert no longer exists.",
+        "invalid_amount": "Write an amount in dollars: 0 or more for a statement, more than 0 for a top-up.",
+        "note_too_long": "The note holds 100 characters at most.",
+        "credit_not_found": "This entry no longer exists.",
+        "credit_not_last": "Only the last entry can be deleted.",
+        "admin_required": "The admin desk is closed to you: sign in again with your code.",
+        "origin_refused": "This change must come from the MCPlain website."
       }
     }
   }
