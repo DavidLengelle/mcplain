@@ -1,7 +1,8 @@
 # Les comptes de MCPlain
 
 Ce guide explique à un débutant comment marchent les comptes : qui fait quoi, où vivent les secrets, et ce que tu lances
-toi-même. Les phrases sont courtes. Séance 9a, faite le 10 novembre 2026 ; quotas et historique en séance 9b, le 12 novembre 2026.
+toi-même. Les phrases sont courtes. Séance 9a, faite le 10 novembre 2026 ; quotas et historique en séance 9b, le 12 novembre 2026 ;
+double authentification de l'admin, bannissement et limite de get-session en séance 9c-1, le 24 novembre 2026 (sections 19 à 23).
 
 ## 1. Le tableau d'ensemble
 
@@ -33,9 +34,12 @@ bibliothèque libre qui gère les comptes : inscription, connexion, déconnexion
 - Il **n'envoie aucun e-mail**. Il écrit une ligne dans la boîte de départ (`mail_outbox`) : c'est son seul droit hors de son
   schéma.
 - Il ne garde ni l'adresse IP ni le navigateur dans la session : ces deux champs restent vides.
-- Le champ `role` vaut `user` ou `admin`. Le site ne peut jamais le changer : seul `scripts/make-admin.sh` le fait.
+- Le champ `role` vaut `user`, `admin` ou `bench`. Le site ne peut jamais le changer : seuls `scripts/make-admin.sh` et
+  `scripts/make-bench-account.sh` le font. Le rôle `admin` seul ne donne aucun pouvoir : il faut aussi la double authentification
+  (section 19).
 - La télémétrie de Better Auth est coupée (elle l'est déjà par défaut ; on l'écrit quand même, et `BETTER_AUTH_TELEMETRY=0`).
-- Son limiteur de requêtes est allumé : par exemple, au plus 3 connexions en 10 secondes depuis une même adresse.
+- Son limiteur de requêtes est allumé : par exemple, au plus 3 connexions en 10 secondes depuis une même adresse, 3 essais de
+  code en 10 secondes, 600 lectures de session par minute (section 22), et 100 par minute pour le reste.
 
 Avant une inscription, une connexion ou une demande de mot de passe oublié, le guichet demande l'avis de l'API
 (`/internal/auth-guard`, voir plus bas). Si l'API dit non, la réponse est claire et sans détail technique.
@@ -51,9 +55,9 @@ Après la connexion, le navigateur reçoit un badge : le cookie `mcplain.session
 Ce cookie sert seulement à rester connecté. C'est pourquoi il n'a pas besoin de bandeau de consentement.
 
 Pour savoir qui est connecté, l'API transmet ce cookie au guichet (`current_user()` dans `api/src/mcplain_api/session_user.py`)
-et garde la réponse 30 secondes. Elle ne transmet que les cookies `mcplain.`. Le guichet ne limite jamais la lecture d'une
-session (`/get-session`) : l'API la demande pour tous les visiteurs, depuis une seule adresse, et une limite ferait passer
-des comptes connectés pour des anonymes.
+et garde la réponse 30 secondes. Elle ne transmet que les cookies `mcplain.`. Depuis la séance 9c-1, elle passe par une route
+interne du guichet, `GET /internal/session`, hors du relais du site (section 22) : cette route lit la session côté serveur et
+n'est pas soumise au limiteur. La route publique `/api/auth/get-session`, celle du navigateur, a de nouveau sa limite.
 
 ## 4. Le facteur
 
@@ -168,6 +172,8 @@ sans toucher aux vraies données. Ce droit ne donne aucun accès au schéma `aut
 5. `scripts/make-admin.sh ton@adresse` : passe ce compte en admin, seulement si son adresse est vérifiée.
 6. `scripts/make-bench-account.sh` : crée le compte du banc d'essai (section 18), avec l'adresse et le mot de passe que
    `init-secrets.sh` a mis dans `.env`. Jamais ton compte personnel.
+7. Connecte-toi, puis « Mon compte », section Sécurité : active la double authentification (section 19). Sans elle, ton compte
+   admin n'a aucun pouvoir.
 
 **Aucun secret ne va dans GitHub.** La CI tourne avec des valeurs écrites en dur, marquées « test only ».
 
@@ -185,11 +191,15 @@ le vérifie. À la mise en ligne, on choisira un vrai fournisseur SMTP (jamais u
   `X-Forwarded-For` en passant à côté du site. À la mise en ligne, ce port ne sera pas publié.
 - Le renvoi d'un lien de confirmation (`/send-verification-email`) n'a pas d'ALTCHA : seul le limiteur de Better Auth le freine.
 - La route `/internal/auth-guard` vérifie que l'appel vient bien du conteneur du guichet (son adresse sur le réseau compose).
-  `/internal/account-erase` (section 17) fait la même vérification.
+  `/internal/account-erase` (section 17) fait la même vérification. Dans l'autre sens, les routes `/internal/*` du guichet
+  (session, recherche, bannissement) vérifient que l'appel vient du conteneur de l'API (`MCPLAIN_INTERNAL_PEERS`, `api` par
+  défaut) ; le site ne les relaie jamais.
+- L'API garde 30 secondes la réponse « qui est connecté ». Désactiver la double authentification retire donc le pouvoir admin
+  au bout de 30 secondes au plus. Un bannissement, lui, compte tout de suite : l'API oublie alors toutes les réponses gardées
+  de ce compte, quelle que soit la session.
 - L'empreinte d'IP change chaque jour UTC (nouveau sel) : à minuit, l'anti-rafale d'un réseau sans compte repart de zéro.
 - L'anti-rafale lit puis compte en deux temps : deux demandes au même instant peuvent passer à 31. La prise de jeton du quota,
   elle, est atomique.
-- Un compte banni n'existe pas encore (séance 9c).
 - Appeler l'API en direct (port 8000, en développement seulement) donne une adresse inconnue : tous ces appels partagent une
   seule empreinte, donc un seul quota de 3.
 
@@ -203,7 +213,11 @@ le vérifie. À la mise en ligne, on choisira un vrai fournisseur SMTP (jamais u
 - `cd web && pnpm test:stack` : le parcours complet dans un vrai navigateur, avec Mailpit, et la mesure d'ALTCHA ; en 9b, un
   visiteur qui use ses 3 analyses puis voit « Créer un compte », le cache toujours ouvert, un compte qui voit 10, son historique
   affiché puis effacé (captures clair et sombre, 1280 et 390 px). Les compteurs sont remis à zéro par `psql` en propriétaire,
-  jamais par l'API : il n'existe aucun réglage qui coupe les quotas.
+  jamais par l'API : il n'existe aucun réglage qui coupe les quotas. Les tests qui inscrivent un compte remettent aussi à zéro
+  le compteur d'inscriptions (`signup_counts`) de la même façon.
+- Séance 9c-1 : `cd auth && pnpm test` (`two-factor.test.ts`, `bans.test.ts`), `cd api && uv run pytest tests/test_admin.py`,
+  `cd web && pnpm test` (`admin.test.tsx`), et sur la vraie pile `cd api && uv run pytest -m docker tests/test_compose_admin.py`
+  et `cd web && pnpm test:stack` (`admin.spec.ts`). Voir section 23.
 - `cd api && uv run pytest tests/test_quotas.py tests/test_refunds.py` : quotas 3 et 10, admin et banc, cache et liste non
   comptés, jeton rendu ou gardé, jamais rendu deux fois, 5 demandes simultanées pour 3 jetons, anti-rafale par réseau et par
   compte, faux `X-Forwarded-For`, ALTCHA rejoué, historique, effacement à la suppression du compte, et la table des codes.
@@ -217,7 +231,8 @@ l'heure d'été ; le site affiche l'heure locale du visiteur).
 | --- | --- | --- |
 | Sans compte | 3 (`MCPLAIN_QUOTA_ANONYMOUS`) | l'empreinte de l'adresse IP (tout le réseau ensemble) |
 | Avec un compte | 10 (`MCPLAIN_QUOTA_ACCOUNT`) | le compte, quel que soit le réseau |
-| Admin | sans limite | |
+| Admin avec double authentification | sans limite | |
+| Admin sans double authentification | 10, comme un compte (et l'anti-rafale) | le compte |
 | Compte du banc (section 18) | sans limite si `MCPLAIN_ALLOW_BENCH_ROLE` est vrai, sinon 10 comme un compte | |
 
 **Ce qui ne compte pas** :
@@ -266,8 +281,8 @@ garde son jeton : l'analyse a vraiment eu lieu.
 ## 16. L'anti-rafale
 
 Au plus **30 demandes d'analyse par heure glissante** (`MCPLAIN_BURST_PER_HOUR`), cache compris : par empreinte d'IP sans compte,
-**par compte** quand on est connecté. Une classe de 25 élèves connectés sur le même réseau n'est donc pas bloquée. L'admin et le
-banc ne sont pas freinés. La 31e demande reçoit 429 (code `burst_limit`) avec l'en-tête `Retry-After`, et le site dit : « Trop de
+**par compte** quand on est connecté. Une classe de 25 élèves connectés sur le même réseau n'est donc pas bloquée. L'admin (avec sa
+double authentification) et le banc ne sont pas freinés. La 31e demande reçoit 429 (code `burst_limit`) avec l'en-tête `Retry-After`, et le site dit : « Trop de
 demandes en peu de temps. Réessaie dans {minutes} minutes. »
 
 Ordre des contrôles de `POST /api/analyses` : format (400, 415) ; anti-rafale (429) ; ALTCHA (403, `altcha_invalid`, le site dit
@@ -294,8 +309,148 @@ l'admin aura la double authentification, et un robot ne doit jamais être admin)
 - seulement si `MCPLAIN_ALLOW_BENCH_ROLE` est vrai : faux par défaut, vrai dans la pile de test, en CI et dans ton `.env` local.
   Faux, un compte `bench` est un compte normal (10 par jour) ;
 - le rôle ne se donne que par la base, avec `scripts/make-bench-account.sh` : il inscrit le compte par le guichet comme un
-  navigateur, puis `psql` en propriétaire confirme l'adresse et pose le rôle. Il ne touche jamais un admin.
+  navigateur, puis `psql` en propriétaire confirme l'adresse et pose le rôle. Il ne touche jamais un admin ;
+- hors de GitHub Actions, le script refuse l'adresse `bench@bench.mcplain.invalid` et tout mot de passe qui contient `test-only` :
+  ce sont les valeurs publiques de `bench.yml`, elles ne doivent servir que dans la pile jetable de la CI
+  (`bench/tests/test_bench_account_script.py`).
 
 L'adresse et le mot de passe du compte banc sont créés par `scripts/init-secrets.sh` (`MCPLAIN_BENCH_EMAIL`,
 `MCPLAIN_BENCH_PASSWORD`). En CI, des valeurs « test only » sont écrites en dur dans `bench.yml`. Le banc se connecte par le
 site, puis demande chaque analyse avec le cookie et une solution ALTCHA neuve. `scripts/notice-smoke.sh` utilise le même compte.
+
+## 19. La double authentification de l'admin
+
+Le compte admin peut bloquer des comptes : s'il était volé, les dégâts seraient grands. Le mot de passe seul ne suffit donc pas.
+Il faut aussi un **code à 6 chiffres** qui change toutes les 30 secondes dans **Google Authenticator** (TOTP, SHA-1, émetteur
+« MCPlain »). C'est le plugin `twoFactor` de Better Auth (version épinglée 1.7.15).
+
+C'est comme un coffre à deux clés : le mot de passe est dans ta tête, le code est dans ton téléphone. Un voleur doit avoir les deux.
+
+**Pouvoir admin = rôle `admin` ET double authentification active.** L'API le vérifie à chaque fois (`CurrentUser.is_admin` dans
+`session_user.py`), jamais seulement le site. Un admin sans double authentification est un compte normal partout : quota de 10,
+anti-rafale, 403 sur toutes les routes `/api/admin/*`. Sa page `/admin` dit seulement « Active la double authentification », avec
+le lien vers la section Sécurité. Désactiver la double authentification retire donc le pouvoir admin (au bout de 30 secondes au
+plus, à cause du cache de l'API).
+
+La double authentification n'est proposée qu'au rôle `admin` : le guichet refuse `/two-factor/enable` à tout autre compte. Les
+autres comptes n'ont que l'e-mail vérifié.
+
+**Activer** (« Mon compte », section Sécurité) :
+
+1. Tu écris ton mot de passe.
+2. Le site affiche une clé, groupée par 4 lettres pour la lecture. Dans Google Authenticator : bouton +, « Saisir une clé de
+   configuration », compte « MCPlain », la clé, « Basée sur l'heure », « Ajouter ». Pas de QR code : pas de nouvelle
+   dépendance, et la clé ne passe par aucun service tiers. Elle reste dans la page, n'est jamais écrite dans un journal ni dans
+   l'adresse de la page, et disparaît dès l'étape suivante. Le guichet la garde chiffrée en base.
+3. Tu écris le premier code affiché par l'application. La double authentification ne s'allume qu'à ce moment.
+4. Le site montre **10 codes de secours, une seule fois**. Bouton « Imprimer » : la page s'imprime en thème clair, fond blanc,
+   avec les codes seulement. Range-les loin de ton téléphone.
+
+**Se connecter** : mot de passe, puis code. Le mot de passe seul ne donne **aucune session** : le guichet efface celle que Better
+Auth vient de créer et pose seulement un petit cookie de défi (10 minutes). Le champ du code ouvre le clavier numérique sur
+téléphone et accepte un code collé (« 123 456 » devient « 123456 »). Le lien « Utiliser un code de secours » remplace le code de
+l'application ; chaque code de secours ne sert qu'une fois.
+
+**Jamais d'appareil de confiance.** L'option `trustDevice` de Better Auth est forcée à faux par le guichet sur les routes de
+vérification, et un cookie `trust_device` envoyé par le navigateur est retiré avant que Better Auth ne lise la requête. Le code
+est demandé à chaque connexion.
+
+**Verrouillage** : 5 essais par défi (ensuite, il faut recommencer la connexion), et après **10 codes faux d'affilée**, le compte
+est verrouillé **15 minutes**, même avec le bon code. Le limiteur ajoute 3 essais de code en 10 secondes par adresse.
+
+**Codes de secours neufs** : section Sécurité, « Créer de nouveaux codes de secours », avec le mot de passe. Les anciens ne
+marchent plus.
+
+**Toutes les routes qui créent une session respectent la double authentification.** Un seul endroit décide
+(`auth/src/session-gate.ts`), au moment où la session est écrite en base. Pour un compte avec la double authentification, seules
+ces routes peuvent créer une session : `/sign-in/email` (la session est aussitôt effacée par le plugin), `/two-factor/verify-totp`,
+`/two-factor/verify-backup-code`, `/two-factor/enable`, `/two-factor/disable` et `/change-password` (les trois dernières demandent
+déjà d'être connecté). Toute autre route est refusée, et le doute aussi : route inconnue, appel sans contexte, valeur étrange.
+C'est le cas du lien de vérification d'e-mail, qui connecte d'habitude tout seul. La réinitialisation du mot de passe ne crée
+jamais de session. Les routes qui enverraient un code par e-mail (`/two-factor/send-otp`, `/two-factor/verify-otp`) et celle qui
+réafficherait la clé (`/two-factor/get-totp-uri`) sont fermées (404).
+
+## 20. Tout perdu : téléphone et codes de secours
+
+Il n'existe **aucune route web** pour ça, exprès. Sur la machine qui tient la base :
+
+```bash
+scripts/reset-admin-2fa.sh ton@adresse
+```
+
+Le script, comme `make-admin.sh`, passe par `psql` en propriétaire. En une seule instruction, il éteint la double
+authentification du compte, efface sa clé et ses codes, et efface toutes ses sessions. Le compte garde son rôle, mais n'a plus de
+pouvoir admin jusqu'à ce que tu réactives la double authentification (section 19).
+
+## 21. Bloquer un compte (bannissement)
+
+Le bannissement est « maison » : **pas** le plugin admin de Better Auth (il permet de se faire passer pour un autre compte et
+ouvre des routes `/api/auth/admin/*` dont on n'a pas besoin).
+
+- L'état est rangé dans le schéma `auth` : la date (`bannedAt`) et un motif facultatif (`banReason`, 200 caractères au plus,
+  vérifié aussi par la base). Migration `0009`. Seul le guichet l'écrit ; le site ne peut jamais l'écrire, et ces deux champs ne
+  sont jamais envoyés au navigateur.
+- Au bannissement, le guichet efface **toutes** les sessions du compte, et l'API oublie toutes ses réponses gardées : le compte
+  est déconnecté tout de suite, partout.
+- Ensuite, le guichet refuse toute nouvelle session de ce compte, sur **toutes** les routes, sans exception (même celles de la
+  double authentification). Le mot de passe est vérifié d'abord : sans le bon mot de passe, on voit seulement « E-mail ou mot de
+  passe incorrect. ». Avec, le site dit seulement « Ce compte est bloqué. » : ni motif, ni détail.
+- L'API traite un compte banni comme un visiteur sans compte sur les routes publiques (quota de son réseau), et répond 403
+  (`api.account_blocked`) sur les routes du compte.
+- L'admin ne peut ni se bloquer lui-même ni bloquer un autre admin.
+- Débloquer remet le compte dans son état normal : il se reconnecte avec son mot de passe.
+- Son historique et ses quotas sont gardés pendant le blocage (rien n'est effacé) : débloquer le remet comme avant. Pour tout
+  effacer, il y a la suppression du compte.
+
+Dans le site, page **`/admin`** (ou `/fr/admin`), section « Comptes » : recherche par **adresse e-mail exacte** (il n'existe pas de
+liste de tous les comptes), puis « Bloquer ce compte » avec un motif facultatif, ou « Débloquer ce compte ». Le motif est affiché
+en texte brut (`RawText`).
+
+Routes de l'API : `GET /api/admin/accounts?email=`, `POST /api/admin/accounts/{id}/ban` (corps `{"reason": ...}`) et
+`POST /api/admin/accounts/{id}/unban`. Toutes passent par un seul filtre (`admin_gate` dans `app.py`) : admin avec double
+authentification, sinon 403. Les changements (POST, DELETE) exigent en plus l'en-tête `Origin` égal à `MCPLAIN_PUBLIC_URL` ;
+un autre `Origin`, ou pas d'`Origin` du tout, est refusé (protection CSRF : un autre site ne peut pas agir à la place de l'admin).
+Un test passe par le vrai relais du site pour vérifier que l'en-tête `Origin` arrive bien à l'API. L'API ne lit pas le schéma
+`auth` : elle demande au guichet sur ses routes internes (`/internal/accounts`, `/internal/accounts/ban`,
+`/internal/accounts/unban`).
+
+**Pourquoi pas de bannissement sans compte.** Un visiteur sans compte n'est connu que par l'empreinte de son adresse IP, et cette
+empreinte change chaque jour (nouveau sel, section 7). Un bannissement ne tiendrait pas plus d'une journée, et il toucherait tout
+le réseau (une école entière derrière une seule adresse). Les protections des visiteurs sans compte restent le quota de 3,
+l'anti-rafale et ALTCHA.
+
+## 22. La lecture de la session et sa limite
+
+Deux chemins, deux règles :
+
+- **L'API** demande « qui est connecté ? » au guichet sur sa route interne `GET /internal/session`, sur le réseau `back`, hors du
+  relais du site. Le guichet vérifie que l'appel vient du conteneur de l'API, puis lit la session côté serveur
+  (`auth.api.getSession`) : pas de limiteur. La réponse donne l'id, l'e-mail vérifié ou non, le rôle, la double authentification
+  et l'état banni. En cas de doute (champ absent), l'API compte le compte comme banni et sans double authentification.
+- **Le navigateur** lit sa session sur la route publique `/api/auth/get-session`, par le relais du site. Elle a sa limite :
+  **600 lectures par minute et par vraie adresse** du visiteur.
+
+Pourquoi 600 et pas 100 (la limite d'avant la séance 9b) : le site relit la session à chaque page. Une classe de 25 élèves derrière
+un seul réseau dépassait vite 100 par minute, et le site les affichait alors comme déconnectés (décision de David du
+24 novembre 2026). Les autres routes du guichet gardent 100 par minute.
+
+La vraie adresse : le limiteur lit l'adresse ajoutée par notre relais (`web/client-ip.js`), comptée depuis la droite avec
+`MCPLAIN_TRUSTED_PROXY_HOPS` (section 6). Un faux `X-Forwarded-For` écrit par le navigateur ne change rien. Un test de la vraie
+pile le vérifie avec deux visiteurs : deux conteneurs différents qui passent par le site.
+
+## 23. Les tests de la séance 9c-1
+
+- Admin sans double authentification : 403 sur toutes les routes admin, quota de 10 (`test_admin.py`, `test_quotas.py`, pile).
+- Un test liste toutes les routes `/api/admin/*` et les essaie avec : anonyme, compte normal, compte avec une double
+  authentification mais sans rôle admin, banc, admin sans double authentification, admin banni. Tous refusés. Une nouvelle route
+  sans test fait échouer la liste.
+- Double authentification : mot de passe seul sans session, code faux refusé, verrouillage après 10 codes faux, code de secours
+  accepté une seule fois, `trustDevice` envoyé quand même et ignoré, lien de vérification d'e-mail et réinitialisation du mot de
+  passe sans session (`two-factor.test.ts`, pile).
+- CSRF : un POST admin d'une autre origine, ou sans origine, est refusé, aussi à travers le relais.
+- get-session : 429 au-delà de 600 par minute pour une adresse, l'autre adresse passe.
+- Bannissement : connexion refusée, sessions mortes, API qui refuse, ni soi-même ni un admin, débloquer marche, message neutre
+  (`bans.test.ts`, `test_admin.py`, pile).
+- Aucun secret TOTP, code de secours ni mot de passe dans la sortie des services pendant le parcours (`test_compose_admin.py`).
+- Les codes TOTP des tests sont calculés dans les tests (HMAC avec `node:crypto` ou `hmac` de Python) : aucune porte dérobée.
+

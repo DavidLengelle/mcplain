@@ -53,6 +53,13 @@ Planned work and decisions for future sessions are in docs/roadmap.fr.md: read t
   mail: it adds a row to `mail_outbox`, its only right outside `auth`. The role of an account (`user`, `admin` or `bench`) is never set
   by the website: only `scripts/make-admin.sh`, run by David. Before it deletes an account, it asks the API to erase its history
   and its quotas (`POST /internal/account-erase`); if that fails, the account is kept.
+  The admin power needs the `admin` role AND an active TOTP second factor (plugin `twoFactor`), checked by the API
+  (`CurrentUser.is_admin`); never a trusted device; every session creation goes through `auth/src/session-gate.ts`, closed when in
+  doubt. Bans are kept by the counter only (no admin plugin of Better Auth). Its `/internal/*` routes (session, account search,
+  ban, unban) answer the API container only and are never relayed by the website; the API reads the session there, and the
+  public `/api/auth/get-session` keeps its limit (600 a minute per visitor address). Every `/api/admin/*` route passes one filter
+  (`admin_gate`: admin with second factor, and `Origin` equal to `MCPLAIN_PUBLIC_URL` for a change). Guide: `docs/accounts.fr.md`,
+  sections 19 to 23. Lost phone and backup codes: `scripts/reset-admin-2fa.sh`, run by David; there is no web route for it.
 - **Quotas** (`api/src/mcplain_api/quota.py`, `analysis_gate.py`, `refunds.py`, guide: `docs/accounts.fr.md` sections 14 to 18):
   new analyses per UTC day (3 per address fingerprint, 10 per account, no limit for the admin), a burst limit per fingerprint or
   per account, ALTCHA on every analysis. The token is taken in one SQL statement and given back once by the dispatcher (cache,

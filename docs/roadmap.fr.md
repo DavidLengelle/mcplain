@@ -201,8 +201,9 @@ Guide : `docs/accounts.fr.md`, sections 14 à 18.
 - [x] Inscription : même réponse pour une adresse nouvelle ou déjà inscrite (corps fixe), sans e-mail pour l'adresse déjà
       inscrite.
 - [x] Le guichet ne limite plus la lecture d'une session (`/get-session`) : l'API la demande pour chaque visiteur depuis une
-      seule adresse, et la limite de 100 par minute faisait passer des comptes connectés pour des anonymes.
-- [ ] Un compte banni plus tard (9c) n'est pas géré : rien n'est préparé dans les quotas.
+      seule adresse, et la limite de 100 par minute faisait passer des comptes connectés pour des anonymes. Remplacé en 9c-1 :
+      l'API passe par une route interne, et la route publique a de nouveau une limite (600 par minute).
+- [x] Un compte banni (9c-1) compte comme un visiteur sans compte sur les routes publiques.
 - [x] `uvx mcp-server-fetch` 2026.11.11 sortait orange sans O01 : angle mort du moteur, corrigé le 12 novembre (section suivante).
 
 ## BANC AUTOMATIQUE ET ENQUÊTE FETCH (faite le 12 novembre 2026, moteur 0.6.1, règles version 4)
@@ -224,16 +225,48 @@ Guide : `docs/accounts.fr.md`, sections 14 à 18.
       fichier, O01 reste allumé). Un appel depuis un autre fichier n'est pas vu ; une adresse de base venue de l'IA y allume
       quand même O01, là où le client est créé.
 
-## SÉANCE 9C : ADMIN ET SIGNALEMENTS (à faire)
+## SÉANCE 9C-1 : LA SERRURE (faite le 24 novembre 2026, moteur et règles inchangés)
 
-- Tableau admin : dépense et solde de l'IA, taux de rejets `encoding`, nombre de refus « trop de comptes créés depuis ce
+Guide : `docs/accounts.fr.md`, sections 19 à 23. La séance 9c est découpée en trois : 9c-1 la serrure, 9c-2 le tableau de bord,
+9c-3 la boîte à réclamations.
+
+- [x] Double authentification TOTP (Google Authenticator, 6 chiffres, 30 secondes, SHA-1, émetteur « MCPlain ») par le plugin
+      `twoFactor` de Better Auth 1.7.15, proposée au seul rôle admin. Clé à saisir (groupée par 4, sans QR code), premier code,
+      10 codes de secours montrés une fois et imprimables en thème clair, régénération avec le mot de passe, désactivation.
+- [x] Pouvoir admin = rôle admin ET double authentification, vérifié par l'API ; sans elle, quota de 10 et 403 sur `/api/admin/*`.
+- [x] Jamais d'appareil de confiance (forcé côté guichet) ; verrouillage 15 minutes après 10 codes faux.
+- [x] Une seule porte pour créer une session (`auth/src/session-gate.ts`), fermée en cas de doute : le lien de vérification
+      d'e-mail ne donne jamais de session admin sans code.
+- [x] `scripts/reset-admin-2fa.sh <email>` si tout est perdu ; aucune route web pour ça.
+- [x] get-session : l'API passe par `/internal/session` du guichet (réseau `back`, appel de l'API seulement) ; la route publique
+      reprend une limite, 600 par minute et par vraie adresse (décision de David du 24 novembre 2026 : 100 faisait apparaître une
+      classe derrière un seul réseau comme déconnectée).
+- [x] Bannissement maison (pas le plugin admin de Better Auth) : date et motif dans le schéma `auth` (migration `0009`), sessions
+      effacées, nouvelle session refusée partout, message neutre « Ce compte est bloqué. », ni soi-même ni un admin. Historique et
+      quotas gardés pendant le blocage.
+- [x] Page `/admin` : section « Comptes » (recherche par e-mail exact, bloquer, débloquer) ; emplacement du tableau de bord.
+- [x] Routes `/api/admin/*` : un seul filtre (admin avec double authentification), et `Origin` exigé pour les changements (CSRF).
+- [x] Le compte `bench@bench.mcplain.invalid`, créé par erreur le 12 novembre sur la pile locale avec les valeurs de la CI, est
+      supprimé par le chemin normal ; `make-bench-account.sh` refuse désormais ces valeurs hors de GitHub Actions.
+- [ ] À surveiller : 600 lectures de session par minute et par adresse ; si un grand réseau partagé (école, entreprise) voit des
+      comptes affichés comme déconnectés, relever ce chiffre (`SESSION_READS_MAX` dans `auth/src/auth.ts`).
+
+## SÉANCE 9C-2 : LE TABLEAU DE BORD (à faire)
+
+Dans l'emplacement déjà prêt de la page `/admin`, réservé à l'admin avec double authentification :
+
+- Jauges : dépense de l'IA du jour et du mois face au budget, taux de rejets `encoding`, refus « trop de comptes créés depuis ce
   réseau » par jour (table `signup_refusals`), demandes arrivées quota épuisé par jour et par type de visiteur (table
-  `quota_refusals`), bouton pour relancer une notice rejetée.
-- Bannir un compte (et décider de ce que deviennent son historique et ses quotas).
-- Signalements (dont « Tu es l'auteur ? Signale une erreur »).
-- Umami (mesure d'audience auto-hébergée).
-- Double authentification TOTP (application, code à 6 chiffres, 30 secondes), obligatoire pour le seul compte admin, avec codes
-  de secours. Les autres comptes n'ont que l'e-mail vérifié.
+  `quota_refusals`).
+- Solde estimé de l'espace de travail Anthropic (budget moins dépense comptée par MCPlain) ; e-mail à l'admin quand il passe sous
+  2 $ (par le facteur, au plus un par jour).
+- Boutons : relancer une analyse, relancer une notice rejetée.
+
+## SÉANCE 9C-3 : LA BOÎTE À RÉCLAMATIONS (à faire)
+
+- Signalements sur un rapport, dont « Tu es l'auteur ? Signale une erreur » (texte brut, affiché avec `RawText`, jamais donné à
+  l'IA) ; leur liste dans la page `/admin`.
+- Umami (mesure d'audience auto-hébergée, sans cookie).
 
 ## MISE EN LIGNE (comptes)
 
@@ -254,6 +287,12 @@ Guide : `docs/accounts.fr.md`, sections 14 à 18.
 - Mentions de confidentialité : le cookie de session est exempté de consentement (il sert seulement à rester connecté) ; les
   empreintes d'IP (HMAC avec un sel du jour, effacé après 2 jours) ; les e-mails (adresse du compte, liens à usage unique).
 - Relever `MCPLAIN_SIGNUPS_PER_IP_PER_DAY` si le tableau admin montre des refus fréquents.
+- Avant d'ouvrir le site : active la double authentification de ton compte admin sur le VPS, **imprime les codes de secours**
+  (bouton « Imprimer ») et range-les loin de ton téléphone. Sans eux, seul `scripts/reset-admin-2fa.sh` sur le VPS te rendra la
+  main.
+- Vérifier l'heure du VPS : synchronisation NTP active (`timedatectl` doit dire `System clock synchronized: yes`). Le code TOTP
+  dépend de l'heure : un serveur décalé de plus de 30 secondes refuse les bons codes.
+- `MCPLAIN_PUBLIC_URL` est aussi lu par l'API : c'est la seule origine acceptée pour les changements de la page `/admin`.
 
 ## PLUS TARD
 
