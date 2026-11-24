@@ -127,7 +127,7 @@ describe("settings of the counter", () => {
     });
     expect(options.rateLimit.enabled).toBe(true);
     expect(options.rateLimit).toMatchObject({ window: 60, max: 100 });
-    expect(options.rateLimit).not.toHaveProperty("customRules");
+    expect(options.rateLimit.customRules).toEqual({ "/get-session": { window: 60, max: 600 } });
     expect(options.telemetry.enabled).toBe(false);
     expect(options).not.toHaveProperty("socialProviders");
     expect(options.plugins.map((plugin) => plugin.id)).toEqual(["two-factor"]);
@@ -293,7 +293,7 @@ describe("accounts", () => {
     expect(await down("u1")).toBe(false);
   });
 
-  it("limits the reading of a session to 100 a minute per visitor address, each address with its own counter", async () => {
+  it("limits the reading of a session to 600 a minute per visitor address, each address with its own counter", async () => {
     const { auth, mails } = setup();
     const cookie = await signUpAndVerify(auth, mails, "ada@example.com");
     const read = (forwardedFor: string) => {
@@ -302,7 +302,7 @@ describe("accounts", () => {
       return auth.handler(new Request(`${ORIGIN}/api/auth/get-session`, { headers: { ...headers, Cookie: cookie } }));
     };
     const statuses: number[] = [];
-    for (let count = 0; count < 100; count += 1) {
+    for (let count = 0; count < 600; count += 1) {
       statuses.push((await read(`10.9.${count % 200}.1, 192.0.2.10`)).status);
     }
     expect(new Set(statuses)).toEqual(new Set([200]));

@@ -17,6 +17,8 @@ const DELETE_USER_PATH = "/delete-user";
 const SIGN_UP_PATH = "/sign-up/email";
 export const RATE_WINDOW_SECONDS = 60;
 export const RATE_MAX = 100;
+export const SESSION_READ_PATH = "/get-session";
+export const SESSION_READS_MAX = 600;
 export const SIGN_UP_ANSWER = { token: null, user: null } as const;
 const ROLE_FIELD = "role";
 const ROLE_ADMIN = "admin";
@@ -135,7 +137,13 @@ export function authOptions(settings: Settings, dependencies: Dependencies) {
       defaultCookieAttributes: { httpOnly: true, sameSite: "lax" as const, secure: isSecure(settings) },
       ipAddress: { ipAddressHeaders: [LIMITER_IP_HEADER], ipv6Subnet: 64 as const },
     },
-    rateLimit: { enabled: true, storage: "memory" as const, window: RATE_WINDOW_SECONDS, max: RATE_MAX },
+    rateLimit: {
+      enabled: true,
+      storage: "memory" as const,
+      window: RATE_WINDOW_SECONDS,
+      max: RATE_MAX,
+      customRules: { [SESSION_READ_PATH]: { window: RATE_WINDOW_SECONDS, max: SESSION_READS_MAX } },
+    },
     databaseHooks: {
       session: {
         create: {

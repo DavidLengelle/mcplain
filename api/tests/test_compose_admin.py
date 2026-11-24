@@ -20,7 +20,7 @@ from test_compose import REPOSITORY, clear_mails, compose_container, postgres_li
 
 pytestmark = pytest.mark.docker
 
-SESSION_LIMIT = 100
+SESSION_LIMIT = 600
 READ_SESSIONS = """
 const [url, count, fake] = process.argv.slice(1);
 const statuses = [];
@@ -73,7 +73,7 @@ def python_in_api(client: DockerClient, script: str, *arguments: str) -> object:
 
 
 def test_the_public_session_route_is_limited_per_real_visitor_address(client: DockerClient) -> None:
-    """Through the relay, get-session stops at 100 a minute for one visitor, fake X-Forwarded-For or not; another has its own"""
+    """Through the relay, get-session stops at 600 a minute for one visitor, fake X-Forwarded-For or not; another has its own"""
 
     url = "http://web:3000/api/auth/get-session"
     first = node_in(client, "guichet", READ_SESSIONS, url, str(SESSION_LIMIT + 5), "yes")
@@ -214,6 +214,7 @@ def make_account(client: DockerClient, browser: Browser, role: str, accounts: li
 
     email = f"admin-9c-{uuid.uuid4().hex[:10]}@example.com"
     accounts.append(email)
+    postgres_lines(client, "DELETE FROM signup_counts;")
     answer = browser.send(
         "POST",
         "/api/auth/sign-up/email",
