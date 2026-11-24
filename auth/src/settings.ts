@@ -5,7 +5,18 @@ export type Settings = {
   apiUrl: string;
   trustedProxyHops: number;
   port: number;
+  internalPeers: string[];
 };
+
+const DEFAULT_INTERNAL_PEERS = "api";
+
+function nameList(text: string | undefined, fallback: string): string[] {
+  let value = text;
+  if (value === undefined || value.trim() === "") {
+    value = fallback;
+  }
+  return value.split(",").map((item) => item.trim()).filter((item) => item !== "");
+}
 
 const MIN_SECRET_LENGTH = 32;
 const MAX_PROXY_HOPS = 5;
@@ -55,6 +66,7 @@ export function readSettings(env: NodeJS.ProcessEnv): Settings {
     apiUrl: origin(apiUrl, "MCPLAIN_API_INTERNAL_URL"),
     trustedProxyHops: integer(env.MCPLAIN_TRUSTED_PROXY_HOPS, 1, 0, MAX_PROXY_HOPS, "MCPLAIN_TRUSTED_PROXY_HOPS"),
     port: integer(env.MCPLAIN_GUICHET_PORT, DEFAULT_PORT, 1, 65535, "MCPLAIN_GUICHET_PORT"),
+    internalPeers: nameList(env.MCPLAIN_INTERNAL_PEERS, DEFAULT_INTERNAL_PEERS),
   };
 }
 

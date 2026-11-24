@@ -6,6 +6,8 @@ import { limiterAddress, LIMITER_IP_HEADER, setLimiterAddress } from "../src/cli
 import { apiErase } from "../src/erase.ts";
 import { apiGuard, type Guard, type GuardAction } from "../src/guard.ts";
 import { mailLanguage, outboxDeposit, type Mail } from "../src/outbox.ts";
+import { internalRoutes } from "../src/internal.ts";
+import { PeerCheck, plainAddress } from "../src/peers.ts";
 import { readSettings, type Settings } from "../src/settings.ts";
 
 const TEST_SECRET = "test only secret, never a real one, 0123456789";
@@ -19,6 +21,7 @@ const SETTINGS: Settings = {
   apiUrl: "http://api:8000",
   trustedProxyHops: 1,
   port: 3100,
+  internalPeers: ["api"],
 };
 
 type Body = { code?: string; user?: { role?: string } };
@@ -93,7 +96,9 @@ describe("settings of the counter", () => {
       apiUrl: "http://api:8000",
       trustedProxyHops: 1,
       port: 3100,
+      internalPeers: ["api"],
     });
+    expect(readSettings({ ...env, MCPLAIN_INTERNAL_PEERS: " api, other ," }).internalPeers).toEqual(["api", "other"]);
     expect(() => readSettings({ ...env, BETTER_AUTH_SECRET: "" })).toThrow(/init-secrets/);
     expect(() => readSettings({ ...env, BETTER_AUTH_SECRET: "short" })).toThrow(/32/);
     expect(() => readSettings({ ...env, MCPLAIN_PUBLIC_URL: "ftp://x" })).toThrow();
@@ -120,7 +125,8 @@ describe("settings of the counter", () => {
       defaultCookieAttributes: { httpOnly: true, sameSite: "lax", secure: false },
     });
     expect(options.rateLimit.enabled).toBe(true);
-    expect(options.rateLimit.customRules).toEqual({ "/get-session": false });
+    expect(options.rateLimit).toMatchObject({ window: 60, max: 100 });
+    expect(options.rateLimit).not.toHaveProperty("customRules");
     expect(options.telemetry.enabled).toBe(false);
     expect(options).not.toHaveProperty("socialProviders");
     expect(options).not.toHaveProperty("plugins");
@@ -286,15 +292,21 @@ describe("accounts", () => {
     expect(await down("u1")).toBe(false);
   });
 
-  it("never limits the reading of a session: the API asks it for every visitor, from one address", async () => {
+  it("limits the reading of a session to 100 a minute per visitor address, each address with its own counter", async () => {
     const { auth, mails } = setup();
     const cookie = await signUpAndVerify(auth, mails, "ada@example.com");
-    const statuses = new Set<number>();
-    for (let count = 0; count < 150; count += 1) {
-      const answer = await auth.handler(new Request(`${ORIGIN}/api/auth/get-session`, { headers: { Cookie: cookie } }));
-      statuses.add(answer.status);
+    const read = (forwardedFor: string) => {
+      const headers: Record<string, string> = { "x-forwarded-for": forwardedFor };
+      setLimiterAddress(headers, 1);
+      return auth.handler(new Request(`${ORIGIN}/api/auth/get-session`, { headers: { ...headers, Cookie: cookie } }));
+    };
+    const statuses: number[] = [];
+    for (let count = 0; count < 100; count += 1) {
+      statuses.push((await read(`10.9.${count % 200}.1, 192.0.2.10`)).status);
     }
-    expect([...statuses]).toEqual([200]);
+    expect(new Set(statuses)).toEqual(new Set([200]));
+    expect((await read("6.6.6.6, 192.0.2.10")).status).toBe(429);
+    expect((await read("192.0.2.11")).status).toBe(200);
   });
 
   it("keeps no visitor address nor browser in the session", async () => {
@@ -334,5 +346,41 @@ describe("the outbox and the limiter address", () => {
     const empty: Record<string, string> = { [LIMITER_IP_HEADER]: "6.6.6.6" };
     setLimiterAddress(empty, 1);
     expect(empty[LIMITER_IP_HEADER]).toBeUndefined();
+  });
+});
+
+describe("the internal routes", () => {
+  it("tells the API who owns a session cookie, read on the server side without the limiter", async () => {
+    const { auth, mails } = setup();
+    const cookie = await signUpAndVerify(auth, mails, "ada@example.com");
+    const routes = internalRoutes(auth);
+    const ask = (value: string | undefined) => routes({ method: "GET", path: "/internal/session", search: new URLSearchParams(), cookie: value, body: "" });
+    for (let count = 0; count < 120; count += 1) {
+      expect((await ask(cookie)).status).toBe(200);
+    }
+    const answer = await ask(cookie);
+    expect(answer.body).toMatchObject({ user: { emailVerified: true, role: "user", twoFactorEnabled: false, banned: false } });
+    expect(Object.keys((answer.body as { user: object }).user).sort()).toEqual(["banned", "emailVerified", "id", "role", "twoFactorEnabled"]);
+    expect((await ask(undefined)).body).toEqual({ user: null });
+    expect((await ask("mcplain.session_token=forged")).body).toEqual({ user: null });
+    expect((await routes({ method: "POST", path: "/internal/session", search: new URLSearchParams(), cookie, body: "" })).status).toBe(404);
+    expect((await routes({ method: "GET", path: "/internal/other", search: new URLSearchParams(), cookie, body: "" })).status).toBe(404);
+  });
+
+  it("answers only the addresses of the API, resolved again for an unknown address", async () => {
+    let resolved = 0;
+    const resolver = async () => {
+      resolved += 1;
+      return new Set(["172.18.0.5"]);
+    };
+    const peers = new PeerCheck(["api"], resolver, () => 0);
+    expect(await peers.allows("172.18.0.5")).toBe(true);
+    expect(await peers.allows("::ffff:172.18.0.5")).toBe(true);
+    expect(resolved).toBe(1);
+    expect(await peers.allows("172.18.0.9")).toBe(false);
+    expect(resolved).toBe(2);
+    expect(await peers.allows(undefined)).toBe(false);
+    expect(await new PeerCheck([], resolver).allows("172.18.0.5")).toBe(false);
+    expect(plainAddress("")).toBeNull();
   });
 });
