@@ -1,6 +1,7 @@
 """Tests of session 9c-2 on the running stack: the dashboard routes through the real relay, the low balance mail, the actions"""
 
 import json
+import os
 import time
 import uuid
 from collections.abc import Iterator
@@ -116,6 +117,8 @@ def test_a_low_statement_makes_the_postman_mail_once(client: DockerClient, accou
     """A statement under 2 dollars: the postman, with its own role, marks the mail sent once it went through Mailpit"""
 
     if not admin_address_is_set(client):
+        if os.environ.get("CI") == "true":
+            pytest.fail("the CI must give the postman a test address: the low balance mail is never skipped there")
         pytest.skip("set MCPLAIN_ADMIN_EMAIL in .env to check the low balance mail")
     postgres_lines(client, "UPDATE balance_alert SET sent_at = NULL WHERE id = 1;")
     admin, _ = admin_browser(client, accounts, browsers)
