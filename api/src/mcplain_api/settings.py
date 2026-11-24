@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     guichet_url: str = Field(default="http://guichet:3100", validation_alias="MCPLAIN_GUICHET_URL")
     auth_guard_peers: str = Field(default="guichet", validation_alias="MCPLAIN_AUTH_GUARD_PEERS")
     public_url: str = Field(default="http://localhost:3000", validation_alias="MCPLAIN_PUBLIC_URL")
+    balance_alert_usd: float = Field(default=2, ge=0, validation_alias="MCPLAIN_BALANCE_ALERT_USD")
 
     @field_validator("github_token", "anthropic_api_key", "ai_daily_fuse_usd", "altcha_hmac_key", mode="before")
     @classmethod

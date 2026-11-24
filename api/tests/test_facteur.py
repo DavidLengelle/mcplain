@@ -92,7 +92,10 @@ def test_mails_are_plain_text_and_the_row_is_deleted(sessions: sessionmaker) -> 
 def test_every_model_exists_in_both_languages() -> None:
     """The English and French models have the same mails, each with its link or its values"""
 
-    assert mail_texts("en").keys() == mail_texts("fr").keys() == {"verify_email", "reset_password", "admin_alert"}
+    assert mail_texts("en").keys() == mail_texts("fr").keys() == {"verify_email", "reset_password", "admin_alert", "balance_low"}
+    for lang in ("en", "fr"):
+        for value in ("{balance}", "{threshold}", "{statement_at}", "{admin_url}"):
+            assert value in mail_texts(lang)["balance_low"]["body"]
     for lang in ("en", "fr"):
         for kind in ("verify_email", "reset_password"):
             assert "{link}" in mail_texts(lang)[kind]["body"]

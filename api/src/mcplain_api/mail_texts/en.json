@@ -10,5 +10,9 @@
   "admin_alert": {
     "subject": "MCPlain: admin alert {code}",
     "body": "Hello,\n\nMCPlain recorded the alert {code} {count} time(s).\nFirst one: {first} (UTC)\nLast one: {last} (UTC)\n\nThe details are in the table ai_admin_alerts. You get at most one mail per alert code every 24 hours.\n\nMCPlain"
+  },
+  "balance_low": {
+    "subject": "MCPlain: estimated credit under ${threshold}",
+    "body": "Hello,\n\nThe estimated balance of your Anthropic credit is ${balance}, under the threshold of ${threshold}.\nLast statement entered: {statement_at} (UTC)\n\nThis is an estimate: the real balance is in the Anthropic console. After a top-up, write it down on the admin page:\n{admin_url}\n\nYou will get no other mail until the estimated balance goes back over the threshold.\n\nMCPlain"
   }
 }

@@ -24,13 +24,27 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
+from mcplain_api.ai_budget import Balance, estimated_balance, is_low
 from mcplain_api.ai_logging import install_secret_filter
-from mcplain_api.db import AiAdminAlert, MailKind, MailOutbox, as_utc, make_engine, make_sessions, utc_now
+from mcplain_api.db import (
+    BALANCE_ALERT_ROW,
+    AiAdminAlert,
+    BalanceAlert,
+    MailKind,
+    MailOutbox,
+    as_utc,
+    make_engine,
+    make_sessions,
+    utc_now,
+)
 
 LOGGER = logging.getLogger("mcplain.facteur")
 TEXTS_FOLDER = Path(__file__).resolve().parent / "mail_texts"
 LANGUAGES: tuple[str, ...] = ("en", "fr")
 ADMIN_ALERT = "admin_alert"
+BALANCE_LOW = "balance_low"
+BALANCE_CHECK_SPACING = timedelta(minutes=1)
+ADMIN_PAGE = "/admin"
 POLL_SECONDS = 5.0
 BATCH_SIZE = 20
 RETRY_DELAYS: tuple[timedelta, ...] = (timedelta(seconds=30), timedelta(minutes=2), timedelta(minutes=10))
@@ -58,6 +72,8 @@ class FacteurSettings(BaseSettings):
     smtp_starttls: bool = Field(default=False, validation_alias="MCPLAIN_SMTP_STARTTLS")
     admin_email: str | None = Field(default=None, validation_alias="MCPLAIN_ADMIN_EMAIL")
     admin_lang: str = Field(default="fr", pattern=r"^(en|fr)$", validation_alias="MCPLAIN_ADMIN_LANG")
+    public_url: str = Field(default="http://localhost:3000", validation_alias="MCPLAIN_PUBLIC_URL")
+    balance_alert_usd: float = Field(default=2, ge=0, validation_alias="MCPLAIN_BALANCE_ALERT_USD")
 
     @field_validator("smtp_user", "smtp_password", "admin_email", mode="before")
     @classmethod
@@ -153,6 +169,29 @@ def alert_message(settings: FacteurSettings, code: str, count: int, first: datet
     return plain_message(settings, settings.admin_email or "", fill(model["subject"], values), fill(model["body"], values))
 
 
+def dollars(amount: float) -> str:
+    """Write an amount in dollars with two decimals"""
+
+    return f"{amount:.2f}"
+
+
+def balance_message(settings: FacteurSettings, balance: Balance) -> EmailMessage:
+    """Build the mail of the low balance: the estimated credit, the date of the last statement and the admin page"""
+
+    model = mail_texts(settings.admin_lang)[BALANCE_LOW]
+    statement_at = ""
+    if balance.statement_at is not None:
+        statement_at = balance.statement_at.strftime(DATE_FORMAT)
+    page = clean_link(settings.public_url.strip().rstrip("/") + "/" + settings.admin_lang + ADMIN_PAGE)
+    values = {
+        "balance": dollars(balance.amount_usd or 0.0),
+        "threshold": dollars(settings.balance_alert_usd),
+        "statement_at": statement_at,
+        "admin_url": page,
+    }
+    return plain_message(settings, settings.admin_email or "", fill(model["subject"], values), fill(model["body"], values))
+
+
 def send_with_smtp(settings: FacteurSettings, message: EmailMessage) -> None:
     """Send one mail; the password is only ever given over STARTTLS"""
 
@@ -182,13 +221,15 @@ class Facteur:
         self.sender = sender
         self.retries: dict[uuid.UUID, Retry] = {}
         self.alerts_paused_until: datetime | None = None
+        self.balance_checked_at: datetime | None = None
         self.stopping = threading.Event()
 
     def tick(self, now: datetime) -> None:
-        """Do one round: the outbox first, then the admin alerts"""
+        """Do one round: the outbox first, then the admin alerts, then the estimated credit once a minute"""
 
         self.deliver_outbox(now)
         self.deliver_alerts(now)
+        self.watch_balance(now)
 
     def deliver_outbox(self, now: datetime) -> None:
         """Send the waiting mails, delete each row once handled, and give up after three more tries"""
@@ -276,6 +317,29 @@ class Facteur:
                 session.execute(update(AiAdminAlert).where(AiAdminAlert.id.in_(identifiers)).values(emailed_at=now))
                 sent_today += 1
                 LOGGER.info("admin mail sent for %s (%d alerts)", code, len(alerts))
+
+    def watch_balance(self, now: datetime) -> None:
+        """Mail the admin once when the estimated credit goes under the threshold; marked sent only after SMTP said yes"""
+
+        if self.settings.admin_email is None:
+            return
+        if self.balance_checked_at is not None and now - self.balance_checked_at < BALANCE_CHECK_SPACING:
+            return
+        self.balance_checked_at = now
+        with self.sessions.begin() as session:
+            state = session.get(BalanceAlert, BALANCE_ALERT_ROW)
+            if state is None or state.sent_at is not None:
+                return
+            balance = estimated_balance(session)
+            if not is_low(balance, self.settings.balance_alert_usd):
+                return
+            try:
+                self.sender(self.settings, balance_message(self.settings, balance))
+            except (smtplib.SMTPException, OSError, ValueError) as error:
+                LOGGER.warning("low balance mail failed, tried again in a minute: %s", type(error).__name__)
+                return
+            state.sent_at = now
+            LOGGER.info("low balance mail sent")
 
     def run_forever(self) -> None:
         """Do a round every five seconds until stopped; a database error waits for the next round"""

@@ -4,7 +4,8 @@ import os
 import threading
 import uuid
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from email.message import EmailMessage
 from pathlib import Path
 
 import psycopg
@@ -18,7 +19,19 @@ from sqlalchemy.engine import make_url
 
 from mcplain_api.admin_dashboard import ai_view, analyses_view, refusals_view, spend_view
 from mcplain_api.analysis_gate import enqueue
-from mcplain_api.db import AiCall, Analysis, AnalysisToken, QuotaUsage, make_engine, make_sessions
+from mcplain_api.credit import add_entry
+from mcplain_api.db import (
+    BALANCE_ALERT_ROW,
+    AiCall,
+    Analysis,
+    AnalysisToken,
+    BalanceAlert,
+    CreditEntry,
+    QuotaUsage,
+    make_engine,
+    make_sessions,
+)
+from mcplain_api.facteur import Facteur, FacteurSettings
 from mcplain_api.migrate import set_role_passwords
 from mcplain_api.quota import Visitor, VisitorKind
 
@@ -251,3 +264,50 @@ def test_the_dials_read_postgresql_as_the_app_role(database: str) -> None:
             session.execute(delete(Analysis))
             session.execute(delete(AiCall))
         engine.dispose()
+
+
+def test_the_postman_reads_only_what_the_balance_needs(database: str) -> None:
+    """The postman reads the date and the cost of the calls, the ledger, and only sets sent_at of the balance alert"""
+
+    with connect(database, "mcplain_facteur") as connection:
+        connection.execute("SELECT created_at, cost_usd FROM ai_calls")
+        connection.execute("SELECT id, kind, amount_usd, note, created_at FROM credit_entries")
+        connection.execute("SELECT id, sent_at FROM balance_alert")
+        connection.execute("UPDATE balance_alert SET sent_at = NULL")
+        assert denied(connection, "SELECT request_id FROM ai_calls")
+        assert denied(connection, "SELECT * FROM ai_calls")
+        assert denied(connection, "INSERT INTO credit_entries (id, kind, amount_usd, created_at) VALUES (gen_random_uuid(), 'top_up', 1, now())")
+        assert denied(connection, "DELETE FROM credit_entries")
+        assert denied(connection, "UPDATE balance_alert SET id = 2")
+        assert denied(connection, "INSERT INTO balance_alert (id) VALUES (2)")
+        assert denied(connection, "DELETE FROM balance_alert")
+        assert denied(connection, "SELECT * FROM admin_actions")
+        assert denied(connection, "SELECT * FROM ai_texts")
+
+
+def test_the_postman_mails_the_low_balance_with_its_own_role(database: str) -> None:
+    """A real round of the postman as mcplain_facteur: the statement written by the API, one mail, the state marked sent"""
+
+    app = app_engine(database)
+    url = make_url(os.environ[ADMIN_URL_VARIABLE]).set(
+        database=database, username="mcplain_facteur", password=TEST_PASSWORDS["mcplain_facteur"]
+    )
+    postman_engine = make_engine(url.render_as_string(hide_password=False))
+    sent: list[EmailMessage] = []
+    now = datetime.now(UTC)
+    try:
+        with make_sessions(app).begin() as session:
+            add_entry(session, "statement", 0.5, None, now, 2.0)
+        settings = FacteurSettings(_env_file=None, database_url="sqlite://", admin_email="admin@example.com")
+        postman = Facteur(settings, make_sessions(postman_engine), sender=lambda settings, message: sent.append(message))
+        postman.watch_balance(now)
+        postman.watch_balance(now + timedelta(minutes=5))
+        assert len(sent) == 1
+        with make_sessions(app)() as session:
+            assert session.get(BalanceAlert, BALANCE_ALERT_ROW).sent_at is not None
+    finally:
+        with make_sessions(app).begin() as session:
+            session.execute(delete(CreditEntry))
+            session.get(BalanceAlert, BALANCE_ALERT_ROW).sent_at = None
+        app.dispose()
+        postman_engine.dispose()

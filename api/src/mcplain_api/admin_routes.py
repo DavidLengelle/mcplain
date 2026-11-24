@@ -1,21 +1,63 @@
 """The routes of the admin dashboard, all under /api/admin, so behind admin_gate: admin with second factor, Origin for a change"""
 
+import uuid
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal, TypeVar
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, StrictFloat, StrictStr, ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
 from mcplain_api.admin_accounts import AccountDesk
 from mcplain_api.admin_dashboard import accounts_view, ai_view, analyses_view, parse_days, refusals_view, spend_view
-from mcplain_api.db import utc_now
-from mcplain_api.responses import error_response, no_store
+from mcplain_api.admin_journal import Action, record_action
+from mcplain_api.credit import DeleteOutcome, add_entry, clean_note, credit_view, delete_last, note_fits, valid_amount
+from mcplain_api.db import AdminTarget, utc_now
+from mcplain_api.responses import error_response, no_store, read_body
 from mcplain_api.settings import Settings
 
 DASHBOARD_PREFIX = "/api/admin/dashboard"
+CREDIT_PATH = "/api/admin/credit"
+JSON_MEDIA_TYPE = "application/json"
+BODY_MAX_BYTES = 1024
+Body = TypeVar("Body", bound=BaseModel)
+
+
+class CreditRequest(BaseModel):
+    """Class that describes the body of POST /api/admin/credit: a statement or a top-up in dollars, and an optional note"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["statement", "top_up"]
+    amount_usd: StrictFloat
+    note: StrictStr | None = None
+
+
+async def json_body(request: Request, model: type[Body]) -> Body | JSONResponse:
+    """Read a small JSON body into its model, or return the error to answer"""
+
+    media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if media_type != JSON_MEDIA_TYPE:
+        return no_store(error_response(415, "api.unsupported_media_type"))
+    body = await read_body(request, BODY_MAX_BYTES)
+    if body is None:
+        return no_store(error_response(413, "api.body_too_large", {"limit": str(BODY_MAX_BYTES)}))
+    try:
+        return model.model_validate_json(body)
+    except ValidationError:
+        return no_store(error_response(400, "api.invalid_request"))
+
+
+def uuid_of(text: str) -> uuid.UUID | None:
+    """Return the identifier written in a path, or None"""
+
+    try:
+        return uuid.UUID(text)
+    except ValueError:
+        return None
 
 
 def invalid_days() -> JSONResponse:
@@ -77,3 +119,73 @@ def add_admin_routes(app: FastAPI, sessions: sessionmaker, settings: Settings, d
         if view is None:
             return no_store(error_response(503, "api.guichet_unavailable"))
         return no_store(JSONResponse(view))
+
+    @app.get(CREDIT_PATH)
+    async def credit_read() -> JSONResponse:
+        """Return the estimated credit, the state of the low balance mail and the last entries"""
+
+        def run() -> dict[str, Any]:
+            """Read the ledger"""
+
+            with sessions() as session:
+                return credit_view(session, settings.balance_alert_usd)
+
+        return no_store(JSONResponse(await run_in_threadpool(run)))
+
+    @app.post(CREDIT_PATH)
+    async def credit_add(request: Request) -> JSONResponse:
+        """Add a statement or a top-up, dated now; the mail is armed again when the credit goes back over the threshold"""
+
+        payload = await json_body(request, CreditRequest)
+        if isinstance(payload, JSONResponse):
+            return payload
+        note = clean_note(payload.note)
+        if not valid_amount(payload.kind, payload.amount_usd):
+            return no_store(error_response(400, "api.invalid_amount"))
+        if not note_fits(note):
+            return no_store(error_response(400, "api.note_too_long"))
+
+        def run() -> dict[str, Any]:
+            """Write the entry and its line of the journal in one transaction"""
+
+            now = utc_now()
+            with sessions.begin() as session:
+                entry = add_entry(session, payload.kind, payload.amount_usd, note, now, settings.balance_alert_usd)
+                record_action(session, Action.CREDIT_ADD, AdminTarget.CREDIT, str(entry.id), now)
+            with sessions() as session:
+                return credit_view(session, settings.balance_alert_usd)
+
+        return no_store(JSONResponse(await run_in_threadpool(run), status_code=201))
+
+    @app.delete(CREDIT_PATH + "/{entry_id}")
+    async def credit_delete(entry_id: str) -> JSONResponse:
+        """Delete the newest entry only, a typing mistake; any older one stays"""
+
+        identifier = uuid_of(entry_id)
+        if identifier is None:
+            return no_store(error_response(404, "api.credit_not_found"))
+
+        def run() -> DeleteOutcome:
+            """Delete the entry and write its line of the journal in one transaction"""
+
+            now = utc_now()
+            with sessions.begin() as session:
+                outcome = delete_last(session, identifier, settings.balance_alert_usd)
+                if outcome is DeleteOutcome.DONE:
+                    record_action(session, Action.CREDIT_DELETE, AdminTarget.CREDIT, str(identifier), now)
+                return outcome
+
+        outcome = await run_in_threadpool(run)
+        if outcome is DeleteOutcome.NOT_FOUND:
+            return no_store(error_response(404, "api.credit_not_found"))
+        if outcome is DeleteOutcome.NOT_LAST:
+            return no_store(error_response(409, "api.credit_not_last"))
+
+        def view() -> dict[str, Any]:
+            """Read the ledger after the deletion"""
+
+            with sessions() as session:
+                return credit_view(session, settings.balance_alert_usd)
+
+        return no_store(JSONResponse(await run_in_threadpool(view)))
+

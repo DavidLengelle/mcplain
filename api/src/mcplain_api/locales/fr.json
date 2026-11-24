@@ -14,5 +14,9 @@
   "api.cannot_ban_self": "Tu ne peux pas bloquer ton propre compte.",
   "api.cannot_ban_admin": "Un compte admin ne peut pas être bloqué.",
   "api.guichet_unavailable": "Le service des comptes ne répond pas. Réessaie dans un instant.",
-  "api.invalid_days": "Choisis une période de 7 ou 30 jours."
+  "api.invalid_days": "Choisis une période de 7 ou 30 jours.",
+  "api.invalid_amount": "Écris un montant en dollars : 0 ou plus pour un relevé, plus de 0 pour une recharge.",
+  "api.note_too_long": "La note fait 100 caractères au plus.",
+  "api.credit_not_found": "Cette écriture n'existe pas.",
+  "api.credit_not_last": "Seule la dernière écriture peut être supprimée."
 }

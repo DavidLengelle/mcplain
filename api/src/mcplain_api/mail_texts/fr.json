@@ -10,5 +10,9 @@
   "admin_alert": {
     "subject": "MCPlain : alerte admin {code}",
     "body": "Bonjour,\n\nMCPlain a noté l'alerte {code} {count} fois.\nPremière : {first} (UTC)\nDernière : {last} (UTC)\n\nLes détails sont dans la table ai_admin_alerts. Tu reçois au plus un e-mail par code d'alerte toutes les 24 heures.\n\nMCPlain"
+  },
+  "balance_low": {
+    "subject": "MCPlain : solde estimé sous {threshold} $",
+    "body": "Bonjour,\n\nLe solde estimé de ton crédit Anthropic est de {balance} $, sous le seuil de {threshold} $.\nDernier relevé saisi : {statement_at} (UTC)\n\nC'est une estimation : le vrai solde est dans la console Anthropic. Après une recharge, note-la sur la page admin :\n{admin_url}\n\nTu ne recevras pas d'autre e-mail tant que le solde estimé ne sera pas repassé au-dessus du seuil.\n\nMCPlain"
   }
 }

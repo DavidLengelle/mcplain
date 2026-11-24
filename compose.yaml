@@ -65,6 +65,7 @@ services:
       MCPLAIN_GUICHET_URL: http://guichet:3100
       MCPLAIN_AUTH_GUARD_PEERS: guichet
       MCPLAIN_PUBLIC_URL: ${MCPLAIN_PUBLIC_URL:-http://localhost:${MCPLAIN_WEB_PORT:-3000}}
+      MCPLAIN_BALANCE_ALERT_USD: ${MCPLAIN_BALANCE_ALERT_USD:-2}
     ports:
       - "127.0.0.1:8000:8000"
     networks:
@@ -197,8 +198,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # The postman (facteur) alone holds the SMTP credentials. It reads and deletes mail_outbox, and mails the admin
-  # alerts of the writer; same protections as the writer, with its own role.
+  # The postman (facteur) alone holds the SMTP credentials. It reads and deletes mail_outbox, mails the admin
+  # alerts of the writer and, once, the low estimated credit; same protections as the writer, with its own role.
   facteur:
     image: mcplain-api:dev
     pull_policy: never
@@ -213,6 +214,8 @@ services:
       MCPLAIN_SMTP_FROM: ${MCPLAIN_SMTP_FROM:-MCPlain <no-reply@mcplain.localhost>}
       MCPLAIN_SMTP_STARTTLS: ${MCPLAIN_SMTP_STARTTLS:-false}
       MCPLAIN_ADMIN_EMAIL: ${MCPLAIN_ADMIN_EMAIL:-}
+      MCPLAIN_PUBLIC_URL: ${MCPLAIN_PUBLIC_URL:-http://localhost:${MCPLAIN_WEB_PORT:-3000}}
+      MCPLAIN_BALANCE_ALERT_USD: ${MCPLAIN_BALANCE_ALERT_USD:-2}
     networks:
       - back
     read_only: true

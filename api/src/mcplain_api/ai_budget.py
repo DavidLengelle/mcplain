@@ -1,6 +1,7 @@
 """What the AI spent and may still spend: the one place the writer, the admin dashboard and the postman read it from"""
 
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from mcplain_api.ai_client import call_cost
 from mcplain_api.ai_form import canonical_json
-from mcplain_api.db import AiCall
+from mcplain_api.db import AiCall, CreditEntry, CreditKind, as_utc
 from mcplain_api.settings import Settings
 
 CALLS_PER_TEXT_PER_DAY = 4
@@ -73,3 +74,43 @@ def calls_today(session: Session, text_id: uuid.UUID, now: datetime) -> int:
         select(func.count()).select_from(AiCall).where(AiCall.text_id == text_id).where(AiCall.created_at >= day_start(now))
     )
     return int(count or 0)
+
+
+@dataclass(frozen=True)
+class Balance:
+    """Class that holds the estimated credit: the last statement, the top-ups and the spend since; no amount without statement"""
+
+    amount_usd: float | None
+    statement_usd: float | None
+    statement_at: datetime | None
+    top_ups_usd: float
+    spent_usd: float
+
+
+def estimated_balance(session: Session) -> Balance:
+    """Return the last statement plus the top-ups since it, minus what ai_calls recorded since it"""
+
+    statement = session.scalars(
+        select(CreditEntry)
+        .where(CreditEntry.kind == CreditKind.STATEMENT.value)
+        .order_by(CreditEntry.created_at.desc(), CreditEntry.id.desc())
+        .limit(1)
+    ).first()
+    if statement is None:
+        return Balance(None, None, None, 0.0, 0.0)
+    moment = as_utc(statement.created_at) or statement.created_at
+    top_ups = session.scalar(
+        select(func.coalesce(func.sum(CreditEntry.amount_usd), 0.0))
+        .where(CreditEntry.kind == CreditKind.TOP_UP.value)
+        .where(CreditEntry.created_at > statement.created_at)
+    )
+    added = float(top_ups or 0.0)
+    spent = spent_since(session, moment)
+    return Balance(statement.amount_usd + added - spent, statement.amount_usd, moment, added, spent)
+
+
+def is_low(balance: Balance, threshold: float) -> bool:
+    """Tell whether the estimated credit is under the threshold; never without a statement"""
+
+    return balance.amount_usd is not None and balance.amount_usd < threshold
+

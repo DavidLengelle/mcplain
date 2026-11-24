@@ -14,5 +14,9 @@
   "api.cannot_ban_self": "You cannot block your own account.",
   "api.cannot_ban_admin": "An admin account cannot be blocked.",
   "api.guichet_unavailable": "The accounts service does not answer. Try again in a moment.",
-  "api.invalid_days": "Choose a period of 7 or 30 days."
+  "api.invalid_days": "Choose a period of 7 or 30 days.",
+  "api.invalid_amount": "Write an amount in dollars, 0 or more for a statement, more than 0 for a top-up.",
+  "api.note_too_long": "The note holds 100 characters at most.",
+  "api.credit_not_found": "This entry does not exist.",
+  "api.credit_not_last": "Only the last entry can be deleted."
 }
