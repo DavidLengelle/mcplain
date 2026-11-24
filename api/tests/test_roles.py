@@ -99,6 +99,7 @@ def test_the_app_role_never_reads_the_accounts_nor_the_outbox(database: str) -> 
         connection.execute("UPDATE ai_admin_alerts SET emailed_at = now()")
         assert denied(connection, 'SELECT * FROM auth."user"')
         assert denied(connection, 'SELECT * FROM auth."account"')
+        assert denied(connection, 'SELECT * FROM auth."twoFactor"')
         assert denied(connection, "SELECT * FROM mail_outbox")
         assert denied(connection, "INSERT INTO mail_outbox (id, kind, lang, recipient, link, created_at) VALUES (gen_random_uuid(), 'verify_email', 'en', 'a@example.com', 'http://x', now())")
         assert denied(connection, "CREATE TABLE auth.intruder (id int)")
@@ -114,6 +115,8 @@ def test_the_counter_reads_its_schema_and_only_writes_the_outbox(database: str) 
             'INSERT INTO "user" (id, name, email, "emailVerified", "createdAt", "updatedAt") VALUES (\'u1\', \'\', \'a@example.com\', true, now(), now())'
         )
         assert connection.execute('SELECT role FROM "user"').fetchone() == ("user",)
+        connection.execute('INSERT INTO "twoFactor" (id, secret, "backupCodes", "userId") VALUES (\'t1\', \'s\', \'b\', \'u1\')')
+        assert connection.execute('SELECT "twoFactorEnabled" FROM "user"').fetchone() == (False,)
         connection.execute(
             "INSERT INTO public.mail_outbox (id, kind, lang, recipient, link, created_at) VALUES (gen_random_uuid(), 'verify_email', 'fr', 'a@example.com', 'http://localhost:3000/x', now())"
         )
