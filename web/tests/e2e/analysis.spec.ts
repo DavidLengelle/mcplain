@@ -126,7 +126,7 @@ test("a malformed identifier is a 404 without any call to the API", async ({ pag
   let calls = 0;
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (!path.startsWith("/api/auth/") && path !== "/api/quota") {
+    if (path.startsWith("/api/") && !path.startsWith("/api/auth/") && path !== "/api/quota") {
       calls += 1;
     }
     await route.abort();
