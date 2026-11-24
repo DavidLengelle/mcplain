@@ -12,6 +12,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Float,
+    ForeignKey,
     Index,
     Integer,
     PrimaryKeyConstraint,
@@ -242,6 +243,7 @@ class AdminTarget(StrEnum):
     TEXT = "text"
     ALERT = "alert"
     CREDIT = "credit"
+    REPORT = "report"
 
 
 class AdminAction(Base):
@@ -255,6 +257,94 @@ class AdminAction(Base):
     target_kind: Mapped[str] = mapped_column(String(16))
     target_id: Mapped[str] = mapped_column(String(USER_ID_MAX_CHARS))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ReportKind(StrEnum):
+    """Class that lists what a visitor can report about a report: a needless alert, a missed danger, an error of its author"""
+
+    FALSE_ALARM = "false_alarm"
+    MISSED_DANGER = "missed_danger"
+    AUTHOR_ERROR = "author_error"
+
+
+class ReportStatus(StrEnum):
+    """Class that lists the states of a report: new, handled by the admin, or rejected"""
+
+    NEW = "new"
+    HANDLED = "handled"
+    REJECTED = "rejected"
+
+
+class ReporterKind(StrEnum):
+    """Class that tells who sent a report: a visitor without account, an account, or an account deleted since"""
+
+    ANONYMOUS = "anonymous"
+    ACCOUNT = "account"
+    DELETED = "deleted"
+
+
+REPORT_KIND_CHECK = "kind IN ('false_alarm', 'missed_danger', 'author_error')"
+REPORT_STATUS_CHECK = "status IN ('new', 'handled', 'rejected')"
+REPORTER_KIND_CHECK = "reporter_kind IN ('anonymous', 'account', 'deleted')"
+REPORT_COLOR_CHECK = "color IS NULL OR color IN ('red', 'orange', 'gray', 'green')"
+REPORT_COMMENT_MAX_CHARS = 500
+
+
+class Report(Base):
+    """Class that maps one report about an analysis, with the versions and the color it had; never an address fingerprint"""
+
+    __tablename__ = "reports"
+    __table_args__ = (
+        CheckConstraint(REPORT_KIND_CHECK, name="reports_kind_valid"),
+        CheckConstraint(REPORT_STATUS_CHECK, name="reports_status_valid"),
+        CheckConstraint(REPORTER_KIND_CHECK, name="reports_reporter_kind_valid"),
+        CheckConstraint(REPORT_COLOR_CHECK, name="reports_color_valid"),
+        Index("ix_reports_created_at", "created_at"),
+        Index("ix_reports_status_created_at", "status", "created_at"),
+        Index("ix_reports_closed_at", "closed_at"),
+        Index("ix_reports_reporter_user_id", "reporter_user_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    analysis_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("analyses.id", ondelete="SET NULL"))
+    kind: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default=ReportStatus.NEW.value)
+    comment: Mapped[str | None] = mapped_column(String(REPORT_COMMENT_MAX_CHARS))
+    engine_version: Mapped[str | None] = mapped_column(String(32))
+    rules_version: Mapped[str | None] = mapped_column(String(32))
+    color: Mapped[str | None] = mapped_column(String(16))
+    reporter_kind: Mapped[str] = mapped_column(String(16))
+    reporter_user_id: Mapped[str | None] = mapped_column(String(USER_ID_MAX_CHARS))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    comment_erased_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ReportCount(Base):
+    """Class that maps how many reports one subject (address fingerprint, account, or the whole site) sent during one UTC day"""
+
+    __tablename__ = "report_counts"
+    __table_args__ = (PrimaryKeyConstraint("day", "subject", name="report_counts_pkey"),)
+
+    day: Mapped[date] = mapped_column(Date)
+    subject: Mapped[str] = mapped_column(String(SUBJECT_MAX_CHARS))
+    kind: Mapped[str] = mapped_column(String(16))
+    count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class ReportMark(Base):
+    """Class that maps one kind of report already sent by one subject about one analysis, so that it is sent only once"""
+
+    __tablename__ = "report_marks"
+    __table_args__ = (
+        PrimaryKeyConstraint("subject", "analysis_id", "kind", name="report_marks_pkey"),
+        Index("ix_report_marks_day", "day"),
+    )
+
+    subject: Mapped[str] = mapped_column(String(SUBJECT_MAX_CHARS))
+    analysis_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    kind: Mapped[str] = mapped_column(String(16))
+    day: Mapped[date] = mapped_column(Date)
 
 
 class MailKind(StrEnum):

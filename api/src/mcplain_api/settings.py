@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     quota_anonymous: int = Field(default=3, ge=1, validation_alias="MCPLAIN_QUOTA_ANONYMOUS")
     quota_account: int = Field(default=10, ge=1, validation_alias="MCPLAIN_QUOTA_ACCOUNT")
     burst_per_hour: int = Field(default=30, ge=1, validation_alias="MCPLAIN_BURST_PER_HOUR")
+    reports_per_day: int = Field(default=10, ge=1, validation_alias="MCPLAIN_REPORTS_PER_DAY")
+    reports_global_per_day: int = Field(default=500, ge=1, validation_alias="MCPLAIN_REPORTS_GLOBAL_PER_DAY")
     allow_bench_role: bool = Field(default=False, validation_alias="MCPLAIN_ALLOW_BENCH_ROLE")
     guichet_url: str = Field(default="http://guichet:3100", validation_alias="MCPLAIN_GUICHET_URL")
     auth_guard_peers: str = Field(default="guichet", validation_alias="MCPLAIN_AUTH_GUARD_PEERS")

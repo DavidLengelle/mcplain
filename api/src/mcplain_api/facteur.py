@@ -26,6 +26,7 @@ from sqlalchemy.orm import sessionmaker
 
 from mcplain_api.ai_budget import Balance, estimated_balance, is_low
 from mcplain_api.ai_logging import install_secret_filter
+from mcplain_api.reports import erase_old_comments
 from mcplain_api.db import (
     BALANCE_ALERT_ROW,
     AiAdminAlert,
@@ -44,6 +45,7 @@ LANGUAGES: tuple[str, ...] = ("en", "fr")
 ADMIN_ALERT = "admin_alert"
 BALANCE_LOW = "balance_low"
 BALANCE_CHECK_SPACING = timedelta(minutes=1)
+COMMENT_ERASE_SPACING = timedelta(hours=1)
 ADMIN_PAGE = "/admin"
 POLL_SECONDS = 5.0
 BATCH_SIZE = 20
@@ -222,14 +224,27 @@ class Facteur:
         self.retries: dict[uuid.UUID, Retry] = {}
         self.alerts_paused_until: datetime | None = None
         self.balance_checked_at: datetime | None = None
+        self.comments_erased_at: datetime | None = None
         self.stopping = threading.Event()
 
     def tick(self, now: datetime) -> None:
-        """Do one round: the outbox first, then the admin alerts, then the estimated credit once a minute"""
+        """Do one round: the outbox, the admin alerts, the estimated credit once a minute, the old comments once an hour"""
 
         self.deliver_outbox(now)
         self.deliver_alerts(now)
         self.watch_balance(now)
+        self.erase_comments(now)
+
+    def erase_comments(self, now: datetime) -> None:
+        """Erase the comments of the reports closed more than 90 days ago; the postman never reads a comment"""
+
+        if self.comments_erased_at is not None and now - self.comments_erased_at < COMMENT_ERASE_SPACING:
+            return
+        self.comments_erased_at = now
+        with self.sessions.begin() as session:
+            erased = erase_old_comments(session, now)
+        if erased:
+            LOGGER.info("comments of %d closed reports erased", erased)
 
     def deliver_outbox(self, now: datetime) -> None:
         """Send the waiting mails, delete each row once handled, and give up after three more tries"""

@@ -13,15 +13,25 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from mcplain_api.admin_accounts import AccountDesk
 from mcplain_api.admin_actions import Rerun, Retry, RetryAnswer, mark_read, rerun_analysis, retry_text
-from mcplain_api.admin_dashboard import accounts_view, ai_view, analyses_view, parse_days, refusals_view, spend_view
+from mcplain_api.admin_dashboard import (
+    accounts_view,
+    ai_view,
+    analyses_view,
+    parse_days,
+    refusals_view,
+    reports_view,
+    spend_view,
+)
 from mcplain_api.admin_journal import Action, journal_view, record_action
 from mcplain_api.credit import DeleteOutcome, add_entry, clean_note, credit_view, delete_last, note_fits, valid_amount
 from mcplain_api.db import AdminTarget, utc_now
+from mcplain_api.reports import KINDS, STATUSES, Change, change_status, reports_list
 from mcplain_api.responses import error_response, no_store, read_body
 from mcplain_api.settings import Settings
 
 DASHBOARD_PREFIX = "/api/admin/dashboard"
 CREDIT_PATH = "/api/admin/credit"
+REPORTS_PATH = "/api/admin/reports"
 JSON_MEDIA_TYPE = "application/json"
 BODY_MAX_BYTES = 1024
 RETRY_ERRORS: dict[Retry, tuple[int, str]] = {
@@ -40,6 +50,14 @@ RERUN_ERRORS: dict[Rerun, tuple[int, str]] = {
     Rerun.QUEUE_FULL: (503, "api.queue_full"),
 }
 Body = TypeVar("Body", bound=BaseModel)
+
+
+class StatusRequest(BaseModel):
+    """Class that describes the body of POST /api/admin/reports/{id}/status: handled or rejected"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["handled", "rejected"]
 
 
 class CreditRequest(BaseModel):
@@ -123,6 +141,49 @@ def add_admin_routes(app: FastAPI, sessions: sessionmaker, settings: Settings, d
         """Return the refused sign-ups and the requests with the quota used up, per day"""
 
         return await reading(days, refusals_view)
+
+    @app.get(DASHBOARD_PREFIX + "/reports")
+    async def dashboard_reports(days: str | None = Query(default=None)) -> JSONResponse:
+        """Return the reports per day and per kind, as totals only"""
+
+        return await reading(days, reports_view)
+
+    @app.get(REPORTS_PATH)
+    async def reports_read(status: str | None = Query(default=None), kind: str | None = Query(default=None)) -> JSONResponse:
+        """Return the 50 last reports, filtered by status and kind, after erasing the comments kept more than 90 days"""
+
+        if (status is not None and status not in STATUSES) or (kind is not None and kind not in KINDS):
+            return no_store(error_response(400, "api.invalid_request"))
+
+        def run() -> dict[str, Any]:
+            """Erase and read in one transaction"""
+
+            with sessions.begin() as session:
+                return reports_list(session, utc_now(), status, kind)
+
+        return no_store(JSONResponse(await run_in_threadpool(run)))
+
+    @app.post(REPORTS_PATH + "/{report_id}/status")
+    async def report_status(request: Request, report_id: str) -> JSONResponse:
+        """Mark a report handled or rejected, written in the journal of the admin"""
+
+        payload = await json_body(request, StatusRequest)
+        if isinstance(payload, JSONResponse):
+            return payload
+        identifier = uuid_of(report_id)
+        if identifier is None:
+            return no_store(error_response(404, "api.report_not_found"))
+
+        def run() -> Change:
+            """Change the status and write the journal in one transaction"""
+
+            with sessions.begin() as session:
+                return change_status(session, identifier, payload.status, utc_now())
+
+        outcome = await run_in_threadpool(run)
+        if outcome is Change.NOT_FOUND:
+            return no_store(error_response(404, "api.report_not_found"))
+        return no_store(JSONResponse({"id": str(identifier), "status": payload.status}))
 
     @app.get(DASHBOARD_PREFIX + "/accounts")
     async def dashboard_accounts(days: str | None = Query(default=None)) -> JSONResponse:

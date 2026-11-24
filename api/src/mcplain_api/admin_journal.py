@@ -23,6 +23,8 @@ class Action(StrEnum):
     ALERT_READ = "alert_read"
     CREDIT_ADD = "credit_add"
     CREDIT_DELETE = "credit_delete"
+    REPORT_HANDLED = "report_handled"
+    REPORT_REJECTED = "report_rejected"
 
 
 def record_action(session: Session, action: Action, target: AdminTarget, target_id: str, now: datetime) -> None:

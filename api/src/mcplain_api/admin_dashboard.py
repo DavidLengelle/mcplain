@@ -20,6 +20,8 @@ from mcplain_api.db import (
     Analysis,
     AnalysisState,
     QuotaRefusal,
+    Report,
+    ReportKind,
     SignupRefusal,
     as_utc,
 )
@@ -40,6 +42,8 @@ UNSUPPORTED_LANGUAGE = "unsupported_language"
 SIGNUP_LIMIT = "signup_limit"
 QUOTA_PREFIX = "quota_exhausted_"
 QUOTA_KINDS: tuple[str, ...] = ("anonymous", "account")
+REPORT_REFUSALS: tuple[str, ...] = ("report_limit", "report_global")
+REPORT_KINDS: tuple[str, ...] = tuple(kind.value for kind in ReportKind)
 RETRYABLE_TEXTS: tuple[str, ...] = (AiStatus.REJECTED.value, AiStatus.FAILED.value, AiStatus.PAUSED.value)
 FINISHED: tuple[str, ...] = (AnalysisState.DONE.value, AnalysisState.FAILED.value)
 AI_KINDS: tuple[str, ...] = tuple(kind.value for kind in AiKind)
@@ -310,12 +314,40 @@ def analyses_view(session: Session, now: datetime, days: int) -> dict[str, Any]:
     }
 
 
+def refusal_name(kind: str) -> str:
+    """Return the name of a counted refusal: a refused report keeps its own name, a used-up quota says which visitor"""
+
+    if kind in REPORT_REFUSALS:
+        return kind
+    return QUOTA_PREFIX + kind
+
+
+def reports_view(session: Session, now: datetime, days: int) -> dict[str, Any]:
+    """Return the reports sent per UTC day and per kind, as totals only, never who sent them"""
+
+    days_list = window(now, days)
+    per_day: dict[date, dict[str, int]] = {day: {kind: 0 for kind in REPORT_KINDS} for day in days_list}
+    rows = session.execute(select(Report.created_at, Report.kind).where(Report.created_at >= period_start(now, days))).all()
+    for created_at, kind in rows:
+        counts = per_day.get(day_of(created_at))
+        if counts is None or kind not in counts:
+            continue
+        counts[kind] += 1
+    totals = {kind: sum(per_day[day][kind] for day in days_list) for kind in REPORT_KINDS}
+    return {
+        "days": days,
+        "kinds": list(REPORT_KINDS),
+        "per_day": [{"day": day.isoformat(), "counts": per_day[day]} for day in days_list],
+        "totals": totals,
+    }
+
+
 def refusals_view(session: Session, now: datetime, days: int) -> dict[str, Any]:
     """Return the refused sign-ups and the requests that came with the quota used up, per day, without any address"""
 
     days_list = window(now, days)
     first = days_list[0]
-    kinds = [SIGNUP_LIMIT] + [QUOTA_PREFIX + kind for kind in QUOTA_KINDS]
+    kinds = [SIGNUP_LIMIT] + [QUOTA_PREFIX + kind for kind in QUOTA_KINDS] + list(REPORT_REFUSALS)
     per_day: dict[date, dict[str, int]] = {day: {kind: 0 for kind in kinds} for day in days_list}
     for day, count in session.execute(select(SignupRefusal.day, SignupRefusal.count).where(SignupRefusal.day >= first)).all():
         if day in per_day:
@@ -325,7 +357,7 @@ def refusals_view(session: Session, now: datetime, days: int) -> dict[str, Any]:
     ).all():
         if day not in per_day:
             continue
-        name = QUOTA_PREFIX + kind
+        name = refusal_name(kind)
         if name not in kinds:
             kinds.append(name)
             for counts in per_day.values():

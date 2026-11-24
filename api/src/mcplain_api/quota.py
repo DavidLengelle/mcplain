@@ -11,14 +11,14 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.orm import Session
 
-from mcplain_api.db import AnalysisToken, BurstCount, QuotaRefusal, QuotaUsage, UserHistory
-from mcplain_api.ip_fingerprint import utc_day
+from mcplain_api.db import AnalysisToken, BurstCount, QuotaRefusal, QuotaUsage, ReportCount, UserHistory
+from mcplain_api.ip_fingerprint import FINGERPRINT_SUBJECT_PREFIX, utc_day
 from mcplain_api.session_user import ROLE_BENCH, CurrentUser
 from mcplain_api.settings import Settings
 
 BURST_WINDOW = timedelta(hours=1)
 SECONDS_PER_MINUTE = 60
-IP_PREFIX = "ip:"
+IP_PREFIX = FINGERPRINT_SUBJECT_PREFIX
 USER_PREFIX = "user:"
 INSERTS: dict[str, Any] = {"postgresql": postgresql.insert, "sqlite": sqlite.insert}
 
@@ -87,21 +87,29 @@ def _insert(session: Session) -> Any:
     return INSERTS[session.get_bind().dialect.name]
 
 
-def take_token(session: Session, day: date, visitor: Visitor, limit: int) -> bool:
-    """Take one token in a single SQL statement: insert at one, or add one only while under the limit"""
+def take_slot(
+    session: Session, table: type[QuotaUsage] | type[ReportCount], day: date, subject: str, kind: str, limit: int
+) -> bool:
+    """Take one slot of a daily count in a single SQL statement: insert at one, or add one only while under the limit"""
 
     insert = _insert(session)
     statement = (
-        insert(QuotaUsage)
-        .values(day=day, subject=visitor.subject, kind=visitor.kind.value, count=1)
+        insert(table)
+        .values(day=day, subject=subject, kind=kind, count=1)
         .on_conflict_do_update(
-            index_elements=[QuotaUsage.day, QuotaUsage.subject],
-            set_={"count": QuotaUsage.count + 1},
-            where=QuotaUsage.count < limit,
+            index_elements=[table.day, table.subject],
+            set_={"count": table.count + 1},
+            where=table.count < limit,
         )
-        .returning(QuotaUsage.count)
+        .returning(table.count)
     )
     return session.execute(statement).first() is not None
+
+
+def take_token(session: Session, day: date, visitor: Visitor, limit: int) -> bool:
+    """Take one token of the analyses in a single SQL statement: insert at one, or add one only while under the limit"""
+
+    return take_slot(session, QuotaUsage, day, visitor.subject, visitor.kind.value, limit)
 
 
 def tokens_used(session: Session, day: date, subject: str) -> int:

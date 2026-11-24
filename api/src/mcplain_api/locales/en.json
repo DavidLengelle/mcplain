@@ -27,5 +27,7 @@
   "api.daily_text_cap": "This text was already asked 4 times today. It can be asked again tomorrow.",
   "api.daily_fuse": "The daily AI budget is used up. It comes back tomorrow.",
   "api.monthly_budget": "The monthly AI budget is used up. It comes back next month.",
-  "api.alert_not_found": "This alert does not exist."
+  "api.alert_not_found": "This alert does not exist.",
+  "api.comment_too_long": "The comment holds 500 characters at most.",
+  "api.report_not_found": "This report does not exist."
 }

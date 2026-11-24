@@ -33,6 +33,7 @@ from mcplain_api.auth_guard import GuardAction, check_action
 from mcplain_api.client_ip import FORWARDED_FOR, visitor_ip
 from mcplain_api.db import (
     INPUT_MAX_CHARS,
+    REPORT_COMMENT_MAX_CHARS,
     SELECT_MAX_CHARS,
     USER_ID_MAX_CHARS,
     AdminTarget,
@@ -46,7 +47,8 @@ from mcplain_api.db import (
 )
 from mcplain_api.history import clear_history, history_view
 from mcplain_api.outcomes import stored_failure
-from mcplain_api.quota import erase_account, minutes_to_wait
+from mcplain_api.quota import erase_account, minutes_to_wait, next_reset
+from mcplain_api.reports import Sent, comment_fits, forget_reporter, send_report
 from mcplain_api.responses import NO_STORE, error_response
 from mcplain_api.responses import no_store as _no_store
 from mcplain_api.responses import read_body as _read_body
@@ -70,6 +72,15 @@ ADMIN_PREFIX = "/api/admin"
 SAFE_METHODS: frozenset[str] = frozenset({"GET", "HEAD"})
 ADMIN_BODY_MAX_BYTES = 1024
 ACCOUNT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+REPORT_BODY_MAX_BYTES = 8192
+REPORT_ERRORS: dict[Sent, tuple[int, str]] = {
+    Sent.NOT_FOUND: (404, "api.analysis_not_found"),
+    Sent.NOT_FINISHED: (409, "api.analysis_not_finished"),
+    Sent.ALTCHA_INVALID: (403, "altcha_invalid"),
+    Sent.DUPLICATE: (409, "report_duplicate"),
+    Sent.LIMIT: (429, "report_limit"),
+    Sent.BOX_FULL: (429, "report_global"),
+}
 DESK_ERRORS: dict[DeskOutcome, tuple[int, str]] = {
     DeskOutcome.NOT_FOUND: (404, "api.account_not_found"),
     DeskOutcome.IS_ADMIN: (403, "api.cannot_ban_admin"),
@@ -92,6 +103,15 @@ class TextRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     lang: StrictStr
+
+
+class ReportRequest(BaseModel):
+    """Class that describes the body of POST /api/analyses/{id}/reports: the kind of the report and an optional comment"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["false_alarm", "missed_danger", "author_error"]
+    comment: StrictStr | None = None
 
 
 class GuardRequest(BaseModel):
@@ -362,6 +382,7 @@ def create_app(
 
             with sessions.begin() as session:
                 erase_account(session, payload.user_id)
+                forget_reporter(session, payload.user_id)
 
         await run_in_threadpool(erase)
         return JSONResponse({"ok": True}, headers={"Cache-Control": NO_STORE})
@@ -453,6 +474,51 @@ def create_app(
         """Return the translation of the author descriptions of an analysis"""
 
         return read_ai_text(analysis_id, AiKind.TRANSLATION.value, lang)
+
+    @app.post("/api/analyses/{analysis_id}/reports")
+    async def create_report(request: Request, analysis_id: str) -> JSONResponse:
+        """Keep a report about a finished analysis: website origin, ALTCHA, the daily limits; a banned account cannot report"""
+
+        if request.headers.get("origin") != settings.public_origin():
+            return _no_store(error_response(403, "api.origin_refused"))
+        media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+        if media_type != JSON_MEDIA_TYPE:
+            return _no_store(error_response(415, "api.unsupported_media_type"))
+        body = await _read_body(request, REPORT_BODY_MAX_BYTES)
+        if body is None:
+            return _no_store(error_response(413, "api.body_too_large", {"limit": str(REPORT_BODY_MAX_BYTES)}))
+        try:
+            payload = ReportRequest.model_validate_json(body)
+        except ValidationError:
+            return _no_store(error_response(400, "api.invalid_request"))
+        if not comment_fits(payload.comment):
+            return _no_store(error_response(400, "api.comment_too_long", {"limit": str(REPORT_COMMENT_MAX_CHARS)}))
+        identifier = _analysis_uuid(analysis_id)
+        if identifier is None:
+            return _no_store(error_response(404, "api.analysis_not_found"))
+        user = await signed_in(request)
+        if user is not None and user.banned:
+            return _no_store(error_response(403, "api.account_blocked"))
+        moment = utc_now()
+        outcome = await run_in_threadpool(
+            send_report,
+            sessions,
+            settings,
+            user,
+            address_of(request),
+            request.headers.get(ALTCHA_HEADER),
+            identifier,
+            payload.kind,
+            payload.comment,
+            moment,
+        )
+        if outcome is Sent.SENT:
+            return _no_store(JSONResponse({"ok": True}, status_code=201))
+        status, code = REPORT_ERRORS[outcome]
+        params = {}
+        if outcome in (Sent.LIMIT, Sent.BOX_FULL):
+            params["resets_at"] = next_reset(moment).isoformat()
+        return _no_store(error_response(status, code, params))
 
     @app.get("/api/altcha/challenge")
     def altcha_challenge() -> JSONResponse:

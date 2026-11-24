@@ -9,11 +9,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from mcplain_api.db import AnalysisToken, IpSalt, QuotaUsage, SignupCount
+from mcplain_api.db import AnalysisToken, IpSalt, QuotaUsage, ReportCount, ReportMark, SignupCount
 
 SALT_BYTES = 32
 SALT_KEEP_DAYS = 2
 UNKNOWN_ADDRESS = "unknown"
+FINGERPRINT_SUBJECT_PREFIX = "ip:"
 
 
 def utc_day(moment: datetime) -> date:
@@ -47,10 +48,14 @@ def ip_fingerprint(session: Session, ip: str | None, moment: datetime) -> str:
 
 
 def purge_old_fingerprints(session: Session, moment: datetime) -> None:
-    """Delete the salts, the sign-up counts, the quota rows and the tokens older than two days, with their fingerprints"""
+    """Delete the salts, the sign-up, quota and report counts, the tokens and the report marks of fingerprints, after two days"""
 
     oldest_kept = utc_day(moment) - timedelta(days=SALT_KEEP_DAYS - 1)
     session.execute(delete(IpSalt).where(IpSalt.day < oldest_kept))
     session.execute(delete(SignupCount).where(SignupCount.day < oldest_kept))
     session.execute(delete(QuotaUsage).where(QuotaUsage.day < oldest_kept))
     session.execute(delete(AnalysisToken).where(AnalysisToken.day < oldest_kept))
+    session.execute(delete(ReportCount).where(ReportCount.day < oldest_kept))
+    session.execute(
+        delete(ReportMark).where(ReportMark.day < oldest_kept, ReportMark.subject.startswith(FINGERPRINT_SUBJECT_PREFIX))
+    )

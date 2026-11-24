@@ -27,5 +27,7 @@
   "api.daily_text_cap": "Ce texte a déjà été demandé 4 fois aujourd'hui. Il pourra l'être de nouveau demain.",
   "api.daily_fuse": "Le budget IA du jour est épuisé. Il revient demain.",
   "api.monthly_budget": "Le budget IA du mois est épuisé. Il revient le mois prochain.",
-  "api.alert_not_found": "Cette alerte n'existe pas."
+  "api.alert_not_found": "Cette alerte n'existe pas.",
+  "api.comment_too_long": "Le commentaire fait 500 caractères au plus.",
+  "api.report_not_found": "Ce signalement n'existe pas."
 }
