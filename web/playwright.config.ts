@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type ReporterDescription } from "@playwright/test";
 
 const SITE_PORT = 3100;
 const MESSAGES_PORT = 3101;
@@ -7,11 +7,18 @@ export const UMAMI_RECORDS = `http://127.0.0.1:${UMAMI_PORT}/records`;
 export const TEST_WEBSITE_ID = "b59e9c65-ae32-47f1-8400-119fcf4861c4";
 
 
+function reporters(): ReporterDescription[] {
+  if (process.env.CI) {
+    return [["github"], ["list"]];
+  }
+  return [["list"]];
+}
+
 export default defineConfig({
   testDir: "tests/e2e",
   testIgnore: ["stack/**"],
   forbidOnly: Boolean(process.env.CI),
-  reporter: "list",
+  reporter: reporters(),
   use: {
     baseURL: `http://127.0.0.1:${SITE_PORT}`,
     locale: "en-US",
