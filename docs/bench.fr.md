@@ -129,6 +129,14 @@ et ne pousse que s'il est vert :
 uv run --locked python bench.py run --check --mask-red --output results/local.json
 ```
 
+« Comme en CI » veut dire **la même commande**, sur ta pile, avec **ton** compte du banc : celui que `scripts/init-secrets.sh` a mis
+dans ton `.env` (`bench-xxxxxxxx@bench.mcplain.invalid`, avec un mot de passe tiré au hasard). Jamais l'adresse
+`bench@bench.mcplain.invalid` ni le mot de passe « test-only » écrits dans `bench.yml` : ces valeurs sont publiques, elles ne vivent
+que dans la pile jetable de GitHub Actions. Le 12 novembre 2026, un compte a été créé par erreur sur la pile locale avec ces
+valeurs ; il est resté en base jusqu'à la séance 9c-1, qui l'a supprimé par le chemin normal. Depuis, `make-bench-account.sh`
+refuse ces valeurs hors de GitHub Actions (adresse de la CI, ou mot de passe qui contient `test-only`), avant tout appel à la pile ;
+`bench/tests/test_bench_account_script.py` le vérifie.
+
 En CI, le workflow construit les
 images, lance la pile avec docker compose (API, chef d'atelier, guichet et site, avec des secrets « test only » écrits en dur),
 crée le compte du banc avec `scripts/make-bench-account.sh`, puis lance le banc par le site sur les dernières versions des serveurs
