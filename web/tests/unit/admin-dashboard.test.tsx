@@ -149,6 +149,17 @@ function fakeApi(options: { balance?: number | null; low?: boolean; retry?: { st
       if (url.startsWith("/api/admin/dashboard/refusals")) {
         return answer(200, refusals(count));
       }
+      if (url.startsWith("/api/admin/dashboard/reports")) {
+        return answer(200, {
+          days: count,
+          kinds: ["false_alarm", "missed_danger", "author_error"],
+          per_day: days(count, () => ({ counts: { false_alarm: 1, missed_danger: 0, author_error: 0 } })),
+          totals: { false_alarm: count, missed_danger: 0, author_error: 0 },
+        });
+      }
+      if (url.startsWith("/api/admin/reports")) {
+        return answer(200, { reports: [], new_count: 0 });
+      }
       if (url.startsWith("/api/admin/dashboard/accounts")) {
         if (options.accountsDown) {
           return answer(503, { error: { code: "api.guichet_unavailable", params: {} } });
@@ -192,6 +203,8 @@ describe("the admin dashboard", () => {
       "Rejets de l'IA",
       "Notices à relancer",
       "Échecs d'analyse",
+      "Signalements",
+      "Signalements par jour",
       "Analyses par jour",
       "Couleurs des verdicts",
       "MCP les plus analysés",
@@ -219,7 +232,7 @@ describe("the admin dashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "7 j" }));
     await waitFor(() => expect(within(screen.getByTestId("admin-spend-days")).getAllByRole("listitem")).toHaveLength(7));
     expect(screen.getByRole("button", { name: "7 j" }).getAttribute("aria-pressed")).toBe("true");
-    for (const name of ["spend", "ai", "analyses", "refusals", "accounts"]) {
+    for (const name of ["spend", "ai", "analyses", "refusals", "reports", "accounts"]) {
       expect(calls.some((call) => call.url === `/api/admin/dashboard/${name}?days=7`)).toBe(true);
     }
     const before = calls.length;

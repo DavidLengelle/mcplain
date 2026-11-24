@@ -89,6 +89,55 @@ async function serveDashboard(page: Page, retry: { status: number; body: unknown
       });
       return;
     }
+    if (path === "/api/admin/dashboard/reports") {
+      await fulfill(route, 200, {
+        days: count,
+        kinds: ["false_alarm", "missed_danger", "author_error"],
+        per_day: days(count, (index) => ({ counts: { false_alarm: index % 2, missed_danger: Number(index % 3 === 0), author_error: 0 } })),
+        totals: { false_alarm: 15, missed_danger: 10, author_error: 1 },
+      });
+      return;
+    }
+    if (path === "/api/admin/reports") {
+      await fulfill(route, 200, {
+        new_count: 2,
+        reports: [
+          {
+            id: "55555555-5555-4555-8555-555555555555",
+            analysis_id: ANALYSIS,
+            kind: "author_error",
+            unverified: true,
+            status: "new",
+            comment: "The tool fetch_url only reads the page; it never writes a file. A very long word: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            engine_version: "0.6.1",
+            rules_version: "4",
+            color: "orange",
+            reporter_kind: "account",
+            account_id: "Kq3x9ZbV0eLm4N7pR2sT8uWy",
+            created_at: "2026-12-01T08:00:00+00:00",
+            closed_at: null,
+            comment_erased_at: null,
+          },
+          {
+            id: "66666666-6666-4666-8666-666666666666",
+            analysis_id: ANALYSIS,
+            kind: "false_alarm",
+            unverified: false,
+            status: "handled",
+            comment: null,
+            engine_version: "0.6.1",
+            rules_version: "4",
+            color: "red",
+            reporter_kind: "anonymous",
+            account_id: null,
+            created_at: "2026-11-30T08:00:00+00:00",
+            closed_at: "2026-11-30T09:00:00+00:00",
+            comment_erased_at: null,
+          },
+        ],
+      });
+      return;
+    }
     if (path === "/api/admin/dashboard/accounts") {
       await fulfill(route, 200, { days: count, per_day: days(count, (index) => ({ count: index % 3 })), total: count });
       return;
@@ -181,6 +230,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.goto("/fr/admin");
       await expect(page.getByTestId("admin-top")).toBeVisible();
       await expect(page.getByTestId("admin-journal")).toBeVisible();
+      await expect(page.getByTestId("admin-reports")).toBeVisible();
       const scroll = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(scroll).toBeLessThanOrEqual(width);
       await page.screenshot({ path: join(SCREENS, `admin-${theme}-${width}.png`), fullPage: true });
