@@ -9,6 +9,11 @@ export type AuthErrorKey =
   | "wrongPassword"
   | "invalidEmail"
   | "eraseUnavailable"
+  | "accountBlocked"
+  | "wrongCode"
+  | "codeExpired"
+  | "locked"
+  | "signInAgain"
   | "unavailable";
 
 export type AuthError = { code?: string | undefined; status?: number | undefined } | null | undefined;
@@ -28,6 +33,13 @@ const BY_CODE: Record<string, AuthErrorKey> = {
   INVALID_TOKEN: "invalidToken",
   TOKEN_EXPIRED: "invalidToken",
   ERASE_UNAVAILABLE: "eraseUnavailable",
+  ACCOUNT_BLOCKED: "accountBlocked",
+  INVALID_CODE: "wrongCode",
+  INVALID_BACKUP_CODE: "wrongCode",
+  TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE: "codeExpired",
+  INVALID_TWO_FACTOR_COOKIE: "codeExpired",
+  ACCOUNT_TEMPORARILY_LOCKED: "locked",
+  TWO_FACTOR_REQUIRED: "signInAgain",
 };
 
 export function authErrorKey(error: AuthError): AuthErrorKey {

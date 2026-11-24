@@ -6,10 +6,12 @@ import { useState, type FormEvent } from "react";
 import { RawText } from "@/components/raw-text";
 import { Link, useRouter } from "@/i18n/navigation";
 import { authClient } from "@/lib/auth-client";
+import { isAdminRole } from "@/lib/two-factor";
 
 import { AccountCard, BUTTON_CLASS, FormMessage, LINK_CLASS, SECONDARY_BUTTON_CLASS } from "./form-parts";
 import { HistorySection } from "./history-section";
 import { PasswordField } from "./password-field";
+import { SecuritySection } from "./security-section";
 import { useAuthAction } from "./use-auth-action";
 
 function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
@@ -140,6 +142,14 @@ export function AccountPanel({ linkFailed = false }: { linkFailed?: boolean }) {
           {t("menu.signOut")}
         </button>
       </div>
+      {isAdminRole(user) && (
+        <p>
+          <Link href="/admin" data-testid="admin-link" className={LINK_CLASS}>
+            {t("page.adminLink")}
+          </Link>
+        </p>
+      )}
+      {isAdminRole(user) && <SecuritySection user={user} />}
       <HistorySection />
       <DeleteAccount onDeleted={() => setDeleted(true)} />
     </AccountCard>

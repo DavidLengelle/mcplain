@@ -5,10 +5,12 @@ import { useRef, useState, type FormEvent } from "react";
 
 import { getPathname, Link, useRouter } from "@/i18n/navigation";
 import { authClient, authHeaders } from "@/lib/auth-client";
+import { asksSecondFactor } from "@/lib/two-factor";
 
 import { AltchaField, type AltchaHandle } from "./altcha-field";
 import { AccountCard, BUTTON_CLASS, EmailField, FormMessage, LINK_CLASS } from "./form-parts";
 import { PasswordField } from "./password-field";
+import { TwoFactorStep } from "./two-factor-step";
 import { useAuthAction } from "./use-auth-action";
 
 export function SignInForm() {
@@ -19,11 +21,13 @@ export function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordReset, setPasswordReset] = useState(0);
+  const [secondStep, setSecondStep] = useState(false);
   const { pending, error, setError, run } = useAuthAction();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPasswordReset((count) => count + 1);
+    let second = false;
     const done = await run(async () => {
       const payload = (await altcha.current?.solve()) ?? null;
       if (payload === null) {
@@ -31,12 +35,28 @@ export function SignInForm() {
         return null;
       }
       const callbackURL = getPathname({ href: "/account", locale });
-      return authClient.signIn.email({ email: email.trim(), password, callbackURL }, { headers: authHeaders(locale, payload) });
+      const outcome = await authClient.signIn.email({ email: email.trim(), password, callbackURL }, { headers: authHeaders(locale, payload) });
+      second = !outcome.error && asksSecondFactor(outcome.data);
+      return outcome;
     });
     if (done) {
       setPassword("");
+    }
+    if (done && second) {
+      setSecondStep(true);
+      return;
+    }
+    if (done) {
       router.push("/account");
     }
+  }
+
+  if (secondStep) {
+    return (
+      <AccountCard title={t("twoFactor.title")}>
+        <TwoFactorStep onDone={() => router.push("/account")} onRestart={() => setSecondStep(false)} />
+      </AccountCard>
+    );
   }
 
   return (

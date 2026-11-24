@@ -1,3 +1,4 @@
+import { twoFactorClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 export const AUTH_BASE_PATH = "/api/auth";
@@ -6,7 +7,7 @@ export const ALTCHA_HEADER = "x-altcha";
 export const MIN_PASSWORD_LENGTH = 10;
 export const MAX_PASSWORD_LENGTH = 128;
 
-export const authClient = createAuthClient({ basePath: AUTH_BASE_PATH });
+export const authClient = createAuthClient({ basePath: AUTH_BASE_PATH, plugins: [twoFactorClient()] });
 
 export function authHeaders(locale: string, altcha: string | null = null): Record<string, string> {
   const headers: Record<string, string> = { [LANG_HEADER]: locale };

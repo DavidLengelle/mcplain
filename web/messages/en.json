@@ -608,7 +608,8 @@
       "deleteConfirmIntro": "To confirm, write your password.",
       "deleteConfirm": "YES, DELETE FOR GOOD",
       "deleteCancel": "Cancel",
-      "deleted": "Your account is deleted."
+      "deleted": "Your account is deleted.",
+      "adminLink": "Open the admin desk"
     },
     "errors": {
       "invalidCredentials": "Email or password incorrect.",
@@ -621,7 +622,12 @@
       "wrongPassword": "Wrong password.",
       "invalidEmail": "This email address does not look valid.",
       "unavailable": "The accounts do not answer right now. Try again in a moment.",
-      "eraseUnavailable": "The deletion could not be done. Try again in a moment."
+      "eraseUnavailable": "The deletion could not be done. Try again in a moment.",
+      "accountBlocked": "This account is blocked.",
+      "wrongCode": "This code is not the right one. Check that the time of your phone is right, then try again.",
+      "codeExpired": "Too many tries, or too long a wait. Start the sign-in again.",
+      "locked": "Too many wrong codes. The account is locked for 15 minutes.",
+      "signInAgain": "Sign in with your password, then your code."
     },
     "history": {
       "title": "My analyses",
@@ -636,6 +642,47 @@
       "clearConfirmIntro": "The whole list will be cleared. The reports themselves can still be viewed.",
       "clearConfirm": "YES, CLEAR IT",
       "clearCancel": "Cancel"
+    },
+    "twoFactor": {
+      "title": "Verification code",
+      "intro": "Open Google Authenticator and type the 6-digit code shown for MCPlain.",
+      "codeLabel": "6-digit code",
+      "codeHelp": "The code changes every 30 seconds. You can paste it.",
+      "backupIntro": "Type one of your backup codes. Each code works only once.",
+      "backupLabel": "Backup code",
+      "backupHelp": "You got it when you turned on two-step verification.",
+      "submit": "VERIFY",
+      "useBackup": "Use a backup code",
+      "useApp": "Use the code of the app",
+      "restart": "Start the sign-in again"
+    },
+    "security": {
+      "title": "Security",
+      "intro": "Two-step verification protects the admin account: on top of the password, it asks for a 6-digit code that changes every 30 seconds in Google Authenticator. Without it, your account has no admin power.",
+      "off": "Two-step verification is off. Your account has no admin power.",
+      "on": "Two-step verification is on. The code is asked at every sign-in.",
+      "enable": "TURN ON TWO-STEP VERIFICATION",
+      "regenerate": "Make new backup codes",
+      "disable": "Turn off two-step verification",
+      "enablePassword": "To start, type your password.",
+      "enableConfirm": "CONTINUE",
+      "regeneratePassword": "To make new codes, type your password. The old codes will stop working.",
+      "regenerateConfirm": "MAKE NEW CODES",
+      "disablePassword": "To confirm, type your password.",
+      "disableConfirm": "TURN OFF",
+      "disableWarning": "Careful: you lose your admin powers until you turn it on again.",
+      "cancel": "Cancel",
+      "stepOpen": "Open Google Authenticator on your phone, tap the + button, then “Enter a setup key”.",
+      "stepName": "In “Account”, type MCPlain.",
+      "stepKey": "In “Key”, copy this key (the spaces do not matter):",
+      "stepType": "Keep “Time based”, then tap “Add”.",
+      "stepCode": "Type below the 6-digit code the app shows.",
+      "confirmKey": "CONFIRM",
+      "codesTitle": "Your backup codes",
+      "codesIntro": "If you lose your phone, each of these codes replaces the code of the app once.",
+      "codesOnce": "They will never be shown again. Print them or copy them, and keep them away from your phone.",
+      "print": "Print",
+      "codesDone": "I HAVE STORED MY CODES"
     }
   },
   "quota": {
@@ -651,6 +698,51 @@
       "createAccount": "Create an account",
       "account": "You used your {limit} analyses of the day. They come back at {time}.",
       "cacheOpen": "MCP servers already analyzed can still be viewed."
+    }
+  },
+  "admin": {
+    "metaTitle": "Admin desk",
+    "title": "Admin desk",
+    "loading": "Loading…",
+    "signedOut": "No account is signed in on this browser.",
+    "signInLink": "Sign in",
+    "notAdmin": "This page is for the admin only.",
+    "needTwoFactor": "Turn on two-step verification",
+    "securityLink": "Go to the Security part of my account",
+    "dashboardTitle": "Dashboard",
+    "dashboardLater": "Dashboard: session 9c-2",
+    "accounts": {
+      "title": "Accounts",
+      "intro": "Find an account by its exact email address. There is no list of all the accounts.",
+      "searchLabel": "Exact email address",
+      "search": "FIND",
+      "missing": "No account has this address.",
+      "refused": "The admin desk is closed to you: sign in again with your code.",
+      "failed": "The accounts service does not answer. Try again in a moment.",
+      "email": "Email address",
+      "role": "Role",
+      "created": "Created on",
+      "twoFactor": "Two-step verification",
+      "state": "State",
+      "stateActive": "Active",
+      "stateBlocked": "Blocked since {date}",
+      "reason": "Reason (seen by the admin only)",
+      "reasonLabel": "Reason of the block (optional, seen by the admin only)",
+      "reasonHelp": "{count} characters left. The person only sees “This account is blocked.”.",
+      "ban": "BLOCK THIS ACCOUNT",
+      "unban": "Unblock this account",
+      "yes": "Yes",
+      "no": "No",
+      "adminNotBlockable": "An admin account cannot be blocked.",
+      "selfNotBlockable": "This is your own account: you cannot block it.",
+      "outcome": {
+        "done": "Done.",
+        "self": "You cannot block your own account.",
+        "admin": "An admin account cannot be blocked.",
+        "missing": "This account no longer exists.",
+        "refused": "The admin desk is closed to you: sign in again with your code.",
+        "failed": "The accounts service does not answer. Try again in a moment."
+      }
     }
   }
 }

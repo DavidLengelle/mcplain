@@ -253,3 +253,25 @@ html {
     @apply text-muted;
   }
 }
+
+@media print {
+  html[data-printing="codes"] body * {
+    visibility: hidden;
+  }
+
+  html[data-printing="codes"] [data-print-area],
+  html[data-printing="codes"] [data-print-area] * {
+    visibility: visible;
+  }
+
+  html[data-printing="codes"] [data-print-area] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  html[data-printing="codes"] [data-print-hide] {
+    display: none;
+  }
+}

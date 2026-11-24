@@ -608,7 +608,8 @@
       "deleteConfirmIntro": "Pour confirmer, écris ton mot de passe.",
       "deleteConfirm": "OUI, SUPPRIMER POUR DE BON",
       "deleteCancel": "Annuler",
-      "deleted": "Ton compte est supprimé."
+      "deleted": "Ton compte est supprimé.",
+      "adminLink": "Ouvrir le bureau admin"
     },
     "errors": {
       "invalidCredentials": "E-mail ou mot de passe incorrect.",
@@ -621,7 +622,12 @@
       "wrongPassword": "Mot de passe incorrect.",
       "invalidEmail": "Cette adresse e-mail ne semble pas valide.",
       "unavailable": "Les comptes ne répondent pas pour le moment. Réessaie dans un instant.",
-      "eraseUnavailable": "La suppression n'a pas pu se faire. Réessaie dans un instant."
+      "eraseUnavailable": "La suppression n'a pas pu se faire. Réessaie dans un instant.",
+      "accountBlocked": "Ce compte est bloqué.",
+      "wrongCode": "Ce code n'est pas le bon. Vérifie que l'heure de ton téléphone est juste, puis réessaie.",
+      "codeExpired": "Trop d'essais, ou attente trop longue. Recommence la connexion.",
+      "locked": "Trop de codes faux. Le compte est verrouillé pendant 15 minutes.",
+      "signInAgain": "Connecte-toi avec ton mot de passe, puis ton code."
     },
     "history": {
       "title": "Mes analyses",
@@ -636,6 +642,47 @@
       "clearConfirmIntro": "Toute la liste sera effacée. Les rapports eux-mêmes restent consultables.",
       "clearConfirm": "OUI, EFFACER",
       "clearCancel": "Annuler"
+    },
+    "twoFactor": {
+      "title": "Code de vérification",
+      "intro": "Ouvre Google Authenticator et écris le code à 6 chiffres affiché pour MCPlain.",
+      "codeLabel": "Code à 6 chiffres",
+      "codeHelp": "Le code change toutes les 30 secondes. Tu peux le coller.",
+      "backupIntro": "Écris un de tes codes de secours. Chaque code ne sert qu'une fois.",
+      "backupLabel": "Code de secours",
+      "backupHelp": "Tu l'as reçu en activant la double authentification.",
+      "submit": "VÉRIFIER",
+      "useBackup": "Utiliser un code de secours",
+      "useApp": "Utiliser le code de l'application",
+      "restart": "Recommencer la connexion"
+    },
+    "security": {
+      "title": "Sécurité",
+      "intro": "La double authentification protège le compte admin : en plus du mot de passe, il faut un code à 6 chiffres qui change toutes les 30 secondes dans Google Authenticator. Sans elle, ton compte n'a aucun pouvoir d'admin.",
+      "off": "La double authentification est désactivée. Ton compte n'a pas de pouvoir d'admin.",
+      "on": "La double authentification est active. Le code est demandé à chaque connexion.",
+      "enable": "ACTIVER LA DOUBLE AUTHENTIFICATION",
+      "regenerate": "Créer de nouveaux codes de secours",
+      "disable": "Désactiver la double authentification",
+      "enablePassword": "Pour commencer, écris ton mot de passe.",
+      "enableConfirm": "CONTINUER",
+      "regeneratePassword": "Pour créer de nouveaux codes, écris ton mot de passe. Les anciens codes ne marcheront plus.",
+      "regenerateConfirm": "CRÉER DE NOUVEAUX CODES",
+      "disablePassword": "Pour confirmer, écris ton mot de passe.",
+      "disableConfirm": "DÉSACTIVER",
+      "disableWarning": "Attention : tu perds tes pouvoirs d'admin tant que tu ne la réactives pas.",
+      "cancel": "Annuler",
+      "stepOpen": "Ouvre Google Authenticator sur ton téléphone, touche le bouton +, puis « Saisir une clé de configuration ».",
+      "stepName": "Dans « Compte », écris MCPlain.",
+      "stepKey": "Dans « Clé », recopie cette clé (les espaces ne comptent pas) :",
+      "stepType": "Laisse « Basée sur l'heure », puis touche « Ajouter ».",
+      "stepCode": "Écris ci-dessous le code à 6 chiffres que l'application affiche.",
+      "confirmKey": "CONFIRMER",
+      "codesTitle": "Tes codes de secours",
+      "codesIntro": "Si tu perds ton téléphone, chacun de ces codes remplace une fois le code de l'application.",
+      "codesOnce": "Ils ne s'afficheront plus jamais. Imprime-les ou recopie-les, et range-les loin de ton téléphone.",
+      "print": "Imprimer",
+      "codesDone": "J'AI RANGÉ MES CODES"
     }
   },
   "quota": {
@@ -651,6 +698,51 @@
       "createAccount": "Créer un compte",
       "account": "Tu as utilisé tes {limit} analyses du jour. Elles reviennent à {time}.",
       "cacheOpen": "Les MCP déjà analysés restent consultables."
+    }
+  },
+  "admin": {
+    "metaTitle": "Bureau admin",
+    "title": "Bureau admin",
+    "loading": "Chargement…",
+    "signedOut": "Aucun compte n'est connecté sur ce navigateur.",
+    "signInLink": "Se connecter",
+    "notAdmin": "Cette page est réservée à l'admin.",
+    "needTwoFactor": "Active la double authentification",
+    "securityLink": "Aller à la section Sécurité de mon compte",
+    "dashboardTitle": "Tableau de bord",
+    "dashboardLater": "Tableau de bord : séance 9c-2",
+    "accounts": {
+      "title": "Comptes",
+      "intro": "Cherche un compte par son adresse e-mail exacte. Il n'existe pas de liste de tous les comptes.",
+      "searchLabel": "Adresse e-mail exacte",
+      "search": "CHERCHER",
+      "missing": "Aucun compte n'a cette adresse.",
+      "refused": "Le bureau admin t'est fermé : reconnecte-toi avec ton code.",
+      "failed": "Le service des comptes ne répond pas. Réessaie dans un instant.",
+      "email": "Adresse e-mail",
+      "role": "Rôle",
+      "created": "Créé le",
+      "twoFactor": "Double authentification",
+      "state": "État",
+      "stateActive": "Actif",
+      "stateBlocked": "Bloqué depuis le {date}",
+      "reason": "Motif (vu par l'admin seulement)",
+      "reasonLabel": "Motif du blocage (facultatif, vu par l'admin seulement)",
+      "reasonHelp": "Encore {count} caractères. La personne voit seulement « Ce compte est bloqué. ».",
+      "ban": "BLOQUER CE COMPTE",
+      "unban": "Débloquer ce compte",
+      "yes": "Oui",
+      "no": "Non",
+      "adminNotBlockable": "Un compte admin ne peut pas être bloqué.",
+      "selfNotBlockable": "C'est ton propre compte : tu ne peux pas le bloquer.",
+      "outcome": {
+        "done": "C'est fait.",
+        "self": "Tu ne peux pas bloquer ton propre compte.",
+        "admin": "Un compte admin ne peut pas être bloqué.",
+        "missing": "Ce compte n'existe plus.",
+        "refused": "Le bureau admin t'est fermé : reconnecte-toi avec ton code.",
+        "failed": "Le service des comptes ne répond pas. Réessaie dans un instant."
+      }
     }
   }
 }
