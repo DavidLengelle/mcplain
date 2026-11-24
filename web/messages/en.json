@@ -38,7 +38,8 @@
   },
   "footer": {
     "license": "MCPlain · Free software under the AGPL-3.0 license · A report does not prove that a server is safe.",
-    "sourceCode": "Source code"
+    "sourceCode": "Source code",
+    "privacy": "Privacy"
   },
   "engineNotice": {
     "title": "Detailed explanations are unavailable",
@@ -573,6 +574,33 @@
     "title": "Page not found",
     "body": "This page does not exist, or the analysis was not found.",
     "home": "Back to the home page"
+  },
+  "privacy": {
+    "metaTitle": "Privacy, MCPlain",
+    "title": "Privacy",
+    "intro": "This page says, in plain words, what MCPlain keeps about you, for how long, and why.",
+    "visits": {
+      "title": "Counting the visits (Umami)",
+      "what": "MCPlain counts its visits with Umami, a free tool installed on the same server as the website. No data goes to another company, and this dashboard is never public.",
+      "counted": "What is counted: the page you see (in the address of a report, the identifier is replaced by [id]), the site you come from (its name only), the title of the page, the language and the size of the screen, the kind of browser and device, and the approximate country, region and city found from your IP address. The IP address itself is not kept.",
+      "notCounted": "What is not counted: the parameters of the addresses, the account pages and the admin page, what you type or paste. Umami sets no cookie and writes nothing in your browser. It cannot recognize you from one day to the next.",
+      "signals": "If your browser sends the “Do Not Track” or the “Global Privacy Control” signal, nothing is counted."
+    },
+    "cookie": {
+      "title": "The cookies",
+      "session": "MCPlain sets only two kinds of cookies, never for advertising nor for counting visits. The NEXT_LOCALE cookie remembers the language of the site (fr or en) when it is not the one of your browser. When you sign in, sign-in cookies keep you signed in (and, for the admin, finish the two-factor check). This is why there is no consent banner.",
+      "theme": "If you pick a theme (light or dark), this choice is kept in your browser, and nowhere else."
+    },
+    "address": {
+      "title": "Your IP address",
+      "fingerprint": "To limit the number of analyses, sign-ups and reports per network, MCPlain computes a fingerprint of your IP address: a one-way calculation (HMAC-SHA256) with a salt, a secret number drawn at random each day. The address itself is never written, neither in the database nor in the logs.",
+      "salt": "The salt is erased after two days. After that, even MCPlain cannot link a fingerprint to an address any more, and the counts of those days are erased too."
+    },
+    "email": {
+      "title": "Your e-mail address",
+      "links": "If you create an account, MCPlain keeps your e-mail address to send you one-time links: confirm the address, choose a new password. No newsletter, no advertising.",
+      "deletion": "Deleting your account erases your address, your history and your counts. Your reports stay to fix the rules, but without your account and without your comment."
+    }
   },
   "account": {
     "menu": {

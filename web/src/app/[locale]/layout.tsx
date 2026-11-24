@@ -14,6 +14,7 @@ import { routing } from "@/i18n/routing";
 import { TOP_ID } from "@/lib/constants";
 import { NONCE_HEADER } from "@/lib/security-headers";
 import { THEME_SCRIPT_PATH } from "@/lib/theme";
+import { UMAMI_BEFORE_SEND, UMAMI_GUARD_PATH, UMAMI_HOST_PATH, UMAMI_SCRIPT_PATH, websiteId } from "@/lib/umami";
 
 import { plexMono, saira, sairaCondensed } from "../fonts";
 import "../globals.css";
@@ -34,6 +35,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   const messages = await getMessages();
   const engineAvailable = Object.keys(messages.engine ?? {}).length > 0;
   const t = await getTranslations("a11y");
+  const site = websiteId();
 
   return (
     <html
@@ -43,6 +45,20 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     >
       <body className="flex min-h-full flex-col bg-page text-ink">
         <Script src={THEME_SCRIPT_PATH} strategy="beforeInteractive" nonce={nonce} />
+        {site !== null && <Script src={UMAMI_GUARD_PATH} strategy="beforeInteractive" nonce={nonce} />}
+        {site !== null && (
+          <Script
+            src={UMAMI_SCRIPT_PATH}
+            strategy="afterInteractive"
+            nonce={nonce}
+            data-website-id={site}
+            data-host-url={UMAMI_HOST_PATH}
+            data-before-send={UMAMI_BEFORE_SEND}
+            data-do-not-track="true"
+            data-exclude-search="true"
+            data-exclude-hash="true"
+          />
+        )}
         <NextIntlClientProvider>
           <div id={TOP_ID} />
           <a

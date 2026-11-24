@@ -38,7 +38,8 @@
   },
   "footer": {
     "license": "MCPlain · Logiciel libre sous licence AGPL-3.0 · Un rapport ne prouve pas qu'un serveur est sûr.",
-    "sourceCode": "Code source"
+    "sourceCode": "Code source",
+    "privacy": "Confidentialité"
   },
   "engineNotice": {
     "title": "Explications détaillées indisponibles",
@@ -573,6 +574,33 @@
     "title": "Page introuvable",
     "body": "Cette page n'existe pas, ou l'analyse est introuvable.",
     "home": "Retour à l'accueil"
+  },
+  "privacy": {
+    "metaTitle": "Confidentialité, MCPlain",
+    "title": "Confidentialité",
+    "intro": "Cette page dit, en langage courant, ce que MCPlain garde sur toi, combien de temps, et pourquoi.",
+    "visits": {
+      "title": "La mesure des visites (Umami)",
+      "what": "MCPlain compte ses visites avec Umami, un outil libre installé sur le même serveur que le site. Aucune donnée ne part chez une autre entreprise, et ce tableau n'est jamais public.",
+      "counted": "Ce qui est compté : la page vue (dans l'adresse d'un rapport, l'identifiant est remplacé par [id]), le site d'où tu viens (son nom seulement), le titre de la page, la langue et la taille de l'écran, le type de navigateur et d'appareil, et le pays, la région et la ville approximatifs déduits de ton adresse IP. L'adresse IP elle-même n'est pas gardée.",
+      "notCounted": "Ce qui n'est pas compté : les paramètres des adresses, les pages de compte et la page admin, ce que tu tapes ou colles. Umami ne pose aucun cookie et n'écrit rien dans ton navigateur. Il ne peut pas te reconnaître d'un jour à l'autre.",
+      "signals": "Si ton navigateur envoie le signal « Do Not Track » (ne pas me suivre) ou « Global Privacy Control », rien n'est compté."
+    },
+    "cookie": {
+      "title": "Les cookies",
+      "session": "MCPlain ne pose que deux sortes de cookies, et jamais pour la publicité ni la mesure des visites. Le cookie NEXT_LOCALE retient la langue du site (fr ou en) quand elle n'est pas celle de ton navigateur. Quand tu te connectes, des cookies de connexion te gardent connecté (et, pour l'admin, finissent la double authentification). C'est pourquoi il n'y a pas de bandeau de consentement.",
+      "theme": "Si tu choisis un thème (clair ou sombre), ce choix est rangé dans ton navigateur, et nulle part ailleurs."
+    },
+    "address": {
+      "title": "Ton adresse IP",
+      "fingerprint": "Pour limiter le nombre d'analyses, d'inscriptions et de signalements par réseau, MCPlain calcule une empreinte de ton adresse IP : un calcul à sens unique (HMAC-SHA256) avec un sel, c'est-à-dire un nombre secret tiré au hasard chaque jour. L'adresse elle-même n'est jamais écrite, ni en base ni dans les journaux.",
+      "salt": "Le sel est effacé après deux jours. Ensuite, même MCPlain ne peut plus relier une empreinte à une adresse, et les compteurs de ces jours-là sont effacés aussi."
+    },
+    "email": {
+      "title": "Ton adresse e-mail",
+      "links": "Si tu crées un compte, MCPlain garde ton adresse e-mail pour t'envoyer des liens à usage unique : confirmer l'adresse, choisir un nouveau mot de passe. Pas de lettre d'information, pas de publicité.",
+      "deletion": "Supprimer ton compte efface ton adresse, ton historique et tes compteurs. Tes signalements restent pour corriger les règles, mais sans ton compte et sans ton commentaire."
+    }
   },
   "account": {
     "menu": {

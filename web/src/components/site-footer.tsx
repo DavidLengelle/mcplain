@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 
+import { Link } from "@/i18n/navigation";
 import { SOURCE_CODE_URL } from "@/lib/constants";
 
 export function SiteFooter() {
@@ -8,9 +9,14 @@ export function SiteFooter() {
   return (
     <footer className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center justify-between gap-2 border-t border-line px-4 pt-4 pb-12 text-sm text-faint sm:px-6">
       <span>{t("license")}</span>
-      <a href={SOURCE_CODE_URL} className="inline-flex min-h-11 items-center text-accent hover:text-accent-hover">
-        {t("sourceCode")}
-      </a>
+      <span className="flex flex-wrap items-center gap-x-5">
+        <Link href="/privacy" className="inline-flex min-h-11 items-center text-accent hover:text-accent-hover">
+          {t("privacy")}
+        </Link>
+        <a href={SOURCE_CODE_URL} className="inline-flex min-h-11 items-center text-accent hover:text-accent-hover">
+          {t("sourceCode")}
+        </a>
+      </span>
     </footer>
   );
 }
