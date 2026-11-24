@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     allow_bench_role: bool = Field(default=False, validation_alias="MCPLAIN_ALLOW_BENCH_ROLE")
     guichet_url: str = Field(default="http://guichet:3100", validation_alias="MCPLAIN_GUICHET_URL")
     auth_guard_peers: str = Field(default="guichet", validation_alias="MCPLAIN_AUTH_GUARD_PEERS")
+    public_url: str = Field(default="http://localhost:3000", validation_alias="MCPLAIN_PUBLIC_URL")
 
     @field_validator("github_token", "anthropic_api_key", "ai_daily_fuse_usd", "altcha_hmac_key", mode="before")
     @classmethod
@@ -80,6 +81,11 @@ class Settings(BaseSettings):
         """Return the host names allowed to call the internal auth guard, given as a comma separated list"""
 
         return [name.strip() for name in self.auth_guard_peers.split(",") if name.strip()]
+
+    def public_origin(self) -> str:
+        """Return the origin of the website, the only one allowed to send a change to the admin routes"""
+
+        return self.public_url.strip().rstrip("/")
 
     def cors_origin_list(self) -> list[str]:
         """Return the allowed CORS origins, given as a comma separated list"""

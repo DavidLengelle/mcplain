@@ -64,6 +64,7 @@ services:
       MCPLAIN_ALLOW_BENCH_ROLE: ${MCPLAIN_ALLOW_BENCH_ROLE:-false}
       MCPLAIN_GUICHET_URL: http://guichet:3100
       MCPLAIN_AUTH_GUARD_PEERS: guichet
+      MCPLAIN_PUBLIC_URL: ${MCPLAIN_PUBLIC_URL:-http://localhost:${MCPLAIN_WEB_PORT:-3000}}
     ports:
       - "127.0.0.1:8000:8000"
     networks:

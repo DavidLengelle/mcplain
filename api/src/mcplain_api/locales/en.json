@@ -6,5 +6,12 @@
   "ai.notice.fallback.unavailable": "MCPlain could not write an automatic summary for this server.",
   "ai.notice.fallback.no_tools": "MCPlain recognized no tool in this server, so it has no automatic summary.",
   "api.altcha_unavailable": "The automatic check of robots is not available right now. Try again in a moment.",
-  "api.sign_in_required": "Sign in to your account to see this."
+  "api.sign_in_required": "Sign in to your account to see this.",
+  "api.origin_refused": "This change must come from the MCPlain website.",
+  "api.admin_required": "This page is for the admin with two-step verification turned on.",
+  "api.account_blocked": "This account is blocked.",
+  "api.account_not_found": "No account has this email address.",
+  "api.cannot_ban_self": "You cannot block your own account.",
+  "api.cannot_ban_admin": "An admin account cannot be blocked.",
+  "api.guichet_unavailable": "The accounts service does not answer. Try again in a moment."
 }

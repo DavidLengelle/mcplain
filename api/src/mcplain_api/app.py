@@ -1,5 +1,6 @@
 """HTTP API: receives analysis requests, gives back their state and result as language-free JSON"""
 
+import re
 import socket
 import time
 import uuid
@@ -22,6 +23,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
+from mcplain_api.admin_accounts import BAN_REASON_MAX_CHARS, EMAIL_MAX_CHARS, AccountDesk, DeskOutcome, GuichetDesk
 from mcplain_api.ai_view import LANGUAGES_BY_KIND, ask_text, full_catalog, read_text
 from mcplain_api.altcha_gate import PAYLOAD_MAX_CHARS, new_challenge
 from mcplain_api.analysis_gate import BURST_LIMIT, QueueFull, admit, enqueue, quota_view
@@ -59,6 +61,15 @@ IP_HEADERS_MAX = 8
 PEER_CACHE_SECONDS = 60.0
 REFUSAL_STATUS: dict[str, int] = {"altcha_invalid": 403, "signup_limit": 429}
 INTERNAL_BODY_MAX_BYTES = 512
+ADMIN_PREFIX = "/api/admin"
+SAFE_METHODS: frozenset[str] = frozenset({"GET", "HEAD"})
+ADMIN_BODY_MAX_BYTES = 1024
+ACCOUNT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+DESK_ERRORS: dict[DeskOutcome, tuple[int, str]] = {
+    DeskOutcome.NOT_FOUND: (404, "api.account_not_found"),
+    DeskOutcome.IS_ADMIN: (403, "api.cannot_ban_admin"),
+    DeskOutcome.UNAVAILABLE: (503, "api.guichet_unavailable"),
+}
 
 
 class AnalysisRequest(BaseModel):
@@ -96,11 +107,22 @@ class EraseRequest(BaseModel):
     user_id: StrictStr = Field(min_length=1, max_length=USER_ID_MAX_CHARS)
 
 
+class BanRequest(BaseModel):
+    """Class that describes the body of POST /api/admin/accounts/{id}/ban: an optional reason, 200 characters at most"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: StrictStr | None = Field(default=None, max_length=BAN_REASON_MAX_CHARS)
+
+
 class UserReader(Protocol):
     """Class protocol for what tells who is signed in: the counter in production, a fake in the tests"""
 
     def current_user(self, cookie_header: str | None) -> CurrentUser | None:
         """Return the signed-in user of a Cookie header, or None"""
+
+    def forget_user(self, user_id: str) -> None:
+        """Drop every kept answer of one account"""
 
 
 def resolve_peers(names: list[str]) -> set[str]:
@@ -150,6 +172,7 @@ def create_app(
     engine: Engine | None = None,
     peer_resolver: Callable[[list[str]], set[str]] = resolve_peers,
     user_reader: UserReader | None = None,
+    account_desk: AccountDesk | None = None,
 ) -> FastAPI:
     """Build the API application, its database access and its CORS policy"""
 
@@ -160,6 +183,9 @@ def create_app(
     if user_reader is None:
         user_reader = SessionReader(settings)
     reader = user_reader
+    if account_desk is None:
+        account_desk = GuichetDesk(settings)
+    desk = account_desk
     sessions = make_sessions(engine)
     guard_peers = PeerCheck(settings.auth_guard_peer_list(), peer_resolver)
     app = FastAPI(title="MCPlain API", docs_url=None, redoc_url=None, openapi_url=None)
@@ -179,6 +205,21 @@ def create_app(
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response
 
+    @app.middleware("http")
+    async def admin_gate(request: Request, call_next: Any) -> Response:
+        """Let through the admin routes only for the admin with its second factor, and a change only from the website origin"""
+
+        path = request.url.path
+        if path != ADMIN_PREFIX and not path.startswith(ADMIN_PREFIX + "/"):
+            return await call_next(request)
+        if request.method not in SAFE_METHODS and request.headers.get("origin") != settings.public_origin():
+            return _no_store(error_response(403, "api.origin_refused"))
+        user = await signed_in(request)
+        if user is None or not user.is_admin:
+            return _no_store(error_response(403, "api.admin_required"))
+        request.state.admin = user
+        return await call_next(request)
+
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, error: StarletteHTTPException) -> JSONResponse:
         """Answer unknown routes and methods with the same error format"""
@@ -197,6 +238,14 @@ def create_app(
         """Return the account of the request, read by the counter from its session cookie"""
 
         return await run_in_threadpool(reader.current_user, request.headers.get("cookie"))
+
+    async def visitor_account(request: Request) -> CurrentUser | None:
+        """Return the account of the request for the public routes: a banned account counts as nobody"""
+
+        user = await signed_in(request)
+        if user is None or user.banned:
+            return None
+        return user
 
     def address_of(request: Request) -> str | None:
         """Return the visitor address, read by the one function allowed to read it"""
@@ -229,7 +278,7 @@ def create_app(
         except ValidationError:
             return error_response(400, "api.invalid_request")
         moment = utc_now()
-        user = await signed_in(request)
+        user = await visitor_account(request)
         altcha = request.headers.get(ALTCHA_HEADER)
         admission = await run_in_threadpool(admit, sessions, settings, user, address_of(request), altcha, moment)
         if admission.visitor is None:
@@ -253,7 +302,7 @@ def create_app(
     async def get_quota(request: Request) -> JSONResponse:
         """Return what is left of the daily quota of the visitor, without counting anything nor asking ALTCHA"""
 
-        user = await signed_in(request)
+        user = await visitor_account(request)
         view = await run_in_threadpool(quota_view, sessions, settings, user, address_of(request), utc_now())
         return JSONResponse(view, headers={"Cache-Control": NO_STORE})
 
@@ -264,6 +313,8 @@ def create_app(
         user = await signed_in(request)
         if user is None:
             return error_response(401, "api.sign_in_required")
+        if user.banned:
+            return error_response(403, "api.account_blocked")
 
         def read() -> list[dict[str, Any]]:
             """Read the history in its own session"""
@@ -281,6 +332,8 @@ def create_app(
         user = await signed_in(request)
         if user is None:
             return error_response(401, "api.sign_in_required")
+        if user.banned:
+            return error_response(403, "api.account_blocked")
 
         def clear() -> int:
             """Delete the history in its own transaction"""
@@ -436,6 +489,61 @@ def create_app(
             headers={"Cache-Control": NO_STORE},
         )
 
+    @app.get("/api/admin/accounts")
+    async def admin_find_account(email: str = Query(default="")) -> JSONResponse:
+        """Find one account by its exact email address: never a list of all the accounts"""
+
+        address = email.strip()
+        if not address or len(address) > EMAIL_MAX_CHARS or "@" not in address:
+            return _no_store(error_response(400, "api.invalid_request"))
+        lookup = await run_in_threadpool(desk.find, address)
+        if lookup.outcome is not DeskOutcome.DONE or lookup.account is None:
+            status, code = DESK_ERRORS.get(lookup.outcome, DESK_ERRORS[DeskOutcome.UNAVAILABLE])
+            return _no_store(error_response(status, code))
+        return _no_store(JSONResponse({"account": lookup.account}))
+
+    @app.post("/api/admin/accounts/{account_id}/ban")
+    async def admin_ban(request: Request, account_id: str) -> JSONResponse:
+        """Ban an account with an optional reason: never oneself, never another admin; its sessions die at once"""
+
+        media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+        if media_type != JSON_MEDIA_TYPE:
+            return _no_store(error_response(415, "api.unsupported_media_type"))
+        body = await _read_body(request, ADMIN_BODY_MAX_BYTES)
+        if body is None:
+            return _no_store(error_response(413, "api.body_too_large", {"limit": str(ADMIN_BODY_MAX_BYTES)}))
+        try:
+            payload = BanRequest.model_validate_json(body)
+        except ValidationError:
+            return _no_store(error_response(400, "api.invalid_request"))
+        if not ACCOUNT_ID_PATTERN.fullmatch(account_id):
+            return _no_store(error_response(404, "api.account_not_found"))
+        if account_id == request.state.admin.id:
+            return _no_store(error_response(403, "api.cannot_ban_self"))
+        reason = None
+        if payload.reason is not None and payload.reason.strip():
+            reason = payload.reason.strip()
+        outcome = await run_in_threadpool(desk.ban, account_id, reason)
+        return _desk_answer(outcome, account_id)
+
+    @app.post("/api/admin/accounts/{account_id}/unban")
+    async def admin_unban(request: Request, account_id: str) -> JSONResponse:
+        """Lift the ban of an account: it signs in again as a normal account"""
+
+        if not ACCOUNT_ID_PATTERN.fullmatch(account_id):
+            return _no_store(error_response(404, "api.account_not_found"))
+        outcome = await run_in_threadpool(desk.unban, account_id)
+        return _desk_answer(outcome, account_id)
+
+    def _desk_answer(outcome: DeskOutcome, account_id: str) -> JSONResponse:
+        """Answer a change of the accounts desk; after a change, no kept session of the account survives in the API"""
+
+        if outcome is DeskOutcome.DONE:
+            reader.forget_user(account_id)
+            return _no_store(JSONResponse({"ok": True}))
+        status, code = DESK_ERRORS.get(outcome, DESK_ERRORS[DeskOutcome.UNAVAILABLE])
+        return _no_store(error_response(status, code))
+
     @app.get("/api/health")
     def health() -> JSONResponse:
         """Tell whether the database answers"""
@@ -448,6 +556,13 @@ def create_app(
         return JSONResponse({"status": "ok"})
 
     return app
+
+
+def _no_store(response: JSONResponse) -> JSONResponse:
+    """Forbid any cache to keep an answer of the admin routes"""
+
+    response.headers["Cache-Control"] = NO_STORE
+    return response
 
 
 def _analysis_uuid(analysis_id: str) -> uuid.UUID | None:
