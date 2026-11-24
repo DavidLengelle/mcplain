@@ -36,7 +36,11 @@ def test_migrations_build_the_models(tmp_path: Path) -> None:
     constraints = {item["name"]: item["column_names"] for item in inspect(engine).get_unique_constraints("ai_texts")}
     assert constraints == {"ai_texts_cache_key": ["kind", "lang", "hash", "prompt_version", "model"]}
     indexes = {index["name"]: index["column_names"] for index in inspect(engine).get_indexes("analyses")}
-    assert indexes == {"ix_analyses_state_created_at": ["state", "created_at"], "ix_analyses_source_key": ["source_key"]}
+    assert indexes == {
+        "ix_analyses_state_created_at": ["state", "created_at"],
+        "ix_analyses_source_key": ["source_key"],
+        "ix_analyses_created_at": ["created_at"],
+    }
     engine.dispose()
 
 

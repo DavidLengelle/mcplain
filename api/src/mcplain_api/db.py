@@ -93,6 +93,7 @@ class Analysis(Base):
         CheckConstraint(STATE_CHECK, name="analyses_state_valid"),
         Index("ix_analyses_state_created_at", "state", "created_at"),
         Index("ix_analyses_source_key", "source_key"),
+        Index("ix_analyses_created_at", "created_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -111,6 +112,7 @@ class Analysis(Base):
     analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     from_cache: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     cache_only: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    ignore_cache: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 class AiText(Base):
@@ -170,13 +172,17 @@ class AiAdminAlert(Base):
     """Class that maps one alert for the admin; its details never hold the key nor a text of a third party"""
 
     __tablename__ = "ai_admin_alerts"
-    __table_args__ = (Index("ix_ai_admin_alerts_code_created_at", "code", "created_at"),)
+    __table_args__ = (
+        Index("ix_ai_admin_alerts_code_created_at", "code", "created_at"),
+        Index("ix_ai_admin_alerts_created_at", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     code: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     details: Mapped[dict[str, Any] | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     emailed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AiState(Base):
@@ -187,6 +193,68 @@ class AiState(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=AI_STATE_ROW)
     paused_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     disabled_reason: Mapped[str | None] = mapped_column(String(32))
+
+
+class CreditKind(StrEnum):
+    """Class that lists the entries of the credit ledger: a balance read in the Anthropic console, or a top-up"""
+
+    STATEMENT = "statement"
+    TOP_UP = "top_up"
+
+
+CREDIT_KIND_CHECK = "kind IN ('statement', 'top_up')"
+CREDIT_AMOUNT_CHECK = "amount_usd >= 0"
+CREDIT_NOTE_MAX_CHARS = 100
+BALANCE_ALERT_ROW = 1
+
+
+class CreditEntry(Base):
+    """Class that maps one entry of the credit ledger, in US dollars like the costs of ai_calls"""
+
+    __tablename__ = "credit_entries"
+    __table_args__ = (
+        CheckConstraint(CREDIT_KIND_CHECK, name="credit_entries_kind_valid"),
+        CheckConstraint(CREDIT_AMOUNT_CHECK, name="credit_entries_amount_valid"),
+        Index("ix_credit_entries_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    kind: Mapped[str] = mapped_column(String(16))
+    amount_usd: Mapped[float] = mapped_column(Float)
+    note: Mapped[str | None] = mapped_column(String(CREDIT_NOTE_MAX_CHARS))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class BalanceAlert(Base):
+    """Class that maps the single row telling whether the mail of the low balance was sent; empty means armed"""
+
+    __tablename__ = "balance_alert"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=BALANCE_ALERT_ROW)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AdminTarget(StrEnum):
+    """Class that lists what an action of the admin can point at"""
+
+    ACCOUNT = "account"
+    ANALYSIS = "analysis"
+    TEXT = "text"
+    ALERT = "alert"
+    CREDIT = "credit"
+
+
+class AdminAction(Base):
+    """Class that maps one action of the admin in its journal: the date, the action and the identifier of its target"""
+
+    __tablename__ = "admin_actions"
+    __table_args__ = (Index("ix_admin_actions_created_at", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    action: Mapped[str] = mapped_column(String(32))
+    target_kind: Mapped[str] = mapped_column(String(16))
+    target_id: Mapped[str] = mapped_column(String(USER_ID_MAX_CHARS))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
 class MailKind(StrEnum):
