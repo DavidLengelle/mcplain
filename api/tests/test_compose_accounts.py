@@ -15,7 +15,12 @@ SECRET_OWNERS: dict[str, set[str]] = {
     "MCPLAIN_FACTEUR_DB_PASSWORD": {"facteur", "migrate"},
     "MCPLAIN_APP_DB_PASSWORD": {"api", "dispatcher", "redacteur", "migrate"},
     "POSTGRES_PASSWORD": {"postgres", "migrate"},
+    "MCPLAIN_UMAMI_DB_PASSWORD": {"umami", "migrate"},
+    "MCPLAIN_UMAMI_APP_SECRET": {"umami"},
+    "MCPLAIN_UMAMI_TWO_FACTOR_KEY": {"umami"},
 }
+UMAMI_IMAGE = "ghcr.io/umami-software/umami:3.4.1@sha256:e69d1a7932e9dab0fc523edc7be1f3a53f3c261f57856fc2167ae74a8fc022e8"
+WEBSITE_SETTINGS: frozenset[str] = frozenset({"MCPLAIN_WEB_PORT", "MCPLAIN_UMAMI_WEBSITE_ID", "MCPLAIN_TRUSTED_PROXY_HOPS"})
 CLOSED_SERVICES: tuple[str, ...] = ("guichet", "facteur", "migrate", "mailpit")
 DEVELOPMENT_ONLY = "mailpit"
 VARIABLE = re.compile(r"\$\{([A-Z0-9_]+)")
@@ -37,10 +42,11 @@ def test_each_secret_reaches_its_services_only() -> None:
 
 
 def test_the_website_has_no_secret_and_no_database() -> None:
-    """The website reads no variable of .env except its port, and never names PostgreSQL"""
+    """The website reads only public settings of .env (its port, the public id of the tracked website, the relays), never PostgreSQL"""
 
     block = uncommented(compose_services()["web"])
-    assert variables_of(block) == {"MCPLAIN_WEB_PORT"}
+    assert variables_of(block) == WEBSITE_SETTINGS
+    assert "umami:\n        condition" not in block
     assert "postgres" not in block.lower()
     assert "SECRET" not in block and "PASSWORD" not in block
 
@@ -94,7 +100,9 @@ def test_the_networks_of_the_new_services() -> None:
     assert networks("guichet") == ["front", "back"]
     assert networks("facteur") == ["back"]
     assert networks("migrate") == ["back"]
-    assert networks("web") == ["front"]
+    assert networks("web") == ["front", "umami_web"]
+    assert networks("umami") == ["umami_db", "umami_web"]
+    assert networks("postgres") == ["back", "umami_db"]
 
 
 def test_the_owner_password_stays_in_the_migrations() -> None:
@@ -161,3 +169,32 @@ def test_the_api_reads_the_fuses_of_the_writer_but_never_its_key() -> None:
     assert "MCPLAIN_ANTHROPIC_API_KEY" not in api
     assert api["MCPLAIN_BALANCE_ALERT_USD"] == postman["MCPLAIN_BALANCE_ALERT_USD"]
     assert api["MCPLAIN_PUBLIC_URL"] == postman["MCPLAIN_PUBLIC_URL"]
+
+
+def test_umami_is_pinned_closed_and_published_on_localhost_only() -> None:
+    """Umami 3.4.1 pinned by tag and digest, read-only, no capability, its dashboard on 127.0.0.1 only, never a dependency"""
+
+    services = compose_services()
+    block = uncommented(services["umami"])
+    assert f"image: {UMAMI_IMAGE}" in block
+    assert "read_only: true" in block
+    assert "cap_drop:\n      - ALL" in block
+    assert "no-new-privileges:true" in block
+    assert "docker.sock" not in block and "volumes:" not in block
+    ports = re.findall(r'^      - "([^"]+)"$', block, re.MULTILINE)
+    assert ports == ["127.0.0.1:${MCPLAIN_UMAMI_PORT:-3200}:3000"]
+    for setting in ("CLIENT_IP_HEADER: x-mcplain-visitor-ip", "SALT_ROTATION: day", 'DISABLE_TELEMETRY: "1"', 'DISABLE_UPDATES: "1"'):
+        assert setting in block, setting
+    assert "postgresql://umami:${MCPLAIN_UMAMI_DB_PASSWORD" in block
+    for name, other in services.items():
+        if name != "umami":
+            assert "umami:\n        condition" not in uncommented(other), name
+
+
+def test_the_database_network_of_umami_is_internal() -> None:
+    """umami_db has no way out; umami_web carries the relay of the website and the local port of the dashboard"""
+
+    text = (REPOSITORY / "compose.yaml").read_text(encoding="utf-8")
+    networks = text.split("\nnetworks:\n", 1)[1].split("\nvolumes:", 1)[0]
+    assert "  umami_db:\n    internal: true" in networks
+    assert "  umami_web:" in networks

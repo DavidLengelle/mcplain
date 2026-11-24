@@ -36,7 +36,7 @@ from mcplain_api.db import (
 )
 from mcplain_api import reports as reports_module
 from mcplain_api.facteur import Facteur, FacteurSettings
-from mcplain_api.migrate import set_role_passwords
+from mcplain_api.migrate import prepare_umami, set_role_passwords
 from mcplain_api.quota import Visitor, VisitorKind, take_slot
 from mcplain_api.reports import reports_list, send_report
 
@@ -422,3 +422,61 @@ def test_a_report_goes_through_postgresql_as_the_app_role(database: str, monkeyp
     assert outcomes == ["sent", "report_duplicate", "report_global"]
     assert [(item["color"], item["comment"]) for item in listed["reports"] if item["analysis_id"] == str(analysis.id)] == [("orange", "ab")]
     assert "report_box_full" in codes
+
+
+TEST_UMAMI_PASSWORD = "test-only-umami-password-0123456789"
+
+
+@pytest.fixture(scope="module")
+def umami(database: str) -> Iterator[tuple[str, str]]:
+    """Prepare a role and a database of Umami with unique names, twice to show it changes nothing, and remove them at the end"""
+
+    suffix = uuid.uuid4().hex[:12]
+    role = "umami_" + suffix
+    name = "umami_" + suffix
+    owner = make_engine(make_url(os.environ[ADMIN_URL_VARIABLE]).set(database=database).render_as_string(hide_password=False))
+    try:
+        prepare_umami(owner, "first-test-only-password-0123456789", role, name)
+        prepare_umami(owner, TEST_UMAMI_PASSWORD, role, name)
+        yield role, name
+    finally:
+        with owner.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+            connection.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+            connection.execute(text(f'DROP ROLE IF EXISTS "{role}"'))
+        owner.dispose()
+
+
+def connects(database: str, role: str, password: str) -> bool:
+    """Tell whether a role may open a connection to a database"""
+
+    url = make_url(os.environ[ADMIN_URL_VARIABLE])
+    try:
+        with psycopg.connect(host=url.host, port=url.port or 5432, dbname=database, user=role, password=password):
+            return True
+    except psycopg.OperationalError as error:
+        assert "permission denied" in str(error)
+        return False
+
+
+def test_the_role_of_umami_never_connects_to_mcplain(database: str, umami: tuple[str, str]) -> None:
+    """The role of Umami opens its own database only, owns it, and holds no power"""
+
+    role, name = umami
+    assert not connects(database, role, TEST_UMAMI_PASSWORD)
+    assert connects(name, role, TEST_UMAMI_PASSWORD)
+    url = make_url(os.environ[ADMIN_URL_VARIABLE])
+    with psycopg.connect(host=url.host, port=url.port or 5432, dbname=name, user=role, password=TEST_UMAMI_PASSWORD, autocommit=True) as connection:
+        connection.execute("CREATE TABLE umami_owns_its_base (id integer)")
+        flags = connection.execute(
+            "SELECT rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = current_user"
+        ).fetchone()
+    assert flags == (False, False, False, False, False)
+
+
+def test_no_role_of_mcplain_connects_to_umami(database: str, umami: tuple[str, str]) -> None:
+    """The three service roles reach the database of MCPlain, never the one of Umami"""
+
+    _, name = umami
+    for role, password in TEST_PASSWORDS.items():
+        assert connects(database, role, password), role
+        assert not connects(name, role, password), role
