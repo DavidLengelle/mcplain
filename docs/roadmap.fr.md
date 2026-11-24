@@ -1,7 +1,7 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8, 9a, 9b, 9c-1 et 9c-2, le corpus partie 2 et l'enquête fetch sont faits. Les parties
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8, 9a, 9b et 9c (9c-1, 9c-2, 9c-3), le corpus partie 2 et l'enquête fetch sont faits. Les parties
 « Protections » et « Adresses IP partagées » sont codées (séances 8, 9a et 9b).
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
@@ -272,15 +272,33 @@ Guide : `docs/admin.fr.md`.
 - [x] L'API reçoit les mêmes réglages de l'IA que le rédacteur (jamais la clé), pour lire le même budget et les mêmes prix.
 - [ ] À faire par David : saisir un premier relevé ; régler `MCPLAIN_ADMIN_EMAIL` pour recevoir l'e-mail du solde.
 
-## SÉANCE 9C-3 : LA BOÎTE À RÉCLAMATIONS (à faire)
+## SÉANCE 9C-3 : LA BOÎTE À RÉCLAMATIONS (faite le 24 novembre 2026, moteur, règles, banc et rédacteur inchangés)
 
-- Signalements sur un rapport, dont « Tu es l'auteur ? Signale une erreur » (texte brut, affiché avec `RawText`, jamais donné à
-  l'IA, ni à la notice ni à une traduction) ; leur liste dans la page `/admin`, à côté des cadrans de la 9c-2, avec les mêmes
-  règles (routes sous `/api/admin/*`, aucune donnée par personne en dehors de ce que le signalement contient, action notée dans
-  le journal admin).
-- À décider : la protection des signalements contre les robots (ALTCHA, comme une analyse ? une limite par jour ?).
-- Umami (mesure d'audience auto-hébergée, sans cookie, aucune donnée chez un tiers) : à brancher sur le site, son tableau à part ;
-  le cadran « Fréquentation » de la 9c-2 ne compte que les comptes créés.
+Guides : `docs/admin.fr.md` (section 11) et `docs/analytics.fr.md`. **La séance 9c est terminée.**
+
+- [x] Bouton « Signaler » sous chaque rapport terminé : alerte injustifiée, danger non détecté, « Tu es l'auteur ? Signale une
+      erreur » (déclaratif, « non vérifié » sur `/admin`). Copie des versions du moteur et des règles et de la couleur du rapport.
+- [x] Ouvert à tous avec ALTCHA ; compte banni refusé ; 10 par jour par compte ou par réseau, 1 par type et par analyse, 500 par jour
+      pour tout le site (« La boîte est pleine, réessaie demain », alerte admin une fois par jour) ; admin sans limite ; refus
+      comptés (`report_limit`, `report_global`) dans le cadran « Refus ».
+- [x] Commentaire facultatif de 500 caractères, texte brut, jamais envoyé à l'IA ni écrit dans les journaux, effacé par le facteur
+      90 jours après « Traité » ou « Rejeté » (deux droits de colonne, il ne lit jamais un commentaire).
+- [x] Section « Signalements » et cadran par jour sur `/admin`, compteur des nouveaux en haut ; l'identifiant du compte signaleur est
+      la troisième exception aux identifiants (règle 2 de la 9c-2), jamais l'empreinte d'IP.
+- [x] Umami 3.4.1 auto-hébergé, épinglé par étiquette et empreinte, base et rôle à part créés par `migrate` (exception à Alembic :
+      Umami crée ses tables), la base de MCPlain fermée aux autres rôles (migration `0012`), tableau sur `127.0.0.1` seulement.
+- [x] Relais : seuls `GET /umami/script.js` et `POST /umami/api/send`, corps et en-têtes reconstruits, vraie adresse écrasée par le
+      relais ; Do Not Track et Global Privacy Control respectés, chemins normalisés, `/admin` et `/account` jamais suivis, aucun
+      cookie d'Umami. `SALT_ROTATION=day` (visiteurs uniques sur plusieurs jours surestimés).
+- [x] Script `scripts/umami-first-setup.sh` ; page de confidentialité (fr, en) : Umami, cookies, empreintes d'IP, e-mails.
+- [ ] À faire par David : `scripts/init-secrets.sh` (trois secrets d'Umami), relancer la pile, puis `scripts/umami-first-setup.sh`
+      et la double authentification d'Umami.
+- [ ] À décider : le cookie `NEXT_LOCALE` de next-intl (il retient la langue quand elle n'est pas celle du navigateur). Le garder
+      (dit sur la page de confidentialité) ou le couper (`localeCookie: false`).
+
+## PROCHAINE ÉTAPE
+
+Une passe de finition visuelle du site, puis la mise en ligne chez OVH (points ci-dessous).
 
 ## MISE EN LIGNE (comptes)
 
@@ -298,8 +316,10 @@ Guide : `docs/admin.fr.md`.
   seul quota.
 - Surveiller la prochaine demande de Dependabot pour uv : elle doit rester compatible avec `required-version = ">=0.13.6"` de
   `engine/`, `api/` et `bench/` (sinon `uv lock` échoue en CI).
-- Mentions de confidentialité : le cookie de session est exempté de consentement (il sert seulement à rester connecté) ; les
-  empreintes d'IP (HMAC avec un sel du jour, effacé après 2 jours) ; les e-mails (adresse du compte, liens à usage unique).
+- Mentions de confidentialité : faites en 9c-3 (page `/privacy`) ; les relire une fois en ligne avec le vrai nom de domaine.
+- Tableau Umami par tunnel SSH seulement (`docs/analytics.fr.md`, section 8) : jamais de port public, jamais de relais TLS vers lui.
+- Mot de passe et double authentification d'Umami réglés avant l'ouverture (`scripts/umami-first-setup.sh <domaine>`, puis la 2FA
+  dans le tableau), avec ses codes de secours rangés.
 - Relever `MCPLAIN_SIGNUPS_PER_IP_PER_DAY` si le tableau admin montre des refus fréquents.
 - Avant d'ouvrir le site : active la double authentification de ton compte admin sur le VPS, **imprime les codes de secours**
   (bouton « Imprimer ») et range-les loin de ton téléphone. Sans eux, seul `scripts/reset-admin-2fa.sh` sur le VPS te rendra la
@@ -363,7 +383,7 @@ l'IA).
    « plafond atteint » : rapport sans notice, e-mail à l'admin, aucun
    nouvel essai automatique. (Séance 8)
 
-## SÉANCE 9 : SIGNALEMENT PAR L'AUTEUR (décidé le 3 novembre 2026, pas codé)
+## SÉANCE 9 : SIGNALEMENT PAR L'AUTEUR (décidé le 3 novembre 2026, codé en 9c-3)
 
 - Sur chaque rapport, un bouton « Tu es l'auteur ? Signale une erreur ».
 - C'est un type de signalement en plus. Le commentaire est du texte brut, affiché avec `RawText`, et il n'est

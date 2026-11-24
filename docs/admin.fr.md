@@ -1,7 +1,8 @@
 # Le tableau de bord admin
 
 Ce guide explique la page `/admin` (ou `/fr/admin`) : ce que montre chaque cadran, d'où vient chaque chiffre, le solde estimé
-du crédit Anthropic, l'e-mail sous 2 $, les boutons de relance et le journal. Séance 9c-2, faite le 24 novembre 2026.
+du crédit Anthropic, l'e-mail sous 2 $, les boutons de relance, le journal et les signalements des visiteurs. Séances 9c-2 et 9c-3,
+faites le 24 novembre 2026. La mesure des visites (Umami) a son propre guide : `docs/analytics.fr.md`.
 
 C'est comme le tableau de bord d'une voiture : il dit combien il reste d'essence, ce qui chauffe et combien de kilomètres
 on a faits, mais pas qui était assis à l'arrière.
@@ -18,7 +19,13 @@ refusées, aussi à travers le vrai relais du site.
 
 Les cadrans ne donnent que des **chiffres globaux**. Jamais d'adresse e-mail, jamais d'identifiant de compte, jamais
 d'empreinte d'IP, jamais de `request-id`, jamais le lien collé par un visiteur. Un test lit chaque réponse des cadrans et y
-cherche ces valeurs. Seules la section « Comptes » (9c-1) et le journal admin montrent un identifiant de compte.
+cherche ces valeurs.
+
+**Trois exceptions seulement** montrent un identifiant de compte : la section « Comptes » (9c-1), le journal admin, et la liste
+des signalements (9c-3, l'identifiant du compte qui a signalé, pour pouvoir bloquer un abus). Une **empreinte d'IP**, elle,
+n'apparaît **nulle part**, même pas dans les signalements. Un test (`test_only_three_admin_answers_name_an_account_and_none_an_address`
+dans `api/tests/test_admin_dashboard.py`) appelle toutes les routes `GET /api/admin/*` : un identifiant de compte hors de ces trois
+réponses, ou une empreinte n'importe où, le fait échouer.
 
 ## 3. La période et le bouton « Actualiser »
 
@@ -52,6 +59,8 @@ Si le rédacteur est coupé (pas de clé) ou en pause pour tout le monde, une li
 | Rejets de l'IA | les rejets par code de raison et par jour, et le **taux de rejets `encoding`** | `ai_calls.reject_reason`. Taux = rejets `encoding` des notices / appels de notice payés. |
 | Notices à relancer | les notices et traductions rejetées, en échec ou en pause, avec le lien vers leur rapport | table `ai_texts`. Une notice en pause montre sa raison (fusible, budget, plafond de 4) et n'a pas de bouton. |
 | Échecs d'analyse | les échecs par code, avec « jeton rendu (faute de MCPlain) » ou « jeton gardé (faute du lien) » | `analyses.error_code` et le code du moteur, classés par la table unique `REFUND_BY_CODE` (`docs/accounts.fr.md`, section 15) |
+| Signalements | les 50 derniers signalements des visiteurs, avec filtres et boutons (section 11) | table `reports` |
+| Signalements par jour | par jour et par type : alerte injustifiée, danger non détecté, erreur signalée par l'auteur | table `reports` (date et type seulement) |
 
 ### L'usage
 
@@ -61,9 +70,10 @@ Si le rédacteur est coupé (pas de clé) ou en pause pour tout le monde, une li
 | Couleurs des verdicts | rouge, orange, gris, vert, chacun avec son mot ; les cas gris par code | `result.verdict.color` et `result.verdict.gray_case` ; une analyse échouée compte en gris (`error`) |
 | MCP les plus analysés | les 20 premiers de la période (type et nom, toutes versions), le lien vers le dernier rapport, « Relancer l'analyse » | `result.source.kind` et `result.source.name`. Les noms viennent de tiers : affichés par `RawText`, et le lien est fait avec l'**identifiant de l'analyse**, jamais avec le nom. |
 | Langages non pris en charge | les langages demandés, comptés | `result.status = unsupported_language` et `result.language` |
-| Refus | par jour : inscriptions refusées (`signup_limit`), quota épuisé sans compte, quota épuisé avec un compte | tables `signup_refusals` et `quota_refusals`, sans adresse. L'anti-rafale et un ALTCHA raté ne sont comptés nulle part (voir la feuille de route, « Plus tard »). |
+| Refus | par jour : inscriptions refusées (`signup_limit`), quota épuisé sans compte, quota épuisé avec un compte, signalements refusés par la limite du jour ou en double (`report_limit`), signalements refusés car la boîte est pleine (`report_global`) | tables `signup_refusals` et `quota_refusals`, sans adresse. L'anti-rafale et un ALTCHA raté ne sont comptés nulle part (voir la feuille de route, « Plus tard »). |
 | Fréquentation | les comptes créés par jour | route interne du guichet `GET /internal/accounts/created-per-day?days=7` ou `30` (section 7) |
 
+En haut de la page, à côté du sélecteur de période, une ligne compte les signalements « nouveau » (en cuivre s'il y en a).
 Puis le **journal admin** (section 8), puis la section « Comptes » de la 9c-1.
 
 ## 5. Le solde estimé
@@ -144,6 +154,7 @@ Table `admin_actions` : date, action, type de cible et identifiant de la cible. 
 | Analyse relancée | identifiant de la **nouvelle** analyse, avec le lien vers son rapport |
 | Alerte marquée comme lue | identifiant de l'alerte |
 | Écriture ajoutée, écriture supprimée | identifiant de l'écriture |
+| Signalement traité, signalement rejeté (9c-3) | identifiant du signalement |
 
 Une action refusée (un fusible qui bloque, un compte admin qu'on ne peut pas bloquer) n'écrit rien.
 
@@ -162,10 +173,74 @@ Si le guichet ne répond pas, le cadran le dit (503), au lieu d'afficher zéro.
 | `MCPLAIN_BALANCE_ALERT_USD` (2) | API, facteur | seuil de l'e-mail |
 | `MCPLAIN_ADMIN_EMAIL` | facteur | destinataire des alertes et de l'e-mail du solde |
 | `MCPLAIN_PUBLIC_URL` | API, facteur | origine acceptée pour les changements ; adresse de `/admin` dans l'e-mail |
+| `MCPLAIN_REPORTS_PER_DAY` (10) | API | signalements par jour et par compte, ou par réseau sans compte |
+| `MCPLAIN_REPORTS_GLOBAL_PER_DAY` (500) | API | signalements par jour pour tout le site, avant « La boîte est pleine » |
 | `MCPLAIN_AI_MONTHLY_BUDGET_USD`, `MCPLAIN_AI_DAILY_FUSE_USD`, `MCPLAIN_AI_PRICE_*`, `MCPLAIN_AI_MAX_TOKENS`… | rédacteur **et** API | l'API les reçoit aussi (jamais la clé), pour que le tableau et le contrôle avant relance voient les mêmes chiffres que le rédacteur ; un test compare les deux services dans `compose.yaml` |
 
-## 11. Les tests
+## 11. Les signalements des visiteurs
 
+Sous chaque rapport terminé (vert, orange, rouge ou gris), un bloc « Une erreur dans ce rapport ? » et un bouton **« Signaler »**.
+Trois types :
+
+| Type | Texte sur le site | Sens |
+| --- | --- | --- |
+| `false_alarm` | Alerte injustifiée | le rapport annonce un risque qui n'existe pas |
+| `missed_danger` | Danger non détecté | le serveur fait quelque chose de risqué que le rapport ne dit pas |
+| `author_error` | Tu es l'auteur ? Signale une erreur | déclaratif : **aucune vérification** ; sur `/admin`, la mention « non vérifié » |
+
+C'est comme la boîte à réclamations d'un magasin : n'importe qui peut y glisser un mot, mais pas cinquante par jour, et
+c'est le gérant qui décide quoi en faire.
+
+**Ce qui est gardé** (table `reports`, migration `0011`) : l'identifiant de l'analyse, le type, le statut, les dates, une **copie**
+de la version du moteur, de la version des règles et de la couleur du rapport au moment du signalement (une analyse échouée
+compte en gris), le commentaire, et qui a signalé : « sans compte », l'identifiant du compte, ou « compte supprimé depuis ».
+**Jamais d'empreinte d'IP** dans cette table ; pas de champ e-mail.
+
+**Le commentaire** : facultatif, 500 caractères au plus (refusé au-delà, `api.comment_too_long`), texte brut, caractères de
+contrôle retirés (le retour à la ligne reste), affiché seulement par `RawText`. Il n'est **jamais envoyé à l'IA** (un test place un
+canari dans les commentaires et regarde ce qui part vers l'API d'Anthropic) et **jamais écrit dans les journaux**.
+
+**La route** : `POST /api/analyses/{id}/reports`, corps `{"kind": ..., "comment": ...}`, 8 Ko au plus, en-tête `x-altcha`. Ordre des
+contrôles : `Origin` égal à `MCPLAIN_PUBLIC_URL` (sinon 403 `api.origin_refused`) ; JSON (415, 413, 400) ; longueur du
+commentaire ; compte banni (403 `api.account_blocked`, il ne compte pas comme un visiteur sans compte) ; analyse terminée
+(404 ou 409) ; ALTCHA (403 `altcha_invalid`, même mécanisme que les analyses) ; puis les limites.
+
+**Les limites** (jours UTC, réglages `MCPLAIN_REPORTS_PER_DAY` et `MCPLAIN_REPORTS_GLOBAL_PER_DAY`) :
+
+- **10 par jour** par compte, ou par empreinte d'IP du jour pour un visiteur sans compte (tout le réseau ensemble). Le compte du
+  banc n'a aucune exemption. L'admin avec sa double authentification n'a **aucune limite** (ni doublon, ni boîte pleine).
+- **1 seul signalement par type et par analyse** pour un même signaleur (409 `report_duplicate`). Pour un compte, c'est pour
+  toujours ; pour un visiteur sans compte, l'empreinte change chaque jour : la règle ne tient que pour la journée UTC.
+- **500 par jour pour tout le site** : au-delà, « La boîte est pleine, réessaie demain » (429 `report_global`) et une alerte
+  admin `report_box_full`, ajoutée **au plus une fois par jour** et envoyée par le facteur comme les alertes de la séance 8.
+- La prise est **atomique** (la même instruction SQL que les jetons des quotas, `take_slot` de `quota.py`, avec la table
+  `report_counts`) : marque anti-doublon, place du signaleur et place du site sont prises ensemble ou pas du tout.
+- Chaque refus (limite du jour et doublon : `report_limit` ; boîte pleine : `report_global`) est compté dans `quota_refusals`,
+  sans adresse, et visible dans le cadran « Refus ».
+
+**Sur `/admin`** (section « Signalements » du groupe santé) : les **50 derniers**, les plus récents d'abord, filtres par statut
+(nouveau, traité, rejeté) et par type, lien vers le rapport, versions, couleur avec son mot, commentaire, et « sans compte » ou
+l'identifiant du compte. Boutons **« Traité »** et **« Rejeté »** (`POST /api/admin/reports/{id}/status`), écrits dans le journal
+admin. Pas d'e-mail par signalement. Routes : `GET /api/admin/reports?status=&kind=`, `POST /api/admin/reports/{id}/status`,
+`GET /api/admin/dashboard/reports?days=7|30` ; toutes derrière `admin_gate`.
+
+**L'effacement à 90 jours** : 90 jours après le **premier** passage en « traité » ou « rejeté », le commentaire est effacé ; la
+ligne reste (type, dates, statut, versions, couleur). C'est le **facteur** qui le fait, une fois par heure ; il a reçu deux droits
+sur des colonnes, rien de plus : lire `closed_at` et `comment_erased_at`, changer `comment` et `comment_erased_at`. Il ne peut
+**jamais lire un commentaire** (testé sur PostgreSQL). L'API efface aussi les commentaires en retard juste avant d'afficher la liste :
+un commentaire trop vieux n'est jamais montré, même si le facteur est arrêté.
+
+**Quand quelque chose disparaît** : si une analyse est supprimée, ses signalements restent sans lien (`ON DELETE SET NULL`). Si un
+compte est supprimé (route interne `/internal/account-erase`), ses signalements restent, sans son identifiant ni son commentaire,
+marqués « compte supprimé depuis » ; ses compteurs et ses marques anti-doublon sont effacés.
+
+## 12. Les tests
+
+- `cd api && uv run pytest tests/test_reports.py` : les trois types, les copies de versions et de couleur, l'origine, la taille,
+  le commentaire nettoyé et jamais dans un journal, ALTCHA, compte banni, 10 par jour avec et sans compte, doublon, boîte pleine et
+  son alerte une fois par jour, admin sans limite, refus comptés, effacement à 90 jours (par le facteur et avant la liste),
+  suppression d'un compte, liste, filtres, statut et journal, aucune empreinte dans aucune réponse. `tests/test_ai_client.py`
+  (`test_a_report_comment_never_reaches_the_ai`) : le commentaire ne part jamais vers l'IA.
 - `cd api && uv run pytest tests/test_admin_dashboard.py tests/test_credit.py tests/test_admin_actions.py tests/test_admin.py` :
   chaque cadran sur un jeu de données connu (jours vides, changement de mois, minuit UTC), dépense du tableau = dépense des
   fusibles, solde (sans relevé, relevé seul, relevé + recharges + dépense), e-mail unique, réarmement par ajout et par
@@ -177,6 +252,8 @@ Si le guichet ne répond pas, le cadran le dit (503), au lieu d'afficher zéro.
 - `uv run pytest -m docker tests/test_compose_dashboard.py` : toutes les routes fermées à travers le relais, origine exigée,
   cadrans sans donnée par personne, e-mail réel dans Mailpit (seulement si `MCPLAIN_ADMIN_EMAIL` est réglé), relance traitée
   par le vrai chef d'atelier.
-- `cd auth && pnpm test` (`created-per-day.test.ts`) ; `cd web && pnpm test` (`admin-dashboard.test.tsx`), `pnpm test:e2e`
-  (`admin-dashboard.spec.ts`, captures clair et sombre, 1280 et 390 px, sans défilement de côté) et `pnpm test:stack`
-  (`admin.spec.ts`).
+- `cd auth && pnpm test` (`created-per-day.test.ts`) ; `cd web && pnpm test` (`admin-dashboard.test.tsx`, `visitor-reports.test.tsx`),
+  `pnpm test:e2e` (`admin-dashboard.spec.ts` et `report-box.spec.ts`, captures clair et sombre, 1280 et 390 px, sans défilement
+  de côté) et `pnpm test:stack` (`admin.spec.ts`).
+- `MCPLAIN_TEST_POSTGRES_URL=... uv run pytest -m postgres` : les deux droits du facteur sur `reports`, la prise atomique de 20
+  signalements simultanés pour 10 places, et un signalement de bout en bout sur PostgreSQL.

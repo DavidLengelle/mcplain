@@ -116,6 +116,14 @@ Un test de la vraie pile envoie deux inscriptions avec deux faux `X-Forwarded-Fo
 
 Le limiteur de Better Auth, dans la mémoire du guichet, lit l'adresse avec la même règle (même réglage), sans rien écrire en base.
 
+**Les trois lecteurs de l'adresse**, tous avec cette même règle, et aucun autre :
+
+| Lecteur | Fichier | À quoi il sert |
+| --- | --- | --- |
+| l'API | `visitor_ip` dans `api/src/mcplain_api/client_ip.py` | empreinte d'IP : quotas, inscriptions, signalements |
+| le guichet | `limiterAddress` dans `auth/src/client-ip.ts` | le limiteur de Better Auth, en mémoire |
+| le relais vers Umami (séance 9c-3) | `visitorAddress` dans `web/src/lib/umami.ts` | l'en-tête `x-mcplain-visitor-ip` donné à Umami, qui **écrase** celui du visiteur (`docs/analytics.fr.md`, section 4) |
+
 ## 7. L'empreinte d'IP et le sel du jour
 
 MCPlain ne garde **aucune adresse IP en clair**, ni en base ni dans les journaux. Il garde une empreinte :

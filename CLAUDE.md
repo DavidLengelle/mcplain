@@ -17,8 +17,8 @@ English.
   accounts: `docs/accounts.fr.md`.
 - `docker/`: `atelier.Dockerfile` (engine only), `api.Dockerfile` (API, dispatcher, writer, postman, migrate), `auth.Dockerfile`
   (counter) and `web.Dockerfile` (website).
-- `compose.yaml`: PostgreSQL, migrate (one-shot), API, dispatcher, writer, counter, postman, website, Mailpit (profile `dev`
-  only), and the atelier image (build only).
+- `compose.yaml`: PostgreSQL, migrate (one-shot), API, dispatcher, writer, counter, postman, website, Umami (visit counting,
+  guide: `docs/analytics.fr.md`), Mailpit (profile `dev` only), and the atelier image (build only).
 - `web/`: the Next.js website (pnpm project, Next.js 16, React 19, next-intl, Tailwind CSS v4).
   A guided tour in French: `docs/web.fr.md`.
 
@@ -71,11 +71,22 @@ Planned work and decisions for future sessions are in docs/roadmap.fr.md: read t
 - **Postman** (facteur, `api/src/mcplain_api/facteur.py`, command `mcplain-facteur`): the only service that receives the SMTP
   credentials. It sends the rows of `mail_outbox` in plain text, then deletes them, and mails the admin alerts of the writer and,
   once, the estimated Anthropic credit under `MCPLAIN_BALANCE_ALERT_USD` (`estimated_balance` of `ai_budget.py`, the one place the
-  writer, the dashboard and the postman read the AI spend from). Role `mcplain_facteur`. Admin dashboard guide: `docs/admin.fr.md`.
+  writer, the dashboard and the postman read the AI spend from). Once an hour it erases the comments of the reports closed more than
+  90 days ago (`erase_old_comments` of `reports.py`; two column rights, it never reads a comment). Role `mcplain_facteur`. Admin
+  dashboard guide: `docs/admin.fr.md`.
   In development the mails go to Mailpit (profile `dev`, `http://127.0.0.1:8025`).
 - **Migrate** (command `mcplain-migrate`, one-shot service): the only service with the owner password of the database. It runs
-  the Alembic migrations (the tables of Better Auth included) and gives the service roles their passwords, then stops. The API,
-  the dispatcher and the writer connect as `mcplain_app`, which has no right on `auth` nor on `mail_outbox`.
+  the Alembic migrations (the tables of Better Auth included), gives the service roles their passwords, then creates the role and
+  the database `umami` once, outside Alembic (`prepare_umami`), and stops. The API, the dispatcher and the writer connect as
+  `mcplain_app`, which has no right on `auth` nor on `mail_outbox`. Only the three service roles may connect to the database of
+  MCPlain (migration `0012`), and only the role `umami` to the database `umami`.
+- **Reports** (`api/src/mcplain_api/reports.py`, guide: `docs/admin.fr.md` section 11): a visitor reports a finished analysis
+  (`POST /api/analyses/{id}/reports`: website `Origin`, ALTCHA, 10 a day per account or fingerprint, one per kind and analysis,
+  500 a day for the site, the admin without limit). The comment is plain text, shown by `RawText` only, never sent to the AI nor
+  logged. The report rows never hold an address fingerprint.
+- **Umami** (service `umami`, guide: `docs/analytics.fr.md`): visit counting, image pinned by tag and digest, its own database and
+  role, its dashboard on `127.0.0.1` only (by SSH tunnel on the VPS). Umami creates its own tables (the one exception to "Alembic
+  is the only source of the migrations"). It receives `MCPLAIN_UMAMI_APP_SECRET` and `MCPLAIN_UMAMI_TWO_FACTOR_KEY`, nobody else.
 - **Website** (`web/`, `docker/web.Dockerfile`): shows what the API answers. It never reads analyzed code
   and never decides a color: the verdict comes from the Python rules only. When the API does not answer
   or answers something unexpected, the site shows a gray "not verified" state, never green.
@@ -121,18 +132,24 @@ files `0644`, readable by the atelier user (uid 10001).
    `apparmor=unconfined` or `seccomp=unconfined` to an atelier.
 10. No subprocess in the API or the dispatcher: Docker is driven with the Python SDK (`docker`).
 11. Networks: `front` links the website, the API and the counter; `back` links the API, the dispatcher, the writer, the
-    counter, the postman, Mailpit and PostgreSQL. The website is only on `front`: it reaches neither PostgreSQL nor the
-    dispatcher. The Docker socket stays in the dispatcher only. The API keeps `127.0.0.1:8000` open for development.
+    counter, the postman, Mailpit and PostgreSQL; `umami_db` (internal, no way out) links Umami and PostgreSQL only; `umami_web`
+    links the website and Umami only. The website is only on `front` and `umami_web`: it reaches neither PostgreSQL nor the
+    dispatcher. The Docker socket stays in the dispatcher only. The API keeps `127.0.0.1:8000` open for development; the dashboard
+    of Umami is published on `127.0.0.1` only, never relayed by the website.
 12. The Anthropic key reaches the writer service only. Before any test of the running stack, start it with an empty key
     (`MCPLAIN_ANTHROPIC_API_KEY= docker compose up -d --build`), because opening a report asks for a notice.
 13. The website has no secret and no database access: it only relays `/api/auth/*` to the counter and `/api/*` to the API
-    (`relayRewrites` in `web/src/lib/api-url.ts`, the counter first). `BETTER_AUTH_SECRET` reaches the counter only, the SMTP
-    credentials the postman only, the ALTCHA key (`MCPLAIN_ALTCHA_HMAC_KEY`) the API only; `api/tests/test_compose_accounts.py`
-    checks it. Never read `.env` and never print a secret: David creates the secrets with `scripts/init-secrets.sh`.
-14. The visitor address is read by one function only, `visitor_ip` in `api/src/mcplain_api/client_ip.py`: it trusts only the
-    address appended to `X-Forwarded-For` by our own relays (`MCPLAIN_TRUSTED_PROXY_HOPS`); `web/client-ip.js` appends it, since
-    Next.js does not. No address in clear in the database nor in the logs: HMAC-SHA256 with the salt of the UTC day, deleted
-    after two days (`ip_fingerprint.py`).
+    (`relayRewrites` in `web/src/lib/api-url.ts`, the counter first), and two paths to Umami, `GET /umami/script.js` and
+    `POST /umami/api/send` (route handlers in `web/src/app/umami/`, body and headers rebuilt; anything else under `/umami` is 404).
+    `BETTER_AUTH_SECRET` reaches the counter only, the SMTP credentials the postman only, the ALTCHA key
+    (`MCPLAIN_ALTCHA_HMAC_KEY`) the API only, the secrets of Umami the services `umami` and `migrate` only;
+    `api/tests/test_compose_accounts.py` checks it. Never read `.env` and never print a secret: David creates the secrets with `scripts/init-secrets.sh`.
+14. The visitor address is read with one rule only: trust only the address appended to `X-Forwarded-For` by our own relays,
+    counted from the right (`MCPLAIN_TRUSTED_PROXY_HOPS`); `web/client-ip.js` appends it, since Next.js does not. Three readers
+    apply it, and no other may exist: `visitor_ip` in `api/src/mcplain_api/client_ip.py` (the API), `limiterAddress` in
+    `auth/src/client-ip.ts` (the limiter of the counter) and `visitorAddress` in `web/src/lib/umami.ts` (the relay to Umami, which
+    overwrites the `x-mcplain-visitor-ip` header of the visitor). No address in clear in the database nor in the logs:
+    HMAC-SHA256 with the salt of the UTC day, deleted after two days (`ip_fingerprint.py`).
 
 ## Data flow engine
 
