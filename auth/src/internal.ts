@@ -11,6 +11,9 @@ export const SESSION_ROUTE = "/internal/session";
 export const ACCOUNTS_ROUTE = "/internal/accounts";
 export const BAN_ROUTE = "/internal/accounts/ban";
 export const UNBAN_ROUTE = "/internal/accounts/unban";
+export const CREATED_PER_DAY_ROUTE = "/internal/accounts/created-per-day";
+export const DAY_CHOICES: readonly string[] = ["7", "30"];
+const DAY_MILLISECONDS = 86_400_000;
 export const INTERNAL_BODY_MAX_BYTES = 2048;
 export const BAN_REASON_MAX_CHARS = 200;
 const COOKIE_MAX_CHARS = 8192;
@@ -193,10 +196,40 @@ async function unban(auth: Auth, body: string): Promise<InternalAnswer> {
   return DONE;
 }
 
-export function internalRoutes(auth: Auth): (request: InternalRequest) => Promise<InternalAnswer> {
+function utcDayStart(moment: Date): Date {
+  return new Date(Date.UTC(moment.getUTCFullYear(), moment.getUTCMonth(), moment.getUTCDate()));
+}
+
+async function createdPerDay(auth: Auth, search: URLSearchParams, now: Date): Promise<InternalAnswer> {
+  const days = search.get("days") ?? "";
+  if (!DAY_CHOICES.includes(days)) {
+    return INVALID;
+  }
+  const context = await auth.$context;
+  const today = utcDayStart(now).getTime();
+  const counts: { day: string; count: number }[] = [];
+  for (let back = Number(days) - 1; back >= 0; back -= 1) {
+    const start = new Date(today - back * DAY_MILLISECONDS);
+    const end = new Date(start.getTime() + DAY_MILLISECONDS);
+    const count = await context.adapter.count({
+      model: "user",
+      where: [
+        { field: "createdAt", operator: "gte", value: start },
+        { field: "createdAt", operator: "lt", value: end },
+      ],
+    });
+    counts.push({ day: start.toISOString().slice(0, 10), count });
+  }
+  return { status: 200, body: { days: counts } };
+}
+
+export function internalRoutes(auth: Auth, clock: () => Date = () => new Date()): (request: InternalRequest) => Promise<InternalAnswer> {
   return async (request) => {
     if (request.method === "GET" && request.path === SESSION_ROUTE) {
       return currentSession(auth, request.cookie);
+    }
+    if (request.method === "GET" && request.path === CREATED_PER_DAY_ROUTE) {
+      return createdPerDay(auth, request.search, clock());
     }
     if (request.method === "GET" && request.path === ACCOUNTS_ROUTE) {
       return findAccount(auth, request.search);

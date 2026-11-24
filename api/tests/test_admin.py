@@ -1,6 +1,7 @@
 """Tests of the admin routes: admin role and second factor on every route, the origin of every change, and the bans"""
 
 import json
+import re
 import uuid
 from collections.abc import Iterator
 
@@ -20,6 +21,8 @@ from mcplain_api.session_user import CurrentUser
 ORIGIN = "http://localhost:3010"
 OTHER_ORIGIN = "https://attacker.invalid"
 PEER = "testclient"
+PATH_PARAMETER = re.compile(r"\{[a-z_]+\}")
+SAMPLE_ID = "00000000-0000-4000-8000-000000000000"
 
 
 class FakeUsers:
@@ -62,6 +65,7 @@ class FakeDesk:
         self.admins: set[str] = set()
         self.known: dict[str, dict[str, object]] = {}
         self.outcome: DeskOutcome | None = None
+        self.created: dict[str, int] | None = {}
 
     def find(self, email: str) -> Lookup:
         """Return the account of an exact email"""
@@ -86,6 +90,11 @@ class FakeDesk:
 
         self.calls.append(("unban", user_id, None))
         return DeskOutcome.DONE
+
+    def created_per_day(self, days: int) -> dict[str, int] | None:
+        """Return the accounts created per day that the test chose"""
+
+        return self.created
 
 
 @pytest.fixture
@@ -129,7 +138,8 @@ def admin_routes() -> list[tuple[str, str]]:
     for route in app.routes:
         if isinstance(route, APIRoute) and route.path.startswith("/api/admin"):
             for method in sorted(route.methods):
-                found.append((method, route.path.replace("{account_id}", "someone")))
+                path = route.path.replace("{account_id}", "someone")
+                found.append((method, PATH_PARAMETER.sub(SAMPLE_ID, path)))
     return found
 
 
@@ -140,7 +150,7 @@ def call(client: TestClient, method: str, path: str, headers: dict[str, str], or
     if origin is not None:
         sent["Origin"] = origin
     if method == "GET":
-        return client.get(path, params={"email": "eve@example.com"}, headers=sent)
+        return client.get(path, params={"email": "eve@example.com", "days": "30"}, headers=sent)
     return client.request(method, path, json={"reason": None}, headers=sent)
 
 
@@ -151,6 +161,11 @@ def test_the_admin_routes_are_the_expected_ones() -> None:
         ("GET", "/api/admin/accounts"),
         ("POST", "/api/admin/accounts/someone/ban"),
         ("POST", "/api/admin/accounts/someone/unban"),
+        ("GET", "/api/admin/dashboard/spend"),
+        ("GET", "/api/admin/dashboard/ai"),
+        ("GET", "/api/admin/dashboard/analyses"),
+        ("GET", "/api/admin/dashboard/refusals"),
+        ("GET", "/api/admin/dashboard/accounts"),
     ]
 
 

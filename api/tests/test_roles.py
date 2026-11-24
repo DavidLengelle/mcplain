@@ -12,11 +12,13 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from helpers import altcha_settings
-from sqlalchemy import create_engine, func, select, text
+from sqlalchemy import create_engine, delete, func, select, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine import make_url
 
+from mcplain_api.admin_dashboard import ai_view, analyses_view, refusals_view, spend_view
 from mcplain_api.analysis_gate import enqueue
-from mcplain_api.db import AnalysisToken, QuotaUsage, make_engine, make_sessions
+from mcplain_api.db import AiCall, Analysis, AnalysisToken, QuotaUsage, make_engine, make_sessions
 from mcplain_api.migrate import set_role_passwords
 from mcplain_api.quota import Visitor, VisitorKind
 
@@ -201,4 +203,51 @@ def test_take_token_is_atomic_on_postgresql(database: str) -> None:
             assert session.scalar(select(QuotaUsage.count).where(QuotaUsage.subject == visitor.subject)) == 3
             assert session.scalar(select(func.count()).select_from(AnalysisToken).where(AnalysisToken.subject == visitor.subject)) == 3
     finally:
+        engine.dispose()
+
+
+def app_engine(database: str) -> Engine:
+    """Return an engine connected as the role of the API"""
+
+    url = make_url(os.environ[ADMIN_URL_VARIABLE]).set(
+        database=database, username="mcplain_app", password=TEST_PASSWORDS["mcplain_app"]
+    )
+    return make_engine(url.render_as_string(hide_password=False))
+
+
+def test_the_dials_read_postgresql_as_the_app_role(database: str) -> None:
+    """The JSON paths of the dials work on JSONB, and the role of the API reads every table they need"""
+
+    engine = app_engine(database)
+    sessions = make_sessions(engine)
+    now = datetime(2026, 12, 1, 10, 0, tzinfo=UTC)
+    created = datetime(2026, 12, 1, 9, 0, tzinfo=UTC)
+    stored = {
+        "status": "unsupported_language",
+        "language": "go",
+        "verdict": {"color": "gray", "gray_case": "unsupported_language"},
+        "source": {"kind": "github", "name": "owner/server"},
+    }
+    failed = {"verdict": {"color": "gray", "gray_case": "error"}, "error": {"code": "fetch.npm_not_found"}}
+    try:
+        with sessions.begin() as session:
+            session.add(Analysis(input_raw="x", state="done", result=stored, created_at=created, finished_at=created))
+            session.add(Analysis(input_raw="y", state="failed", error_code="fetch_error", result=failed, created_at=created))
+            session.add(AiCall(text_id=uuid.uuid4(), kind="notice", lang="fr", outcome="answered", reject_reason="encoding", cost_usd=0.25, created_at=created))
+        with sessions() as session:
+            analyses = analyses_view(session, now, 7)
+            spend = spend_view(session, altcha_settings(), now, 7)
+            ai = ai_view(session, now, 7)
+            refusals = refusals_view(session, now, 7)
+        assert analyses["languages"] == [{"code": "go", "count": 1}]
+        assert analyses["top"][0]["name"] == "owner/server"
+        assert analyses["failures"] == [{"code": "fetch.npm_not_found", "count": 1, "refund": "keep"}]
+        assert analyses["colors"]["gray"] == 2
+        assert spend["today_usd"] == 0.25
+        assert ai["encoding"]["rate"] == 1.0
+        assert refusals["totals"]["signup_limit"] == 0
+    finally:
+        with sessions.begin() as session:
+            session.execute(delete(Analysis))
+            session.execute(delete(AiCall))
         engine.dispose()

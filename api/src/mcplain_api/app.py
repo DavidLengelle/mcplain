@@ -24,6 +24,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from mcplain_api.admin_accounts import BAN_REASON_MAX_CHARS, EMAIL_MAX_CHARS, AccountDesk, DeskOutcome, GuichetDesk
+from mcplain_api.admin_routes import add_admin_routes
 from mcplain_api.ai_view import LANGUAGES_BY_KIND, ask_text, full_catalog, read_text
 from mcplain_api.altcha_gate import PAYLOAD_MAX_CHARS, new_challenge
 from mcplain_api.analysis_gate import BURST_LIMIT, QueueFull, admit, enqueue, quota_view
@@ -44,6 +45,9 @@ from mcplain_api.db import (
 from mcplain_api.history import clear_history, history_view
 from mcplain_api.outcomes import stored_failure
 from mcplain_api.quota import erase_account, minutes_to_wait
+from mcplain_api.responses import NO_STORE, error_response
+from mcplain_api.responses import no_store as _no_store
+from mcplain_api.responses import read_body as _read_body
 from mcplain_api.session_user import CurrentUser, SessionReader
 from mcplain_api.settings import Settings
 
@@ -54,7 +58,6 @@ ALLOWED_HEADERS: list[str] = ["Content-Type"]
 ALTCHA_HEADER = "x-altcha"
 MESSAGES_CACHE = "public, max-age=300"
 FINISHED_STATES: tuple[str, ...] = (AnalysisState.DONE.value, AnalysisState.FAILED.value)
-NO_STORE = "no-store"
 GUARD_BODY_MAX_BYTES = 8192
 IP_HEADER_MAX_CHARS = 1024
 IP_HEADERS_MAX = 8
@@ -159,12 +162,6 @@ class PeerCheck:
             self.addresses = self.resolver(self.names)
             self.until = now + PEER_CACHE_SECONDS
         return peer in self.addresses
-
-
-def error_response(status: int, code: str, params: dict[str, str] | None = None) -> JSONResponse:
-    """Return an error as a code and its parameters, without any language"""
-
-    return JSONResponse({"error": {"code": code, "params": params or {}}}, status_code=status)
 
 
 def create_app(
@@ -544,6 +541,8 @@ def create_app(
         status, code = DESK_ERRORS.get(outcome, DESK_ERRORS[DeskOutcome.UNAVAILABLE])
         return _no_store(error_response(status, code))
 
+    add_admin_routes(app, sessions, settings, desk)
+
     @app.get("/api/health")
     def health() -> JSONResponse:
         """Tell whether the database answers"""
@@ -558,13 +557,6 @@ def create_app(
     return app
 
 
-def _no_store(response: JSONResponse) -> JSONResponse:
-    """Forbid any cache to keep an answer of the admin routes"""
-
-    response.headers["Cache-Control"] = NO_STORE
-    return response
-
-
 def _analysis_uuid(analysis_id: str) -> uuid.UUID | None:
     """Return the identifier of an analysis, or None for a text that is not one"""
 
@@ -572,20 +564,6 @@ def _analysis_uuid(analysis_id: str) -> uuid.UUID | None:
         return uuid.UUID(analysis_id)
     except ValueError:
         return None
-
-
-async def _read_body(request: Request, limit: int) -> bytes | None:
-    """Read the request body, or return None as soon as it is longer than the limit"""
-
-    declared = request.headers.get("content-length")
-    if declared is not None and (not declared.isdigit() or int(declared) > limit):
-        return None
-    data = bytearray()
-    async for chunk in request.stream():
-        data.extend(chunk)
-        if len(data) > limit:
-            return None
-    return bytes(data)
 
 
 def _validate(payload: AnalysisRequest) -> str | None:

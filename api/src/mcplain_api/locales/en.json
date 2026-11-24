@@ -13,5 +13,6 @@
   "api.account_not_found": "No account has this email address.",
   "api.cannot_ban_self": "You cannot block your own account.",
   "api.cannot_ban_admin": "An admin account cannot be blocked.",
-  "api.guichet_unavailable": "The accounts service does not answer. Try again in a moment."
+  "api.guichet_unavailable": "The accounts service does not answer. Try again in a moment.",
+  "api.invalid_days": "Choose a period of 7 or 30 days."
 }
