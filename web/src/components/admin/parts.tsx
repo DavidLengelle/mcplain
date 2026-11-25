@@ -101,8 +101,8 @@ export function BarRow({ label, value, max, shown, alert = false, detail, raw = 
     name = <RawText value={label} />;
   }
   return (
-    <li className="grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 text-[15px]">
-      <span className={cn("min-w-0 text-ink2", raw && "font-mono text-sm break-all", !raw && "truncate")}>{name}</span>
+    <li className="grid grid-cols-[minmax(min-content,7.5rem)_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 text-[15px]">
+      <span data-bar-label="" className={cn("text-ink2", raw && "font-mono text-sm [overflow-wrap:anywhere]")}>{name}</span>
       <Bar value={value} max={max} label={`${label} : ${shown}`} alert={alert} />
       <span className="text-right font-semibold text-ink tabular-nums">{shown}</span>
       {detail !== undefined && <span className="col-span-3 text-sm text-muted sm:col-span-2 sm:col-start-2">{detail}</span>}
