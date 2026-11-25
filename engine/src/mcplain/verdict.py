@@ -2,6 +2,7 @@
 
 from mcplain.capabilities import LOCAL_CAPABILITIES, Capability, belongs_to, is_request
 from mcplain.config import DEFAULT_LIMITS
+from mcplain.detect import language_name
 from mcplain.lamps import LampId, lamp_states, level_for
 from mcplain.models import (
     Alert,
@@ -254,7 +255,7 @@ def headline(result: AnalysisResult, verdict: Verdict, unknown_network: bool) ->
     if verdict.color is VerdictColor.GRAY and verdict.gray_case is not None:
         params: dict[str, str] = {}
         if verdict.gray_case is GrayCase.UNSUPPORTED_LANGUAGE:
-            params["language"] = result.language or ""
+            params["language"] = language_name(result.language)
         if verdict.gray_case is GrayCase.NETWORK_UNRESOLVED:
             libraries = sorted({library for server in result.servers for library in network_not_followed(server)})
             params["library"] = ", ".join(libraries)

@@ -87,6 +87,26 @@ LANGUAGE_BY_EXTENSION: dict[str, str] = {
     ".dart": "dart",
     ".scala": "scala",
 }
+LANGUAGE_NAMES: dict[str, str] = {
+    "python": "Python",
+    "javascript": "JavaScript",
+    "typescript": "TypeScript",
+    "go": "Go",
+    "rust": "Rust",
+    "java": "Java",
+    "kotlin": "Kotlin",
+    "jvm": "Java/Kotlin",
+    "csharp": "C#",
+    "ruby": "Ruby",
+    "php": "PHP",
+    "swift": "Swift",
+    "c": "C",
+    "cpp": "C++",
+    "zig": "Zig",
+    "elixir": "Elixir",
+    "dart": "Dart",
+    "scala": "Scala",
+}
 DECLARATION_SUFFIXES: tuple[str, ...] = (".d.ts", ".d.mts", ".d.cts")
 MARKDOWN_EXTENSIONS: frozenset[str] = frozenset({".md", ".markdown", ".mdx", ".rst"})
 COMPILED_EXTENSIONS: frozenset[str] = frozenset(
@@ -594,6 +614,14 @@ def _manifest_candidates(inventory: Inventory) -> list[ServerCandidate]:
             )
         )
     return candidates
+
+
+def language_name(language: str | None) -> str:
+    """Return the name of a language as people write it, such as Go for go"""
+
+    if language is None:
+        return ""
+    return LANGUAGE_NAMES.get(language, language)
 
 
 def _refine_language(language: str, folder: str, inventory: Inventory) -> str:

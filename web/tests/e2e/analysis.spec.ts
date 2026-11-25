@@ -99,7 +99,7 @@ test("a list of links says so and shows no verdict", async ({ page }) => {
   await serveAnalysis(page, [reportView("awesome")]);
   await page.goto(`/fr/analyses/${ID}`);
   await expect(page.locator("[data-link-list]")).toContainText("C'est une liste de liens, pas un MCP.");
-  await expect(page.locator("[data-link-list]")).toContainText("Choisis-en un et colle son lien.");
+  await expect(page.locator("[data-link-list]")).toContainText("Choisis un des serveurs de la liste.");
   await expect(page.locator("[data-verdict]")).toHaveCount(0);
 });
 

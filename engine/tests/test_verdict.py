@@ -238,7 +238,7 @@ def test_gray_case_follows_the_status(status: AnalysisStatus, case: str) -> None
     assert verdict.title.code == f"gray.{case}.reason"
     assert verdict.summary.code == f"gray.{case}.advice"
     if case == "unsupported_language":
-        assert verdict.title.params == {"language": "go"}
+        assert verdict.title.params == {"language": "Go"}
 
 
 def test_gray_case_for_a_timeout_a_link_list_and_a_caveat() -> None:

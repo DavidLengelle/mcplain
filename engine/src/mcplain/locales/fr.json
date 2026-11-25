@@ -535,7 +535,7 @@
   "gray.multiple_servers.reason": "Ce lien contient plusieurs serveurs MCP.",
   "gray.multiple_servers.advice": "Choisis celui que tu veux analyser.",
   "gray.link_list.reason": "C'est une liste de liens, pas un MCP.",
-  "gray.link_list.advice": "Choisis-en un et colle son lien.",
+  "gray.link_list.advice": "Choisis un des serveurs de la liste.",
   "gray.unsupported_language.reason": "MCPlain ne sait pas encore lire le langage {language}.",
   "gray.unsupported_language.advice": "Ne te fie pas à ce résultat. Cherche une version de ce serveur en Python ou en JavaScript, ou fais relire son code.",
   "gray.compiled.reason": "Ce serveur est du code compilé, que MCPlain ne peut pas lire.",
