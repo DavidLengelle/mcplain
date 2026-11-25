@@ -353,8 +353,9 @@ prudence. Bilan hors du dépôt.
       lecture seulement s'ils ne sont faits que de constantes « lecture » de `fs.constants` (écrites en entier, importées ou
       déstructurées depuis ce module), de `|`, de `?? 0`, ou d'un appel à une petite fonction du même fichier sans paramètre
       qui les renvoie. Une variable locale du même nom, un nombre écrit en dur, `O_WRONLY`, `O_RDWR`, `O_CREAT`, `O_APPEND`
-      ou des drapeaux reçus en paramètre restent des écritures. Fixtures : `rules/O04/open_flags_write` (O04 gardé) et
-      `open_flags_read`. filesystem reste orange (O08).
+      ou des drapeaux reçus en paramètre restent des écritures. `?? 0` ne compte que derrière une constante de lecture de
+      `fs.constants` : `args.flags ?? 0`, `flags ?? 0` (paramètre) et `O_WRONLY | (O_NOFOLLOW ?? 0)` gardent O04. Fixtures :
+      `rules/O04/open_flags_write` (O04 gardé) et `open_flags_read`. filesystem reste orange (O08).
 - [x] F15, F19, F20 corrigés (voir « Retouches de textes »). Notice de secours : sur une lecture partielle, « Dans ce qui a
       été lu, rien n'allume un voyant. Une partie n'a pas pu être vérifiée. » (`ai.notice.fallback.nothing_partial`).
 - [x] Banc : calculator passe de vert à gris (table de fonctions `operator`, et une fonction fabriquée par une autre). Aucun
@@ -371,6 +372,11 @@ Séance 11b (le formulaire de l'IA, section suivante), puis la mise en ligne che
 - [ ] Séance 11b : le formulaire de l'IA doit dire qu'un outil n'a pas été suivi (règle 4 : l'IA peut alerter, jamais
       rassurer). Aujourd'hui `ai_form.py` donne les capacités d'un outil d'après ses voyants seuls : une notice de l'IA peut
       encore dire qu'un outil non suivi ne fait rien. Le site retire déjà la phrase de l'IA de la carte d'un tel outil.
+- [ ] Séance 11b : `os.open` en Python n'est reconnu ni comme une lecture ni comme une écriture (constaté en séance 11). C'est
+      un faux vert possible : un outil qui écrit avec `os.open` et `os.write` peut sortir sans voyant.
+- [ ] Séance 11b : inventaire des fonctions de base (Python : os, shutil, pathlib, io, tempfile, subprocess, socket ; Node : fs,
+      fs/promises, child_process, net, http, https) qui touchent fichiers, commandes ou réseau et qui manquent aux tables du
+      moteur.
 
 - [ ] Les tests de pile ne doivent effacer que leurs propres lignes (`stack/admin.spec.ts` vide `signup_counts`). Constaté le
       25 novembre 2026 sur la pile locale : ce test vide toute la table `signup_counts` (`resetSignups` de
@@ -423,8 +429,6 @@ Relevées en séance 10a, corrigées en séance 11.
 - Suivre ce qui est sûr au lieu de laisser une lacune `unresolved_call` : un alias (`reader = read_note`), `f.call(...)`,
   `functools.partial(f, ...)`, `f.bind(...)`. En séance 11, la règle ne fait qu'ajouter des lacunes (une couleur ne pouvait
   aller que vers plus de prudence).
-- `os.open` en Python n'est reconnu ni comme une lecture ni comme une écriture (constaté en séance 11) : aucun voyant ne
-  s'allume pour lui.
 
 - Les refus de l'anti-rafale (`burst_limit`) et les ALTCHA ratés (`altcha_invalid`) ne sont comptés nulle part : le cadran « Refus »
   de la 9c-2 ne les montre donc pas (décision de David du 24 novembre 2026). À ajouter si un jour on veut les suivre (une table par
