@@ -1,0 +1,6 @@
+color = "gray"
+accept = ["gray"]
+rules = []
+gray_case = "incomplete_tracking"
+style = "JavaScript, the tool calls an arrow function kept in an object literal (notes.read)."
+tests = "A call of server code that MCPlain cannot resolve keeps the tool unfollowed: gray, never green, never no lamp."

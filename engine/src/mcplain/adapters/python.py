@@ -13,8 +13,10 @@ from mcplain.adapters.common import (
     BOOLEAN_NODES,
     COMPUTED,
     DYNAMIC_PLACEHOLDER,
+    FUNCTION_CAUSES,
     TITLE_KEY,
     UNSET_NODES,
+    FunctionTable,
     Piece,
     SourceText,
     TextValue,
@@ -43,6 +45,7 @@ from mcplain.adapters.report import (
     RawNetworkImport,
     RawString,
     RawTool,
+    table_gap,
 )
 from mcplain.capabilities import (
     DOCKER_SOCKET_SUFFIX,
@@ -83,7 +86,7 @@ from mcplain.capabilities import (
     python_network_library,
 )
 from mcplain.manifests import load_toml, read_text, string_list, table
-from mcplain.models import DeclarationKind, InstallScript, ToolParameter, TrackingGap, UrlKind
+from mcplain.models import DeclarationKind, InstallScript, ToolParameter, TrackingGap, UnresolvedCause, UrlKind
 from mcplain.patterns import (
     COPY_FIELDS,
     COPY_LIST_NAME,
@@ -164,6 +167,8 @@ OVERLOAD_DECORATORS: frozenset[str] = frozenset({"overload", "typing.overload", 
 ACCESSOR_DECORATORS: frozenset[str] = frozenset({"setter", "deleter"})
 LOOKUP_METHOD = "get"
 GETATTR_NAME = "getattr"
+PARTIAL_FUNCTIONS: frozenset[str] = frozenset({"functools.partial", "functools.partialmethod"})
+GROUPING_TYPES: frozenset[str] = frozenset({"conditional_expression", "boolean_operator", "parenthesized_expression"})
 NAMESPACE_FUNCTIONS: frozenset[str] = frozenset({"globals", "locals", "vars"})
 IMMEDIATE_CALLBACK_FUNCTIONS: frozenset[str] = frozenset({"map", "filter", "sorted", "sort", "min", "max", "reduce"})
 
@@ -391,7 +396,7 @@ class _PythonFile:
         self.client_factories: dict[str, str] = {}
         self.instance_factories: dict[str, tuple[str, str | None]] = {}
         self.tool_definitions: set[int] = set()
-        self.tables: list[tuple[str, int, int, list[tuple[str, Node]]]] = []
+        self.tables: list[tuple[str, int, int, FunctionTable]] = []
         self.instances: list[tuple[str, int, int, tuple[str, str | None]]] = []
         self.lookups: list[tuple[str, int, int, Node]] = []
 
@@ -663,11 +668,12 @@ class _PythonFile:
                 wanted = "class_definition"
             start, end = self._scope_of(assignment, wanted)
             if right.type == "dictionary" and (left.type == "identifier" or wanted == "class_definition"):
-                entries = self._table_entries(right)
+                entries: list[tuple[str, Node]] | None = self._table_entries(right)
                 if not entries:
                     entries = self._closed_table(right)
                 if entries is not None and (entries or right.named_children):
-                    self.tables.append((name, start, end, entries))
+                    complete = len(entries) == len(right.named_children)
+                    self.tables.append((name, start, end, FunctionTable(entries, complete)))
                 continue
             instance = self._constructed_class(right)
             if instance is not None:
@@ -756,14 +762,14 @@ class _PythonFile:
 
         return innermost(self.instances, name, offset)
 
-    def _table_named(self, node: Node | None, offset: int) -> list[tuple[str, Node]] | None:
+    def _table_named(self, node: Node | None, offset: int) -> FunctionTable | None:
         """Return the entries of the dispatch table a name refers to at an offset"""
 
         if node is None or node.type not in REFERENCE_TYPES:
             return None
         return innermost(self.tables, node_text(node), offset)
 
-    def _lookup_kind(self, node: Node | None, offset: int) -> tuple[list[tuple[str, Node]] | None, TrackingGap | None]:
+    def _lookup_kind(self, node: Node | None, offset: int) -> tuple[FunctionTable | None, TrackingGap | None]:
         """Classify a callee read from a table, a dict, getattr or globals()"""
 
         if node is None:
@@ -819,23 +825,24 @@ class _PythonFile:
         if table is None:
             return None, gap
         targets = []
-        for key, value in table:
+        for key, value in table.entries:
             target = self.call_target(value, offset)
             if target is not None:
                 targets.append(RawCall(offset, target.name, target.file, key))
+        if not table.complete:
+            return targets, TrackingGap.UNRESOLVED_CALL
         return targets, None
 
     def _dynamic_call(self, call: Node, callee: Node) -> bool:
         """Record calls through dispatch tables, and the calls that cannot be followed"""
 
         targets, gap = self.dispatch(call, callee)
+        if gap is not None:
+            self.report.gaps.append(table_gap(call.start_byte, gap))
         if targets is not None:
             self.report.calls.extend(targets)
             return True
-        if gap is not None:
-            self.report.gaps.append(RawGap(call.start_byte, gap))
-            return True
-        return False
+        return gap is not None
 
     def _method_call(self, callee: Node, offset: int) -> None:
         """Remember a method called on an object whose type is unknown"""
@@ -850,9 +857,11 @@ class _PythonFile:
         if target.type in ("string", "concatenated_string"):
             return
         self.report.method_calls.append(RawCall(offset, node_text(attribute)))
+        if target.type == "identifier" and self._bound_cause(target, offset) is not None:
+            self.report.server_method_calls.append(RawCall(offset, node_text(attribute)))
 
     def _find_calls(self) -> None:
-        """Record calls and function references passed as arguments"""
+        """Record calls, function references passed as arguments, and calls of package code that cannot be resolved"""
 
         self._index_dispatch()
         for call in self.nodes["call"]:
@@ -863,12 +872,89 @@ class _PythonFile:
                     self.report.calls.append(target)
                 elif callee.type == "attribute":
                     self._method_call(callee, call.start_byte)
+                elif callee.type == "identifier":
+                    self._unresolved(call.start_byte, self._bound_cause(callee, call.start_byte))
             positional, keywords = split_arguments(call.child_by_field_name("arguments"))
             for argument in positional + list(keywords.values()):
                 if argument.type in REFERENCE_TYPES:
                     target = self.call_target(argument, argument.start_byte)
                     if target is not None:
                         self.report.calls.append(target)
+                    elif argument.type == "identifier":
+                        cause = self._bound_cause(argument, argument.start_byte)
+                        if cause in FUNCTION_CAUSES:
+                            self._unresolved(argument.start_byte, cause)
+
+    def _unresolved(self, offset: int, cause: UnresolvedCause | None) -> None:
+        """Record a call that may reach package code but that the call graph cannot resolve"""
+
+        if cause is not None:
+            self.report.gaps.append(RawGap(offset, TrackingGap.UNRESOLVED_CALL, cause))
+
+    def _bound_cause(self, name: Node, offset: int, depth: int = 0) -> UnresolvedCause | None:
+        """Tell how the value assigned to a name may hold package code that the call graph cannot resolve"""
+
+        if node_text(name) in self.function_names or node_text(name) in self.aliases:
+            return None
+        value = innermost(self.lookups, node_text(name), offset)
+        if value is None:
+            return None
+        return self._value_cause(value, offset, depth)
+
+    def _value_cause(self, value: Node, offset: int, depth: int) -> UnresolvedCause | None:
+        """Tell how a value may hold package code: an alias, a lambda, a partial, a wrapper or a function made by a call"""
+
+        if depth > MAX_CONSTANT_DEPTH:
+            return None
+        current = value
+        if current.type == "await" and current.named_children:
+            current = current.named_children[0]
+        if current.type == "lambda":
+            if self._holds_code(current):
+                return UnresolvedCause.LAMBDA
+            return None
+        if current.type in REFERENCE_TYPES:
+            if self.call_target(current, current.start_byte) is not None:
+                return UnresolvedCause.ALIAS
+            if current.type == "identifier":
+                return self._bound_cause(current, offset, depth + 1)
+            return None
+        if current.type in GROUPING_TYPES:
+            for child in current.named_children:
+                cause = self._value_cause(child, offset, depth + 1)
+                if cause is not None:
+                    return cause
+            return None
+        if current.type != "call":
+            return None
+        function = current.child_by_field_name("function")
+        positional, keywords = split_arguments(current.child_by_field_name("arguments"))
+        given = [argument for argument in positional + list(keywords.values()) if self._is_package_function(argument)]
+        parts = dotted_parts(function)
+        if parts and self._resolve(parts)[0] in PARTIAL_FUNCTIONS:
+            if given:
+                return UnresolvedCause.PARTIAL
+            return None
+        if given:
+            return UnresolvedCause.WRAPPER
+        if function is not None and function.type in REFERENCE_TYPES:
+            if self.call_target(function, function.start_byte) is not None:
+                return UnresolvedCause.RETURNED_FUNCTION
+        return None
+
+    def _is_package_function(self, node: Node) -> bool:
+        """Tell whether an argument is a function of the package or a lambda that holds code"""
+
+        if node.type == "lambda":
+            return self._holds_code(node)
+        return node.type in REFERENCE_TYPES and self.call_target(node, node.start_byte) is not None
+
+    def _holds_code(self, node: Node) -> bool:
+        """Tell whether a lambda holds a finding or a call, so that leaving it unfollowed could miss something"""
+
+        if any(node.start_byte <= finding.offset < node.end_byte for finding in self.report.findings):
+            return True
+        return any(node.start_byte <= call.start_byte < node.end_byte for call in self.nodes["call"])
 
     def _resolve(self, parts: list[str]) -> tuple[str, bool]:
         """Return the qualified name of a dotted name and whether it was imported"""

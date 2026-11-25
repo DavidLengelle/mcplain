@@ -1,0 +1,5 @@
+color = "green"
+accept = ["green"]
+rules = []
+style = "JavaScript, registerTool inside build(), the tool calls a file reading function directly."
+tests = "Witness of the unresolved_call gap: a direct call is followed, the tool lights Reads your files, green."

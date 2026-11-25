@@ -1,0 +1,6 @@
+color = "gray"
+accept = ["gray"]
+rules = []
+gray_case = "incomplete_tracking"
+style = "Python, FastMCP inside build(), a calculator that picks operator.add or another function from a dict (OPS[op](a, b))."
+tests = "A function picked from a table of outside functions is not followed: gray, decided by David on 2026-11-25."

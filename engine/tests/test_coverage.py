@@ -14,6 +14,7 @@ from mcplain.models import (
     CoverageKind,
     GrayCase,
     TrackingGap,
+    UnresolvedCause,
     VerdictColor,
 )
 from mcplain.verdict import COMPILED_REASON, DYNAMIC_DESCRIPTION_REASON, PARSE_ERROR_REASON, READING_CASES
@@ -160,6 +161,8 @@ def test_every_kind_and_reason_has_a_text(language: str) -> None:
     expected = [f"coverage.kind.{kind.value}" for kind in CoverageKind]
     expected += [f"coverage.reason.{reason}" for reason in reasons]
     expected += ["coverage.checked", "coverage.nothing_found", "coverage.partial_verdict", "coverage.not_checked", "coverage.more"]
+    expected += [f"coverage.cause.{cause.value}" for cause in UnresolvedCause]
+    expected += [f"gap.{gap.value}" for gap in TrackingGap]
     assert [key for key in expected if key not in keys] == []
 
 
@@ -209,13 +212,35 @@ def test_orange_fully_read_has_no_coverage(tmp_path: Path) -> None:
     assert result.verdict.coverage is None
 
 
-def test_red_read_in_part_has_no_coverage(tmp_path: Path) -> None:
-    """A red verdict keeps its report as it was, even with an incomplete reading"""
+RED_PARTIAL_BODY = (
+    ORANGE_PARTIAL_BODY
+    + '\n\n@mcp.tool()\ndef paste(value: str) -> str:\n    """Paste"""\n    subprocess.run(f"echo {value}", shell=True)\n    return value\n'
+)
 
-    body = ORANGE_PARTIAL_BODY + '\n\n@mcp.tool()\ndef paste(value: str) -> str:\n    """Paste"""\n    subprocess.run(f"echo {value}", shell=True)\n    return value\n'
-    result = analyze_directory(server(tmp_path, body))
+
+def test_red_read_in_part_lists_what_was_not_checked(tmp_path: Path) -> None:
+    """A red verdict read in part keeps its color and also lists the tools and calls that were not checked"""
+
+    result = analyze_directory(server(tmp_path, RED_PARTIAL_BODY))
     assert result.verdict.color is VerdictColor.RED
-    assert result.verdict.coverage is None
+    assert result.verdict.coverage is not None
+    assert result.verdict.coverage.not_checked_count > 0
+
+
+@pytest.mark.parametrize(
+    ("lang", "sentence", "other"),
+    [
+        ("fr", "n'a pas pu être lue en entier", "Rien de suspect"),
+        ("en", "could not be read in full", "Nothing suspicious"),
+    ],
+)
+def test_red_coverage_never_says_nothing_was_found(tmp_path: Path, lang: str, sentence: str, other: str) -> None:
+    """The command line says that a red verdict only covers what was checked, never that nothing suspicious was found"""
+
+    result = analyze_directory(server(tmp_path, RED_PARTIAL_BODY))
+    text = render(result, Translator(lang))
+    assert sentence in text
+    assert other not in text
 
 
 @pytest.mark.parametrize(

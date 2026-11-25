@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from mcplain.adapters.bundles import LibraryRegion
 from mcplain.adapters.common import SourceText, TextValue
 from mcplain.capabilities import Capability
-from mcplain.models import AnnotationValue, DeclarationKind, ToolParameter, TrackingGap, UrlKind
+from mcplain.models import AnnotationValue, DeclarationKind, ToolParameter, TrackingGap, UnresolvedCause, UrlKind
 
 if TYPE_CHECKING:
     from mcplain.adapters.dataflow import FlowFunction
@@ -64,6 +64,7 @@ class RawGap:
 
     offset: int
     gap: TrackingGap
+    cause: UnresolvedCause | None = None
 
 
 @dataclass(frozen=True)
@@ -143,6 +144,7 @@ class FileReport:
     function_ranges: list[tuple[int, int]] = field(default_factory=list)
     calls: list[RawCall] = field(default_factory=list)
     method_calls: list[RawCall] = field(default_factory=list)
+    server_method_calls: list[RawCall] = field(default_factory=list)
     gaps: list[RawGap] = field(default_factory=list)
     call_handlers: list[RawHandler] = field(default_factory=list)
     dispatch_blocks: list[RawBlock] = field(default_factory=list)
@@ -157,3 +159,11 @@ class FileReport:
     network_imports: list[RawNetworkImport] = field(default_factory=list)
     library_regions: list[LibraryRegion] = field(default_factory=list)
     module_wrappers: list[tuple[int, int]] = field(default_factory=list)
+
+
+def table_gap(offset: int, gap: TrackingGap) -> RawGap:
+    """Return the gap of a call through a table: a table that is not complete misses functions it may call"""
+
+    if gap is TrackingGap.UNRESOLVED_CALL:
+        return RawGap(offset, gap, UnresolvedCause.FUNCTION_TABLE)
+    return RawGap(offset, gap)

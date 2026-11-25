@@ -47,6 +47,7 @@ STATUS_CASES: dict[AnalysisStatus, GrayCase] = {
     AnalysisStatus.NO_TOOLS_FOUND: GrayCase.NO_TOOLS_FOUND,
     AnalysisStatus.ERROR: GrayCase.ERROR,
 }
+PARTIAL_COLORS: frozenset[VerdictColor] = frozenset({VerdictColor.ORANGE, VerdictColor.RED})
 TIMEOUT_ERRORS: frozenset[str] = frozenset({"job.atelier_timeout", "fetch.timeout"})
 READING_CASES: frozenset[GrayCase] = frozenset(
     {
@@ -140,6 +141,7 @@ def not_checked(result: AnalysisResult) -> list[CoverageItem]:
                         file=place.file,
                         line=place.line,
                         snippet=place.snippet,
+                        cause=place.cause,
                     )
                 )
             if tool.gaps and not tool.gap_places:
@@ -297,7 +299,7 @@ def compute_verdict(result: AnalysisResult, registry: RuleRegistry = DEFAULT_REG
         verdict.gray_case = gray_case(result, reasons)
         if verdict.gray_case in READING_CASES and result.servers:
             verdict.coverage = coverage(result)
-    if verdict.color is VerdictColor.ORANGE and reading:
+    if verdict.color in PARTIAL_COLORS and reading:
         verdict.coverage = coverage(result)
     unknown = False
     if verdict.color is VerdictColor.GREEN:

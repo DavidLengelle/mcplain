@@ -42,6 +42,7 @@ from mcplain.models import (
     TextMatchKind,
     Tool,
     TrackingGap,
+    UnresolvedCause,
 )
 from mcplain.paths import iter_files, location_kind
 from mcplain.patterns import PIPE_TO_SHELL, analyzer_talk, excerpt
@@ -64,7 +65,7 @@ class _ToolSlot:
     regions: list[Region] = field(default_factory=list)
     seen: set[tuple[Capability, str, int]] = field(default_factory=set)
     gaps: set[TrackingGap] = field(default_factory=set)
-    places: set[tuple[str, int, TrackingGap]] = field(default_factory=set)
+    places: set[tuple[str, int, TrackingGap, UnresolvedCause | None]] = field(default_factory=set)
 
 
 @dataclass(frozen=True)
@@ -400,21 +401,31 @@ class Adapter(ABC):
                     shared.setdefault((reach.file, reach.index), _call_steps(reports, reach.chain))
         return shared, scopes
 
-    def _gap_places(self, reports: dict[str, FileReport], places: set[tuple[str, int, TrackingGap]]) -> list[GapPlace]:
-        """Turn the offsets of calls that could not be followed into places, one per line and reason, sorted"""
+    def _gap_places(
+        self,
+        reports: dict[str, FileReport],
+        places: set[tuple[str, int, TrackingGap, UnresolvedCause | None]],
+    ) -> list[GapPlace]:
+        """Turn the offsets of calls that could not be followed into places, one per line, reason and cause, sorted"""
 
-        kept: dict[tuple[str, int, TrackingGap], int] = {}
-        for file, offset, gap in sorted(places, key=lambda item: (item[0], item[1], item[2].value)):
-            key = (file, reports[file].source.line_of(offset), gap)
+        kept: dict[tuple[str, int, TrackingGap, UnresolvedCause | None], int] = {}
+        for file, offset, gap, cause in sorted(places, key=_place_order):
+            key = (file, reports[file].source.line_of(offset), gap, cause)
             if key in kept:
                 continue
             if len(kept) >= self.limits.max_gap_places:
                 break
             kept[key] = offset
-        ordered = sorted(kept, key=lambda item: (item[0], item[1], item[2].value))
+        ordered = sorted(kept, key=_place_order)
         return [
-            GapPlace(gap=gap, file=file, line=line, snippet=reports[file].source.snippet(kept[(file, line, gap)]))
-            for file, line, gap in ordered
+            GapPlace(
+                gap=gap,
+                file=file,
+                line=line,
+                snippet=reports[file].source.snippet(kept[(file, line, gap, cause)]),
+                cause=cause,
+            )
+            for file, line, gap, cause in ordered
         ]
 
     def _attach_table_entries(
@@ -609,6 +620,15 @@ class Adapter(ABC):
                     location_kind=location,
                 )
             )
+
+
+def _place_order(item: tuple[str, int, TrackingGap, UnresolvedCause | None]) -> tuple[str, int, str, str]:
+    """Return a sort key for a place that could not be followed, whose cause may be missing"""
+
+    file, position, gap, cause = item
+    if cause is None:
+        return file, position, gap.value, ""
+    return file, position, gap.value, cause.value
 
 
 def _unused_library(report: FileReport, index: int) -> str | None:

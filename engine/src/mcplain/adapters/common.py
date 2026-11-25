@@ -8,7 +8,11 @@ from urllib.parse import urlsplit
 from tree_sitter import Language, Node, Query, QueryCursor
 
 from mcplain.config import Limits
-from mcplain.models import InvisibleCategory
+from mcplain.models import InvisibleCategory, UnresolvedCause
+
+FUNCTION_CAUSES: frozenset[UnresolvedCause] = frozenset(
+    {UnresolvedCause.ALIAS, UnresolvedCause.LAMBDA, UnresolvedCause.PARTIAL, UnresolvedCause.BIND}
+)
 
 INVISIBLE_RANGES: tuple[tuple[int, int, InvisibleCategory], ...] = (
     (0x00AD, 0x00AD, InvisibleCategory.ZERO_WIDTH),
@@ -352,6 +356,14 @@ def node_text(node: Node) -> str:
 
     raw = node.text or b""
     return raw.decode("utf-8", errors="replace")
+
+
+@dataclass(frozen=True)
+class FunctionTable:
+    """Class that holds the entries of a table of functions, and whether every value is a function of the package"""
+
+    entries: list[tuple[str, Node]]
+    complete: bool
 
 
 def innermost[T](items: list[tuple[str, int, int, T]], name: str, offset: int) -> T | None:

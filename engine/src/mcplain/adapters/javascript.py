@@ -16,8 +16,10 @@ from mcplain.adapters.common import (
     BOOLEAN_NODES,
     COMPUTED,
     DYNAMIC_PLACEHOLDER,
+    FUNCTION_CAUSES,
     TITLE_KEY,
     UNSET_NODES,
+    FunctionTable,
     Piece,
     SourceText,
     TextValue,
@@ -46,6 +48,7 @@ from mcplain.adapters.report import (
     RawNetworkImport,
     RawString,
     RawTool,
+    table_gap,
 )
 from mcplain.capabilities import (
     DOCKER_SOCKET_SUFFIX,
@@ -86,7 +89,7 @@ from mcplain.capabilities import (
     rewrite_javascript_chain,
 )
 from mcplain.manifests import load_json_object, read_text, table
-from mcplain.models import DeclarationKind, InstallScript, ToolParameter, TrackingGap, UrlKind
+from mcplain.models import DeclarationKind, InstallScript, ToolParameter, TrackingGap, UnresolvedCause, UrlKind
 from mcplain.patterns import (
     COPY_FIELDS,
     COPY_LIST_NAME,
@@ -231,6 +234,10 @@ TYPE_KEYWORD = "type"
 INSTANCEOF = "instanceof"
 MAP_CONSTRUCTOR = "Map"
 LOOKUP_METHOD = "get"
+INDIRECT_CALL_METHODS: frozenset[str] = frozenset({"call", "apply"})
+BIND_METHOD = "bind"
+GROUPING_TYPES: frozenset[str] = frozenset({"ternary_expression", "binary_expression", "parenthesized_expression"})
+OBJECT_MEMBER_TYPES: frozenset[str] = frozenset({"pair", "shorthand_property_identifier"})
 DYNAMIC_RECEIVERS: frozenset[str] = frozenset({"this", "globalThis", "window", "self", "global"})
 GLOBAL_OBJECTS: frozenset[str] = frozenset(
     {
@@ -563,9 +570,10 @@ class _JavaScriptFile:
         self.list_handlers: list[Node] = []
         self.filling_templates = False
         self.seen_objects: set[int] = set()
-        self.tables: list[tuple[str, int, int, list[tuple[str, Node]]]] = []
+        self.tables: list[tuple[str, int, int, FunctionTable]] = []
         self.instances: list[tuple[str, int, int, tuple[str, str | None]]] = []
         self.lookups: list[tuple[str, int, int, Node]] = []
+        self.objects: list[tuple[str, int, int, Node]] = []
 
     def run(self) -> FileReport:
         """Run every analysis step and return the file report"""
@@ -1071,9 +1079,11 @@ class _JavaScriptFile:
                 wanted = CLASS_TYPES
             start, end = self._scope_of(node, wanted)
             current = unwrap(value)
-            entries = self._table_entries(current)
-            if entries:
-                self.tables.append((name, start, end, entries))
+            if current is not None and current.type == "object" and name_node.type == "identifier":
+                self.objects.append((name, start, end, current))
+            table = self._table_entries(current)
+            if table.entries:
+                self.tables.append((name, start, end, table))
                 continue
             instance = self._constructed_class(current)
             if instance is not None:
@@ -1081,16 +1091,19 @@ class _JavaScriptFile:
             elif current is not None and name_node.type == "identifier":
                 self.lookups.append((name, start, end, current))
 
-    def _table_entries(self, node: Node | None) -> list[tuple[str, Node]]:
+    def _table_entries(self, node: Node | None) -> FunctionTable:
         """Return the literal keys of an object or Map literal whose values are functions of the package"""
 
         pairs: list[tuple[Node | None, Node | None]] = []
+        others = 0
         if node is not None and node.type == "object":
             for child in node.named_children:
                 if child.type == "pair":
                     pairs.append((child.child_by_field_name("key"), child.child_by_field_name("value")))
                 elif child.type == "shorthand_property_identifier":
                     pairs.append((child, child))
+                elif child.type != "comment":
+                    others += 1
         elif node is not None and node.type == "new_expression":
             constructor = node.child_by_field_name("constructor")
             arguments = call_arguments(node)
@@ -1116,7 +1129,7 @@ class _JavaScriptFile:
             if name is None or self.call_target(target, target.start_byte) is None:
                 continue
             entries.append((name, target))
-        return entries
+        return FunctionTable(entries, others == 0 and len(entries) == len(pairs))
 
     def _constructed_class(self, node: Node | None) -> tuple[str, str | None] | None:
         """Return the package class created by new Store(...), as class name and file"""
@@ -1137,7 +1150,7 @@ class _JavaScriptFile:
                 return member, file
         return None
 
-    def _lookup_kind(self, node: Node | None, offset: int) -> tuple[list[tuple[str, Node]] | None, TrackingGap | None]:
+    def _lookup_kind(self, node: Node | None, offset: int) -> tuple[FunctionTable | None, TrackingGap | None]:
         """Classify a callee read from a table, an object, a Map or a dynamic property"""
 
         current = unwrap(node)
@@ -1186,23 +1199,24 @@ class _JavaScriptFile:
         if table is None:
             return None, gap
         targets = []
-        for key, value in table:
+        for key, value in table.entries:
             target = self.call_target(value, offset)
             if target is not None:
                 targets.append(RawCall(offset, target.name, target.file, key))
+        if not table.complete:
+            return targets, TrackingGap.UNRESOLVED_CALL
         return targets, None
 
     def _dynamic_call(self, call: Node, callee: Node | None) -> bool:
         """Record calls through dispatch tables, and the calls that cannot be followed"""
 
         targets, gap = self.dispatch(call, callee)
+        if gap is not None:
+            self.report.gaps.append(table_gap(call.start_byte, gap))
         if targets is not None:
             self.report.calls.extend(targets)
             return True
-        if gap is not None:
-            self.report.gaps.append(RawGap(call.start_byte, gap))
-            return True
-        return False
+        return gap is not None
 
     def _method_call(self, callee: Node | None, offset: int) -> None:
         """Remember a method called on an object whose type is unknown"""
@@ -1234,7 +1248,7 @@ class _JavaScriptFile:
                 target = None
             else:
                 target = self.call_target(callee, call.start_byte)
-                if target is None and call.type == "call_expression":
+                if target is None and call.type == "call_expression" and not self._unresolved_call(callee, call.start_byte):
                     self._method_call(callee, call.start_byte)
             if target is not None:
                 self.report.calls.append(target)
@@ -1249,6 +1263,135 @@ class _JavaScriptFile:
                     reference = self.call_target(current, current.start_byte)
                     if reference is not None:
                         self.report.calls.append(reference)
+                    elif current.type == "identifier":
+                        cause = self._bound_cause(current, current.start_byte)
+                        if cause in FUNCTION_CAUSES:
+                            self._unresolved(current.start_byte, cause)
+
+    def _unresolved(self, offset: int, cause: UnresolvedCause | None) -> bool:
+        """Record a call that may reach package code but that the call graph cannot resolve"""
+
+        if cause is None:
+            return False
+        self.report.gaps.append(RawGap(offset, TrackingGap.UNRESOLVED_CALL, cause))
+        return True
+
+    def _unresolved_call(self, callee: Node | None, offset: int) -> bool:
+        """Record a call of package code that cannot be resolved, and tell whether one was recorded"""
+
+        current = unwrap(callee)
+        if current is None:
+            return False
+        if current.type == "identifier":
+            return self._unresolved(offset, self._bound_cause(current, offset))
+        if current.type != "member_expression":
+            return False
+        member = property_name(current.child_by_field_name("property"))
+        target = unwrap(current.child_by_field_name("object"))
+        if member is None or target is None:
+            return False
+        if member in INDIRECT_CALL_METHODS and self._is_package_function(target):
+            return self._unresolved(offset, UnresolvedCause.CALL_APPLY)
+        if target.type != "identifier":
+            return False
+        literal = innermost(self.objects, node_text(target), offset)
+        if literal is not None and self._object_member_is_function(literal, member):
+            return self._unresolved(offset, UnresolvedCause.OBJECT_METHOD)
+        if self._bound_cause(target, offset) is not None:
+            self.report.server_method_calls.append(RawCall(offset, member))
+        return False
+
+    def _bound_cause(self, name: Node, offset: int, depth: int = 0) -> UnresolvedCause | None:
+        """Tell how the value assigned to a name may hold package code that the call graph cannot resolve"""
+
+        text = node_text(name)
+        if text in self.function_names or text in self.internal or text in self.aliases:
+            return None
+        value = innermost(self.lookups, text, offset)
+        if value is None:
+            return None
+        return self._value_cause(value, offset, depth)
+
+    def _value_cause(self, value: Node, offset: int, depth: int) -> UnresolvedCause | None:
+        """Tell how a value may hold package code: an alias, a function, a bound function, a wrapper or a function made by a call"""
+
+        current = unwrap(value)
+        if current is None or depth > MAX_CONSTANT_DEPTH:
+            return None
+        if current.type == "await_expression" and current.named_children:
+            current = unwrap(current.named_children[0])
+            if current is None:
+                return None
+        if current.type in FUNCTION_TYPES:
+            if self._holds_code(current):
+                return UnresolvedCause.LAMBDA
+            return None
+        if current.type in REFERENCE_TYPES:
+            if self.call_target(current, current.start_byte) is not None:
+                return UnresolvedCause.ALIAS
+            if current.type == "identifier":
+                return self._bound_cause(current, offset, depth + 1)
+            return None
+        if current.type in GROUPING_TYPES:
+            for child in current.named_children:
+                cause = self._value_cause(child, offset, depth + 1)
+                if cause is not None:
+                    return cause
+            return None
+        if current.type != "call_expression":
+            return None
+        function = unwrap(current.child_by_field_name("function"))
+        if function is not None and function.type == "member_expression":
+            member = property_name(function.child_by_field_name("property"))
+            owner = unwrap(function.child_by_field_name("object"))
+            if member == BIND_METHOD and owner is not None and self._is_package_function(owner, depth + 1):
+                return UnresolvedCause.BIND
+        if any(self._is_package_function(argument, depth + 1) for argument in call_arguments(current)):
+            return UnresolvedCause.WRAPPER
+        if function is not None and self.call_target(function, function.start_byte) is not None:
+            return UnresolvedCause.RETURNED_FUNCTION
+        return None
+
+    def _is_package_function(self, node: Node | None, depth: int = 0) -> bool:
+        """Tell whether an expression is a function of the package, a name that holds one, or a function that holds code"""
+
+        current = unwrap(node)
+        if current is None or depth > MAX_CONSTANT_DEPTH:
+            return False
+        if current.type in FUNCTION_TYPES:
+            return self._holds_code(current)
+        if current.type not in REFERENCE_TYPES:
+            return False
+        if self.call_target(current, current.start_byte) is not None:
+            return True
+        return current.type == "identifier" and self._bound_cause(current, current.start_byte, depth + 1) in FUNCTION_CAUSES
+
+    def _object_member_is_function(self, node: Node, member: str) -> bool:
+        """Tell whether a property of an object literal is a method, a function that holds code, or a package function"""
+
+        for child in node.named_children:
+            if child.type == "method_definition":
+                if property_name(child.child_by_field_name("name")) == member:
+                    return True
+                continue
+            if child.type not in OBJECT_MEMBER_TYPES:
+                continue
+            key: Node | None = child
+            value: Node | None = child
+            if child.type == "pair":
+                key = child.child_by_field_name("key")
+                value = child.child_by_field_name("value")
+            if property_name(key) == member and self._is_package_function(value):
+                return True
+        return False
+
+    def _holds_code(self, node: Node) -> bool:
+        """Tell whether a function holds a finding or a call, so that leaving it unfollowed could miss something"""
+
+        if any(node.start_byte <= finding.offset < node.end_byte for finding in self.report.findings):
+            return True
+        calls = self.nodes["call_expression"] + self.nodes["new_expression"]
+        return any(node.start_byte <= call.start_byte < node.end_byte for call in calls)
 
     def _handler(self, node: Node | None) -> tuple[list[tuple[int, int]], list[RawCall]]:
         """Return the body range of an inline handler, or a graph edge for a handler given by name"""

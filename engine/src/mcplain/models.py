@@ -98,6 +98,22 @@ class TrackingGap(StrEnum):
     UNKNOWN_TYPE = "unknown_type"
     AMBIGUOUS = "ambiguous"
     MAX_DEPTH = "max_depth"
+    UNRESOLVED_CALL = "unresolved_call"
+
+
+class UnresolvedCause(StrEnum):
+    """Class that lists how a call may reach a function of the server code that the call graph could not resolve"""
+
+    ALIAS = "alias"
+    LAMBDA = "lambda"
+    PARTIAL = "partial"
+    BIND = "bind"
+    WRAPPER = "wrapper"
+    RETURNED_FUNCTION = "returned_function"
+    CALL_APPLY = "call_apply"
+    OBJECT_METHOD = "object_method"
+    FUNCTION_TABLE = "function_table"
+    SERVER_METHOD = "server_method"
 
 
 class GapPlace(BaseModel):
@@ -107,6 +123,7 @@ class GapPlace(BaseModel):
     file: str
     line: int
     snippet: str = ""
+    cause: UnresolvedCause | None = None
 
 
 class OutsideKind(StrEnum):
@@ -468,6 +485,7 @@ class CoverageItem(BaseModel):
     file: str | None = None
     line: int | None = None
     snippet: str | None = None
+    cause: UnresolvedCause | None = None
 
 
 class Coverage(BaseModel):

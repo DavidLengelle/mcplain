@@ -692,9 +692,9 @@ def _render_coverage(coverage: Coverage, color: VerdictColor, t: Translator, lin
         read=coverage.files_read,
         files=coverage.files_total,
     )
-    conclusion = t("coverage.nothing_found")
-    if color is VerdictColor.ORANGE:
-        conclusion = t("coverage.partial_verdict")
+    conclusion = t("coverage.partial_verdict")
+    if color is VerdictColor.GRAY:
+        conclusion = t("coverage.nothing_found")
     lines.append(f"{INDENT}{checked} {conclusion}")
     lines.append(f"{INDENT}{t('coverage.not_checked')}")
     for item in coverage.not_checked:

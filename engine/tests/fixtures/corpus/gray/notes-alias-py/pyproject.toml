@@ -1,0 +1,4 @@
+[project]
+name = "notes-alias-py"
+version = "0.1.0"
+dependencies = ["fastmcp>=2"]

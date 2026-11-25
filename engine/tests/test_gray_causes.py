@@ -5,7 +5,7 @@ from pathlib import Path
 from mcplain.adapters.javascript import JavaScriptAdapter
 from mcplain.analyze import analyze_directory
 from mcplain.capabilities import Capability
-from mcplain.models import ServerAnalysis, Tool, VerdictColor
+from mcplain.models import ServerAnalysis, Tool, TrackingGap, UnresolvedCause, VerdictColor
 
 
 def tool(analysis: ServerAnalysis, name: str) -> Tool:
@@ -60,14 +60,14 @@ def test_javascript_methods_of_a_class_reexported_by_an_index_are_followed(tmp_p
     assert tool(analysis, "read_note").gaps == []
 
 
-def test_a_table_of_outside_functions_without_capability_is_followed(fixtures: Path) -> None:
-    """OPERATORS[type(node.op)](left, right), with operator.add and the like: nothing is left unread"""
+def test_a_table_of_outside_functions_is_not_followed(fixtures: Path) -> None:
+    """OPERATORS[type(node.op)](left, right), with operator.add and the like: the function called is not known, gray"""
 
     result = analyze_directory(fixtures / "python_operator_table")
     calculate = tool(result.servers[0], "calculate")
-    assert calculate.gaps == []
-    assert calculate.findings == []
-    assert result.verdict.color is VerdictColor.GREEN
+    assert calculate.gaps == [TrackingGap.UNRESOLVED_CALL]
+    assert [place.cause for place in calculate.gap_places] == [UnresolvedCause.FUNCTION_TABLE]
+    assert result.verdict.color is VerdictColor.GRAY
 
 
 TABLE_SERVER = '''import operator
@@ -101,6 +101,14 @@ def test_a_table_with_a_package_function_follows_it(tmp_path: Path) -> None:
     """A computed key still reaches every package function of the table"""
 
     run = table_tool(tmp_path, "TABLE = {len: shout, str: operator.neg}")
+    assert run.gaps == [TrackingGap.UNRESOLVED_CALL]
+    assert capabilities(run) == {Capability.FS_WRITE}
+
+
+def test_a_table_of_package_functions_only_is_followed_without_gap(tmp_path: Path) -> None:
+    """A table whose every value is a package function is followed in full"""
+
+    run = table_tool(tmp_path, "TABLE = {len: shout}")
     assert run.gaps == []
     assert capabilities(run) == {Capability.FS_WRITE}
 

@@ -5,7 +5,9 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from mcplain.adapters.report import FileReport, RawCall, RawFunction
-from mcplain.models import TrackingGap
+from mcplain.models import TrackingGap, UnresolvedCause
+
+type GapMark = tuple[int, TrackingGap, UnresolvedCause | None]
 
 MAX_EXPORT_HOPS = 3
 COMMON_METHOD_NAMES: frozenset[str] = frozenset(
@@ -118,14 +120,14 @@ class Walk:
 
     reaches: list[Reach] = field(default_factory=list)
     gaps: set[TrackingGap] = field(default_factory=set)
-    places: set[tuple[str, int, TrackingGap]] = field(default_factory=set)
+    places: set[tuple[str, int, TrackingGap, UnresolvedCause | None]] = field(default_factory=set)
 
-    def add(self, file: str, places: set[tuple[int, TrackingGap]]) -> None:
-        """Record gaps met in one file, with the offset of each"""
+    def add(self, file: str, places: set[GapMark]) -> None:
+        """Record gaps met in one file, with the offset and the precise cause of each"""
 
-        for offset, gap in places:
+        for offset, gap, cause in places:
             self.gaps.add(gap)
-            self.places.add((file, offset, gap))
+            self.places.add((file, offset, gap, cause))
 
 
 class CallGraph:
@@ -143,7 +145,8 @@ class CallGraph:
         self._call_offsets: dict[str, list[int]] = {}
         self._method_calls: dict[str, list[RawCall]] = {}
         self._method_offsets: dict[str, list[int]] = {}
-        self._gap_offsets: dict[str, list[tuple[int, TrackingGap]]] = {}
+        self._server_method_calls: dict[str, list[RawCall]] = {}
+        self._gap_offsets: dict[str, list[GapMark]] = {}
         self._ranges: dict[str, list[tuple[int, int]]] = {}
         self.method_names: set[str] = set()
         for path, report in reports.items():
@@ -162,8 +165,10 @@ class CallGraph:
             method_calls = sorted(report.method_calls, key=lambda call: call.offset)
             self._method_calls[path] = method_calls
             self._method_offsets[path] = [call.offset for call in method_calls]
-            self._gap_offsets[path] = sorted((gap.offset, gap.gap) for gap in report.gaps)
+            self._server_method_calls[path] = sorted(report.server_method_calls, key=lambda call: call.offset)
+            self._gap_offsets[path] = sorted(((gap.offset, gap.gap, gap.cause) for gap in report.gaps), key=_mark_order)
             self._ranges[path] = sorted(set(report.function_ranges))
+        self.common_server_methods = self.method_names & COMMON_METHOD_NAMES
         self.method_names -= COMMON_METHOD_NAMES
 
     def function(self, file: str, index: int) -> RawFunction:
@@ -276,32 +281,37 @@ class CallGraph:
     def region_gaps(self, region: Region, skipped: list[Region] | None = None) -> set[TrackingGap]:
         """Return why calls inside one region could not be followed"""
 
-        return {gap for _, gap in self.region_gap_places(region, skipped)}
+        return {gap for _, gap, _ in self.region_gap_places(region, skipped)}
 
-    def region_gap_places(self, region: Region, skipped: list[Region] | None = None) -> set[tuple[int, TrackingGap]]:
-        """Return the calls inside one region that could not be followed, as offset and reason"""
+    def region_gap_places(self, region: Region, skipped: list[Region] | None = None) -> set[GapMark]:
+        """Return the calls inside one region that could not be followed, as offset, reason and precise cause"""
 
         nested = self._nested(region)
         excluded = skipped or []
-        gaps: set[tuple[int, TrackingGap]] = set()
-        for offset, gap in self._gap_offsets.get(region.file, []):
+        gaps: set[GapMark] = set()
+        for offset, gap, cause in self._gap_offsets.get(region.file, []):
             if region.start <= offset < region.end and not _within(nested, offset):
                 if not _inside(excluded, region.file, offset):
-                    gaps.add((offset, gap))
+                    gaps.add((offset, gap, cause))
         start, end = self._between(self._method_offsets.get(region.file, []), region)
         for call in self._method_calls.get(region.file, [])[start:end]:
             if call.name in self.method_names and not _within(nested, call.offset):
                 if not _inside(excluded, region.file, call.offset):
-                    gaps.add((call.offset, TrackingGap.UNKNOWN_TYPE))
+                    gaps.add((call.offset, TrackingGap.UNKNOWN_TYPE, None))
+        for call in self._server_method_calls.get(region.file, []):
+            if not region.start <= call.offset < region.end or _within(nested, call.offset):
+                continue
+            if call.name in self.common_server_methods and not _inside(excluded, region.file, call.offset):
+                gaps.add((call.offset, TrackingGap.UNRESOLVED_CALL, UnresolvedCause.SERVER_METHOD))
         for call in self._calls_in(region, nested):
             if _inside(excluded, region.file, call.offset):
                 continue
             if self.resolve(region.file, call) is None:
                 method = call.name.rsplit(".", 1)[-1]
                 if "." in call.name and method in self.method_names:
-                    gaps.add((call.offset, TrackingGap.UNKNOWN_TYPE))
+                    gaps.add((call.offset, TrackingGap.UNKNOWN_TYPE, None))
             elif self.ambiguous(region.file, call):
-                gaps.add((call.offset, TrackingGap.AMBIGUOUS))
+                gaps.add((call.offset, TrackingGap.AMBIGUOUS, None))
         return gaps
 
     def walk(
@@ -344,7 +354,7 @@ class CallGraph:
             if len(chain) >= self.max_depth:
                 deeper = [call.offset for call in calls if self._unvisited(file, call, visited)]
                 if deeper:
-                    result.add(file, {(deeper[0], TrackingGap.MAX_DEPTH)})
+                    result.add(file, {(deeper[0], TrackingGap.MAX_DEPTH, None)})
                 continue
             for call in calls:
                 self._enqueue(file, call, chain, visited, queue, own_body)
@@ -402,6 +412,15 @@ class CallGraph:
         visited.add(target)
         function = self.function(*target)
         queue.append((target, (*chain, Step(function.name, target[0], function.start)), own_body))
+
+
+def _mark_order(mark: GapMark) -> tuple[int, str, str]:
+    """Return a sort key for a gap mark, whose cause may be missing"""
+
+    offset, gap, cause = mark
+    if cause is None:
+        return offset, gap.value, ""
+    return offset, gap.value, cause.value
 
 
 def _inside(regions: list[Region], file: str, offset: int) -> bool:
