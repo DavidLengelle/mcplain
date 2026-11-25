@@ -35,7 +35,7 @@ function Boxes({ limit, used }: { limit: number; used: number }) {
   );
 }
 
-export function QuotaLine({ quota }: { quota: QuotaInfo }) {
+export function QuotaLine({ quota, tall = false }: { quota: QuotaInfo; tall?: boolean }) {
   const t = useTranslations("quota");
   const resetTime = useResetTime();
 
@@ -57,7 +57,10 @@ export function QuotaLine({ quota }: { quota: QuotaInfo }) {
         <Link
           href="/account/sign-up"
           data-testid="shared-network"
-          className="text-[13px] text-muted underline underline-offset-4 hover:text-ink"
+          className={cn(
+            "text-[13px] text-muted underline underline-offset-4 hover:text-ink",
+            tall && "flex min-h-11 items-center",
+          )}
         >
           {t("sharedNetwork")}
         </Link>
@@ -72,8 +75,24 @@ export function QuotaCounter() {
     return null;
   }
   return (
-    <div className="mx-auto max-w-[1180px] px-4 pb-2.5 sm:px-6">
+    <div className="mx-auto max-w-[1180px] px-4 pb-2.5 phone:hidden sm:px-6">
       <QuotaLine quota={quota} />
     </div>
+  );
+}
+
+export function CompactQuota() {
+  const t = useTranslations("quota");
+  const { quota } = useVisitor();
+  if (quota === null || quota.kind === "admin" || quota.kind === "bench") {
+    return null;
+  }
+  const limit = quota.limit ?? 0;
+  const remaining = quota.remaining ?? 0;
+  return (
+    <p data-testid="quota-compact" className="shrink-0 font-condensed text-lg leading-none font-semibold text-ink tabular-nums">
+      <span aria-hidden="true">{t("short", { remaining, limit })}</span>
+      <span className="sr-only">{t("remaining", { count: remaining })}</span>
+    </p>
   );
 }

@@ -17,7 +17,9 @@
     "inputLabel": "Link of the MCP server to analyze",
     "placeholder": "Paste a GitHub link, or an npx or uvx line",
     "submit": "ANALYZE",
-    "submitting": "SENDING…"
+    "submitting": "SENDING…",
+    "newAnalysis": "New analysis",
+    "menu": "Menu"
   },
   "theme": {
     "label": "Display theme",
@@ -606,8 +608,7 @@
     "menu": {
       "signIn": "Sign in",
       "account": "My account",
-      "signOut": "Sign out",
-      "menuLabel": "Account menu"
+      "signOut": "Sign out"
     },
     "common": {
       "email": "Email address",
@@ -757,6 +758,7 @@
     "admin": "Admin: no limit",
     "bench": "Bench account: no limit",
     "sharedNetwork": "Shared network (company, open space, school…)? Create a free account: 10 analyses a day, just for you.",
+    "short": "{remaining}/{limit}",
     "exhausted": {
       "title": "No new analysis left for today",
       "anonymous": "The 3 free analyses of the day are used on this network. They come back at {time}.",

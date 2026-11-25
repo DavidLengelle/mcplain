@@ -22,7 +22,7 @@ const IDS: Record<FieldVariant, { input: string; error: string }> = {
 };
 
 const FORM: Record<FieldVariant, string> = {
-  header: "flex min-w-0 flex-[999_1_380px] flex-col gap-1",
+  header: "flex min-w-0 flex-[999_1_380px] flex-col gap-1 phone:px-4 phone:py-3 sm:phone:px-6",
   hero: "mt-7 flex min-w-0 flex-col",
 };
 

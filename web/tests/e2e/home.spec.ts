@@ -9,7 +9,16 @@ const WIDTHS = [1280, 390] as const;
 const CHAPTERS = ["mcp", "usage", "danger", "histoire", "proteger", "lire", "exemple", "limites", "lexique"];
 
 async function headerBottom(page: Page): Promise<number> {
-  return page.locator("#site-header").evaluate((header) => header.getBoundingClientRect().bottom);
+  return page.evaluate(() => {
+    let bottom = 0;
+    for (const element of document.querySelectorAll("[data-header-stuck]")) {
+      const style = getComputedStyle(element);
+      if (style.display !== "none" && (style.position === "sticky" || style.position === "fixed")) {
+        bottom = Math.max(bottom, element.getBoundingClientRect().bottom);
+      }
+    }
+    return bottom;
+  });
 }
 
 async function settledTop(page: Page, selector: string): Promise<number> {

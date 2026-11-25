@@ -249,7 +249,7 @@ export function TechDetails({ analysis, result, server, tools, open, onToggle }:
     <section
       id={DETAILS_ID}
       aria-labelledby={DETAILS_HEADING_ID}
-      className="scroll-mt-[calc(var(--header-height,6rem)+1rem)] rounded-[18px] bg-panel px-5 py-1 sm:px-6"
+      className="scroll-mt-4 rounded-[18px] bg-panel px-5 py-1 sm:px-6"
     >
       <h2 id={DETAILS_HEADING_ID}>
         <button

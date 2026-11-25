@@ -235,7 +235,7 @@ export function ToolSheet({ tool, index, alerts, translation = null }: SheetProp
       id={SHEET_ID}
       aria-labelledby={SHEET_TITLE_ID}
       data-sheet={index}
-      className="scroll-mt-[calc(var(--header-height,6rem)+1rem)] rounded-[22px] bg-panel px-5 py-7 sm:px-[30px]"
+      className="scroll-mt-4 rounded-[22px] bg-panel px-5 py-7 sm:px-[30px]"
     >
       <p className="font-condensed text-sm font-semibold tracking-[0.14em] text-faint">
         {t("number", { number: toolNumber(index) })}

@@ -11,6 +11,18 @@
   }
 }
 
+@custom-variant phone {
+  @media (max-width: 767.98px), (max-height: 499.98px) {
+    @slot;
+  }
+}
+
+@custom-variant desk {
+  @media (min-width: 768px) and (min-height: 500px) {
+    @slot;
+  }
+}
+
 @theme inline {
   --color-*: initial;
   --font-sans: var(--font-saira), ui-sans-serif, system-ui, sans-serif;
@@ -228,6 +240,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: var(--header-height, 0px);
 }
 
 @media (prefers-reduced-motion: reduce) {

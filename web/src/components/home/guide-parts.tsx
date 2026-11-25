@@ -5,7 +5,7 @@ import { CHAPTER_IDS, type ChapterId } from "@/lib/constants";
 import { toolNumber } from "@/lib/report";
 import { cn } from "@/lib/utils";
 
-export const SCROLL_UNDER_HEADER = "scroll-mt-[calc(var(--header-height,6rem)+1rem)]";
+export const SCROLL_UNDER_HEADER = "scroll-mt-4";
 export const EYEBROW = "font-condensed text-[15px] font-semibold tracking-[0.14em] text-accent";
 export const SECTION_TITLE = "font-condensed text-[38px] leading-[1.05] font-bold sm:text-[44px]";
 export const SUBHEADING = "font-condensed text-[22px] font-bold tracking-[0.08em]";

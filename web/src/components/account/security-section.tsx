@@ -220,7 +220,7 @@ export function SecuritySection({ user }: { user: unknown }) {
   }
 
   return (
-    <section id="security" aria-labelledby="security-title" className="scroll-mt-28">
+    <section id="security" aria-labelledby="security-title" className="scroll-mt-4">
       <Box>
         <h2 id="security-title" className="font-condensed text-[26px] font-bold text-ink">
           {t("title")}

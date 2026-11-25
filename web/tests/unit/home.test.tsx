@@ -19,6 +19,7 @@ const navigation = vi.hoisted(() => ({ pathname: "/" }));
 vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   usePathname: () => navigation.pathname,
+  getPathname: ({ href, locale }: { href: string; locale: string }) => `/${locale}${href}`,
   Link: ({ href, children, ...rest }: { href: string; children: ReactNode }) => (
     <a href={href} {...rest}>
       {children}
@@ -79,6 +80,7 @@ describe("site header", () => {
         disconnect() {}
       },
     );
+    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   });
 
   afterEach(() => {
