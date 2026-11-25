@@ -237,3 +237,14 @@ for (const theme of ["light", "dark"] as const) {
     });
   }
 }
+
+test("the admin dashboard has no sideways scroll at 320 px either", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await serveDashboard(page);
+  await page.goto("/fr/admin");
+  await expect(page.getByTestId("admin-top")).toBeVisible();
+  await expect(page.getByTestId("admin-journal")).toBeVisible();
+  await expect(page.getByTestId("admin-reports")).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
