@@ -423,3 +423,20 @@ describe("theme switcher", () => {
     expect(document.documentElement.className).toBe("");
   });
 });
+
+describe("the date of the identity line", () => {
+  it("says the date of the failure on a failed analysis", () => {
+    const { container } = renderWithIntl(<ReportView analysis={loadView(FAILED)} />, "fr");
+    const date = container.querySelector("[data-identity-date]");
+    expect(date?.getAttribute("data-identity-date")).toBe("failedOn");
+    expect(date?.textContent).toMatch(/^Échec le \d+ novembre 2026$/);
+    expect(container.textContent).not.toContain("Analysé le");
+  });
+
+  it("keeps Analyzed on for a finished analysis", () => {
+    const { container } = renderWithIntl(<ReportView analysis={loadView(ORANGE_PARTIAL)} />);
+    const date = container.querySelector("[data-identity-date]");
+    expect(date?.getAttribute("data-identity-date")).toBe("analyzedOn");
+    expect(date?.textContent).toMatch(/^Analyzed on /);
+  });
+});

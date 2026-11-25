@@ -391,7 +391,8 @@
     "github": "GitHub code",
     "version": "version",
     "revision": "commit",
-    "analyzedOn": "Analyzed on {date}"
+    "analyzedOn": "Analyzed on {date}",
+    "failedOn": "Failed on {date}"
   },
   "aiNotice": {
     "heading": "WHAT THIS SERVER IS FOR",

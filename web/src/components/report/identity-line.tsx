@@ -55,6 +55,13 @@ function Separator() {
   return <span aria-hidden="true">·</span>;
 }
 
+function dateKind(analysis: AnalysisView): "analyzedOn" | "failedOn" {
+  if (analysis.state === "failed") {
+    return "failedOn";
+  }
+  return "analyzedOn";
+}
+
 export function IdentityLine({ analysis, source }: { analysis: AnalysisView; source: Source | null }) {
   const t = useTranslations("identity");
   const formatDate = useFormattedDate();
@@ -87,7 +94,9 @@ export function IdentityLine({ analysis, source }: { analysis: AnalysisView; sou
         )}
       </span>
       {date !== null && analysis.analyzed_at !== null && (
-        <time dateTime={analysis.analyzed_at}>{t("analyzedOn", { date })}</time>
+        <time dateTime={analysis.analyzed_at} data-identity-date={dateKind(analysis)}>
+          {t(dateKind(analysis), { date })}
+        </time>
       )}
     </div>
   );
