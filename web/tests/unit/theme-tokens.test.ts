@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { DESK_QUERY, PHONE_QUERY } from "@/lib/phone-mode";
 import { THEME_CLASSES, THEME_STORAGE_KEY } from "@/lib/theme";
 
 type Tokens = Record<string, string>;
@@ -15,6 +16,7 @@ const BODY = 4.5;
 const LARGE = 3;
 const BRIGHT_ORANGE = "#E8892E";
 const COPPER = "#C77B30";
+const FIELD_BACKGROUNDS = ["--input-bg", "--panel2", "--panel", "--page"];
 const VALIDATED_EXCEPTION = { theme: "light", text: "--warn", background: "--panel", minimum: 2.1 };
 
 const PAIRS: Pair[] = [
@@ -142,6 +144,30 @@ describe("theme tokens", () => {
       expect(failures).toEqual([]);
     });
   }
+
+  for (const [name, theme] of [
+    ["light", light],
+    ["dark", dark],
+  ] as const) {
+    it(`gives the border of the fields 3:1 at least against the field and the panel, in the ${name} theme`, () => {
+      const ratios = FIELD_BACKGROUNDS.map((item) => contrast(theme["--field-border"], theme[item]));
+      for (const ratio of ratios) {
+        expect(ratio).toBeGreaterThanOrEqual(LARGE);
+      }
+    });
+  }
+
+  it("uses the field border token for every field, and nowhere else", () => {
+    expect(CSS).toContain("--color-field-border: var(--field-border);");
+    expect(CSS).not.toContain("--input-border");
+  });
+
+  it("writes the phone mode with the same media query in the CSS and in the script", () => {
+    const phone = /@custom-variant phone \{\s*@media ([^{]+) \{/.exec(CSS);
+    const desk = /@custom-variant desk \{\s*@media ([^{]+) \{/.exec(CSS);
+    expect(phone?.[1]).toBe(PHONE_QUERY);
+    expect(desk?.[1]).toBe(DESK_QUERY);
+  });
 
   it("documents the only exception: the big orange word of the light theme is under 3:1", () => {
     expect(light["--warn"]).toBe(BRIGHT_ORANGE);

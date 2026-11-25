@@ -114,7 +114,7 @@ export function AnalysisField({ variant }: { variant: FieldVariant }) {
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
-          className={cn("min-w-0 border-2 border-input-border font-mono text-ink", INPUT[variant])}
+          className={cn("min-w-0 border-2 border-field-border font-mono text-ink", INPUT[variant])}
         />
         <button
           type="submit"

@@ -180,7 +180,7 @@ function Filter({ id, label, value, options, onPick }: { id: string; label: stri
         id={id}
         value={value}
         onChange={(event) => onPick(event.target.value)}
-        className="h-11 min-w-0 rounded-[10px] border-2 border-input-border bg-input-bg px-3 text-base text-ink"
+        className="h-11 min-w-0 rounded-[10px] border-2 border-field-border bg-input-bg px-3 text-base text-ink"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

@@ -34,7 +34,7 @@
   --color-line: var(--line);
   --color-code-bg: var(--code-bg);
   --color-input-bg: var(--input-bg);
-  --color-input-border: var(--input-border);
+  --color-field-border: var(--field-border);
   --color-btn-border: var(--btn-border);
   --color-row-hover: var(--row-hover);
   --color-card-hover: var(--card-hover);
@@ -110,7 +110,7 @@
   --line: #C9D3DE;
   --code-bg: #FFFFFF;
   --input-bg: #FFFFFF;
-  --input-border: #7A8EA3;
+  --field-border: #677B90;
   --btn-border: #7A8EA3;
   --row-hover: #D7E0E9;
   --card-hover: #D6E0EA;
@@ -177,7 +177,7 @@
     --line: #1E2A36;
     --code-bg: #0C131B;
     --input-bg: #141E29;
-    --input-border: #2A3A4B;
+    --field-border: #61768C;
     --btn-border: #3A4D61;
     --row-hover: #18232F;
     --card-hover: #1A2633;
