@@ -12,6 +12,10 @@ function openWith(path, flags) {
   return fs.openSync(path, flags);
 }
 
+function openOrRead(path, flags) {
+  return fs.openSync(path, flags ?? 0);
+}
+
 
 export function build() {
   const server = new McpServer({ name: "lookups", version: "1.0.0" });
@@ -56,6 +60,33 @@ export function build() {
     { description: "Open a note with given flags", inputSchema: { path: z.string() }, annotations: { readOnlyHint: true } },
     async ({ path }) => {
       const fd = openWith(path, fs.constants.O_RDONLY);
+      fs.closeSync(fd);
+      return { content: [{ type: "text", text: "ok" }] };
+    },
+  );
+  server.registerTool(
+    "args_note",
+    { description: "Open a note with the flags of the request", inputSchema: { path: z.string() }, annotations: { readOnlyHint: true } },
+    async (args) => {
+      const fd = fs.openSync(args.path, args.flags ?? 0);
+      fs.closeSync(fd);
+      return { content: [{ type: "text", text: "ok" }] };
+    },
+  );
+  server.registerTool(
+    "fallback_note",
+    { description: "Open a note with given flags or the default", inputSchema: { path: z.string() }, annotations: { readOnlyHint: true } },
+    async ({ path }) => {
+      const fd = openOrRead(path, fs.constants.O_RDONLY);
+      fs.closeSync(fd);
+      return { content: [{ type: "text", text: "ok" }] };
+    },
+  );
+  server.registerTool(
+    "mixed_note",
+    { description: "Open a note without following links", inputSchema: { path: z.string() }, annotations: { readOnlyHint: true } },
+    async ({ path }) => {
+      const fd = fs.openSync(path, fs.constants.O_WRONLY | (fs.constants.O_NOFOLLOW ?? 0));
       fs.closeSync(fd);
       return { content: [{ type: "text", text: "ok" }] };
     },

@@ -145,11 +145,23 @@ def test_closed_world_tool_that_only_reads_the_network(fixtures: Path) -> None:
 
 
 def test_open_flags_that_may_write_keep_o04(fixtures: Path) -> None:
-    """O_WRONLY, O_RDWR, a local name that looks like O_RDONLY, a number or flags given as a parameter: O04 stays"""
+    """O_WRONLY, O_RDWR, a local name that looks like O_RDONLY, a number, flags given as a parameter, or ?? 0 behind
+    anything but a read-only constant of fs.constants: O04 stays"""
 
     result = analyze_fixture(fixtures / "rules" / "O04" / "open_flags_write")
     fired = {alert.tool for alert in result.verdict.alerts if alert.rule == "O04"}
-    assert fired == {"log_lookup", "check_note", "peek_note", "raw_note", "given_note"}
+    assert fired == {
+        "log_lookup",
+        "check_note",
+        "peek_note",
+        "raw_note",
+        "given_note",
+        "args_note",
+        "fallback_note",
+        "mixed_note",
+    }
+    details = {finding.detail for tool in result.servers[0].tools for finding in tool.findings if finding.detail}
+    assert not any("O_NOFOLLOW" in detail for detail in details)
 
 
 def test_read_only_open_flags_do_not_fire_o04(fixtures: Path) -> None:
