@@ -14,7 +14,10 @@ from helpers import lamps_of, make_settings, report, tool_report
 from sqlalchemy.orm import sessionmaker
 
 from mcplain.verdict import RULES_VERSION
+from mcplain.models import AnalysisResult
+
 from mcplain_api.ai_client import API_URL, build_body, call_api
+from mcplain_api.ai_form import build_form, content_hash
 from mcplain_api.ai_prompts import NOTICE_SYSTEM
 from mcplain_api.ai_view import _insert
 from mcplain_api.app import create_app
@@ -310,6 +313,34 @@ def test_each_language_prompt_and_model_has_its_own_row(client: TestClient, sess
     with sessions() as session:
         keys = {(row.lang, row.model) for row in session.query(AiText).all()}
     assert keys == {("fr", "claude-sonnet-5-5"), ("en", "claude-sonnet-5-5"), ("fr", "another-model")}
+
+
+def test_a_notice_of_the_former_prompt_is_never_served(client: TestClient, sessions: sessionmaker) -> None:
+    """A ready notice-v3 text of the same form is not the answer: notice-v4 asks for its own text"""
+
+    identifier = add_analysis(sessions)
+    with sessions() as session:
+        result = AnalysisResult.model_validate(session.get(Analysis, uuid.UUID(identifier)).result)
+    text_hash = content_hash(build_form(result))
+    content = {"summary": "Ancien.", "use_cases": [], "tool_titles": [], "alert": None}
+    with sessions.begin() as session:
+        session.add(
+            AiText(
+                kind="notice",
+                lang="fr",
+                hash=text_hash,
+                prompt_version="notice-v3",
+                model="claude-sonnet-5-5",
+                status="ready",
+                content=content,
+            )
+        )
+    response = client.post(f"/api/analyses/{identifier}/notice", json={"lang": "fr"})
+    assert response.status_code == 202
+    assert response.json()["status"] == "pending"
+    with sessions() as session:
+        versions = sorted(row.prompt_version for row in session.query(AiText).all())
+    assert versions == ["notice-v3", "notice-v4"]
 
 
 @respx.mock

@@ -218,7 +218,7 @@ def test_the_diagnosis_script_never_shows_the_key_nor_writes() -> None:
 
 
 def test_the_matrix_changes_one_thing_per_variant() -> None:
-    """V1 is the real request; V2 to V4 change one thing each; V5 is the former mode B, exactly"""
+    """V1 is the real request; V2 to V4 change one thing each; V5 is the former mode B on the current prompt"""
 
     module = diagnosis_module()
     settings = make_settings()
@@ -226,8 +226,9 @@ def test_the_matrix_changes_one_thing_per_variant() -> None:
     base = notice_body(settings, form, "fr")
     variants = {label[:2]: make(base) for label, make in module.VARIANTS}
     assert variants["V1"] == base
-    assert variants["V2"]["system"] != base["system"]
-    assert not [character for character in variants["V2"]["system"] if ord(character) > 127]
+    assert module.FORBIDDEN_LIST in base["system"]
+    assert module.FORBIDDEN_LIST not in variants["V2"]["system"]
+    assert len(variants["V2"]["system"]) == len(base["system"]) - len(module.FORBIDDEN_LIST)
     assert {**variants["V2"], "system": base["system"]} == base
     assert variants["V3"]["output_config"] == {"effort": "medium"}
     assert {**variants["V3"], "output_config": base["output_config"]} == base
@@ -235,8 +236,20 @@ def test_the_matrix_changes_one_thing_per_variant() -> None:
     assert {**variants["V4"], "thinking": base["thinking"]} == base
     assert variants["V5"]["system"].endswith('"additionalProperties": false}')
     assert "Answer with this JSON object only" not in variants["V5"]["system"]
+    assert variants["V5"]["system"].startswith(base["system"].split("\n\nAnswer with this JSON object only")[0])
     assert {**variants["V5"], "system": base["system"]} == base
     assert base == notice_body(settings, form, "fr")
+
+
+def test_the_diagnosis_repeats_the_call_and_shows_the_form_first() -> None:
+    """--repeat N sends the current request N times, from 1 to 10; the form is printed before any call"""
+
+    shell = (REPOSITORY / "scripts" / "notice-diagnose.sh").read_text(encoding="utf-8")
+    text = (REPOSITORY / "scripts" / "notice_diagnose.py").read_text(encoding="utf-8")
+    assert '"--repeat"' in shell
+    assert "[1-9] | 10) ;;" in shell
+    assert '"$MODE" "$REPEAT"' in shell
+    assert text.index("--- form sent") < text.index("for attempt in range(1, repeat + 1):")
 
 
 def test_a_broken_answer_shows_only_forty_characters() -> None:

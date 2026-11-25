@@ -1,7 +1,6 @@
 """Diagnosis of the French notice, run by scripts/notice-diagnose.sh only: real calls, nothing written anywhere"""
 
 import copy
-import hashlib
 import json
 import os
 import sys
@@ -27,7 +26,6 @@ OLD_B_SENTENCE = (
     "\n\nAnswer with one JSON object only, without Markdown, with exactly these fields: "
     + json.dumps(NOTICE_SCHEMA, ensure_ascii=True)
 )
-OLD_B_SYSTEM_SHA256 = "0193a444ab9e5ea7731c01b95c8f2e6a03638a0b7f670a9433835ba7e2a5210e"
 
 
 def without_forbidden_list(body: dict[str, Any]) -> dict[str, Any]:
@@ -57,12 +55,12 @@ def without_thinking(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def old_mode_b(body: dict[str, Any]) -> dict[str, Any]:
-    """V5: the request of the former mode B, exactly: the notice-v2 prompt, its JSON sentence, no format"""
+    """V5: the former mode B on the current prompt: its rules, then the schema sentence of mode B instead of the JSON example"""
 
+    if CURRENT_JSON_PARAGRAPH not in NOTICE_SYSTEM:
+        raise SystemExit("notice-diagnose: the JSON paragraph is no longer in the prompt, update the script")
     changed = copy.deepcopy(body)
     changed["system"] = NOTICE_SYSTEM.split(CURRENT_JSON_PARAGRAPH)[0] + OLD_B_SENTENCE
-    if hashlib.sha256(changed["system"].encode("utf-8")).hexdigest() != OLD_B_SYSTEM_SHA256:
-        raise SystemExit("notice-diagnose: the prompt changed, mode B can no longer be rebuilt exactly")
     return changed
 
 
@@ -71,7 +69,7 @@ VARIANTS: tuple[tuple[str, Callable[[dict[str, Any]], dict[str, Any]]], ...] = (
     ("V2 without the forbidden word list", without_forbidden_list),
     ("V3 effort medium", with_medium_effort),
     ("V4 without thinking (adaptive)", without_thinking),
-    ("V5 former mode B", old_mode_b),
+    ("V5 mode B on the current prompt", old_mode_b),
 )
 
 
@@ -94,11 +92,11 @@ def load_settings(env_file: str) -> Settings:
     return Settings(_env_file=None, database_url="sqlite://")
 
 
-def single(settings: Settings, form: dict[str, Any], with_format: bool, hide: Callable[[str], str]) -> None:
-    """Send the notice once and show everything about the answer"""
+def single(settings: Settings, form: dict[str, Any], with_format: bool, hide: Callable[[str], str], attempt: int) -> float:
+    """Send the notice once, show everything about the answer, and return its cost"""
 
     body = notice_body(settings, form, "fr", with_format=with_format)
-    print(f"output_config {sorted(body['output_config'])}")
+    print(f"\n=== try {attempt}, output_config {sorted(body['output_config'])}")
     reply = call_api(settings, body)
     print(f"result {reply.kind.value}, HTTP {reply.status}, stop_reason {reply.stop_reason}, request-id {reply.request_id}")
     print("--- raw text")
@@ -116,6 +114,7 @@ def single(settings: Settings, form: dict[str, Any], with_format: bool, hide: Ca
         print(f"rejected: {rejected.reason.value}")
     cost = call_cost(settings, reply.input_tokens, reply.output_tokens)
     print(f"--- tokens in {reply.input_tokens}, out {reply.output_tokens}, cost {cost:.6f} USD")
+    return cost
 
 
 def matrix(settings: Settings, form: dict[str, Any], hide: Callable[[str], str]) -> None:
@@ -150,9 +149,9 @@ def matrix(settings: Settings, form: dict[str, Any], hide: Callable[[str], str])
 
 
 def main() -> int:
-    """Run one mode: current, with-format or matrix"""
+    """Run one mode: current, with-format or matrix; current and with-format send the notice as many times as asked"""
 
-    env_file, report, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+    env_file, report, mode, repeat = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
     settings = load_settings(env_file)
     key = settings.anthropic_api_key.get_secret_value()
 
@@ -163,10 +162,15 @@ def main() -> int:
 
     form = build_form(AnalysisResult.model_validate(json.load(open(report, encoding="utf-8"))))
     print(f"mode {mode}, model {settings.ai_model}, prompt {NOTICE_PROMPT_VERSION}")
+    print("--- form sent (built by MCPlain only: filtered tool names and fixed words)")
+    print(json.dumps(form, ensure_ascii=True, indent=1, sort_keys=True))
     if mode == "matrix":
         matrix(settings, form, hide)
-    else:
-        single(settings, form, mode == "with-format", hide)
+        return 0
+    total = 0.0
+    for attempt in range(1, repeat + 1):
+        total += single(settings, form, mode == "with-format", hide, attempt)
+    print(f"\ntotal {total:.6f} USD for {repeat} call(s)")
     return 0
 
 

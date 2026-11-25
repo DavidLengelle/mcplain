@@ -15,7 +15,7 @@ from mcplain_api.ai_check import (
 from mcplain_api.ai_words import FORBIDDEN_WORDS, has_forbidden_word
 
 FORM: dict[str, Any] = {
-    "tools": [{"name": "get_weather", "capabilities": {"secrets": True}}],
+    "tools": [{"name": "get_weather", "capabilities": {"secrets": "yes"}}],
     "domains_cited_in_code": ["api.github.com"],
 }
 

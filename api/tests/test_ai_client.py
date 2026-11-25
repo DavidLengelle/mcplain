@@ -170,7 +170,25 @@ def test_request_body_is_exactly_the_expected_one(api: respx.MockRouter) -> None
 def test_versions_leave_the_broken_texts_out_of_the_cache() -> None:
     """Without the imposed output, the prompts changed: new versions"""
 
-    assert (NOTICE_PROMPT_VERSION, TRANSLATION_PROMPT_VERSION) == ("notice-v3", "translation-v3")
+    assert (NOTICE_PROMPT_VERSION, TRANSLATION_PROMPT_VERSION) == ("notice-v4", "translation-v3")
+
+
+def test_a_tool_not_followed_reaches_the_api_as_unknown_and_never_as_no(api: respx.MockRouter) -> None:
+    """What leaves for the API says unknown for every unlit capability of a tool with a gap, and the prompt explains it"""
+
+    route = api.post(API_URL).mock(return_value=answer(GOOD_NOTICE))
+    bench = Bench()
+    bench.queue(tools=[{**tool_report("get_time"), "gaps": ["unresolved_call"]}])
+    bench.redacteur.run_once()
+    body = json.loads(route.calls.last.request.content)
+    message = json.loads(body["messages"][0]["content"])
+    sent = message["form"]["tools"][0]["capabilities"]
+    assert set(sent.values()) == {"unknown"}
+    assert set(message["form"]["server_capabilities"].values()) == {"unknown"}
+    assert '"no"' not in body["messages"][0]["content"]
+    assert '"unknown": MCPlain could not follow this part of the code' in body["system"]
+    assert "The only negative sentence allowed is that MCPlain could not check something" in body["system"]
+    assert 'A "no" or "unknown" capability is never a mismatch' in body["system"]
 
 
 def test_with_format_only_adds_the_schema() -> None:

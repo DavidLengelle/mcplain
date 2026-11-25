@@ -5,7 +5,7 @@ import json
 import re
 from typing import Any
 
-from mcplain.models import AnalysisResult, LocationKind, ServerAnalysis
+from mcplain.models import AnalysisResult, LocationKind, ServerAnalysis, Tool
 
 MAX_FORM_TOOLS = 60
 MAX_TOOL_NAME_CHARS = 40
@@ -23,6 +23,11 @@ CAPABILITIES: dict[str, str] = {
     "hidden_text": "hidden_text",
 }
 LAMP_OFF = "off"
+YES = "yes"
+NO = "no"
+UNKNOWN = "unknown"
+INTERNET_LAMP = "internet"
+PARTIALLY_COMPILED_NOTE = "note.partially_compiled"
 NAME_REJECTED = re.compile(r"[^A-Za-z0-9_]+")
 DOMAIN_ALLOWED = re.compile(r"^[a-z0-9.-]+$")
 TOOL_ID_PREFIX = "tool_"
@@ -60,11 +65,45 @@ def form_tool_name(name: str, position: int, taken: set[str]) -> str:
     return candidate
 
 
-def tool_capabilities(lamps: list[Any]) -> dict[str, bool]:
-    """Return yes or no for the six lamps: danger counts as yes, and the AI never sees a color"""
+def capability_values(lamps: list[Any], unknown: frozenset[str]) -> dict[str, str]:
+    """Return yes, no or unknown for the six lamps: danger counts as yes, an unlit lamp MCPlain could not check is unknown"""
 
     states = {lamp.id: lamp.state for lamp in lamps}
-    return {name: states.get(lamp, LAMP_OFF) != LAMP_OFF for lamp, name in CAPABILITIES.items()}
+    values: dict[str, str] = {}
+    for lamp, name in CAPABILITIES.items():
+        value = NO
+        if states.get(lamp, LAMP_OFF) != LAMP_OFF:
+            value = YES
+        elif lamp in unknown:
+            value = UNKNOWN
+        values[name] = value
+    return values
+
+
+def read_in_part(result: AnalysisResult, server: ServerAnalysis) -> bool:
+    """Tell whether some server code was not read: compiled, skipped or unreadable files"""
+
+    if PARTIALLY_COMPILED_NOTE in result.notes or server.compiled_files:
+        return True
+    if any(item.location_kind is LocationKind.SERVER_CODE for item in server.skipped_files):
+        return True
+    return any(error.location_kind is LocationKind.SERVER_CODE for error in server.parse_errors)
+
+
+def not_followed(tool: Tool) -> bool:
+    """Tell whether MCPlain could not follow the code of a tool"""
+
+    return bool(tool.gaps) or tool.location_kind is not LocationKind.SERVER_CODE
+
+
+def unknown_lamps(everything: bool, network: bool) -> frozenset[str]:
+    """Return the lamps whose off state means unknown: all of them, the internet lamp only, or none"""
+
+    if everything:
+        return frozenset(CAPABILITIES)
+    if network:
+        return frozenset({INTERNET_LAMP})
+    return frozenset()
 
 
 def cited_domains(server: ServerAnalysis) -> list[str]:
@@ -86,10 +125,14 @@ def build_form(result: AnalysisResult) -> dict[str, Any] | None:
     server = first_server(result)
     if server is None or not server.tools:
         return None
+    partial = read_in_part(result, server)
+    network = bool(server.network_not_followed)
     taken: set[str] = set()
     tools = []
     for position, tool in enumerate(server.tools[:MAX_FORM_TOOLS], start=1):
-        tools.append({"name": form_tool_name(tool.name, position, taken), "capabilities": tool_capabilities(tool.lamps)})
+        unknown = unknown_lamps(partial or not_followed(tool), network)
+        tools.append({"name": form_tool_name(tool.name, position, taken), "capabilities": capability_values(tool.lamps, unknown)})
+    whole = unknown_lamps(partial or any(not_followed(tool) for tool in server.tools), network)
     language = UNKNOWN_LANGUAGE
     if server.language in LANGUAGES:
         language = server.language
@@ -97,8 +140,8 @@ def build_form(result: AnalysisResult) -> dict[str, Any] | None:
         "language": language,
         "tool_count": len(server.tools),
         "tools": tools,
+        "server_capabilities": capability_values(server.lamps, whole),
         "domains_cited_in_code": cited_domains(server),
-        "libraries": [],
     }
 
 
