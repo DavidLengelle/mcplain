@@ -5,6 +5,7 @@ import { Gauge } from "@/components/report/gauge";
 import { LampCluster } from "@/components/report/lamp-cluster";
 import { ReportView } from "@/components/report/report-view";
 import { ToolGrid } from "@/components/report/tool-grid";
+import { ToolSheet } from "@/components/report/tool-sheet";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { parseAnalysisView, type Server } from "@/lib/analysis";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
@@ -348,6 +349,143 @@ describe("tool cards", () => {
     );
     const quiet = tools.findIndex((tool) => tool.lamps.every((lamp) => lamp.state === "off"));
     expect(container.querySelector(`[data-tool-card="${quiet}"]`)?.textContent).toContain("Aucun voyant allumé");
+  });
+});
+
+type RawTool = { name: string; gaps: string[]; lamps: { id: string; state: string }[]; plain_sentence?: string | null };
+type RawResult = {
+  result: {
+    servers: { tools: RawTool[] }[];
+    verdict: { color: string; coverage: Record<string, unknown> | null; alerts: unknown[] };
+  };
+};
+
+function partialView(change: (raw: RawResult) => void) {
+  const raw = rawView(PARTIAL) as RawResult;
+  change(raw);
+  const view = parseAnalysisView(raw);
+  if (view === null || view.result === null) {
+    throw new Error("unreadable view");
+  }
+  return view;
+}
+
+function unfollowedTool(raw: RawResult): RawTool {
+  const tool = raw.result.servers[0].tools.find((item) => item.gaps.length > 0);
+  if (tool === undefined) {
+    throw new Error("no tool with a gap");
+  }
+  return tool;
+}
+
+function lightFilesRead(tool: RawTool) {
+  for (const lamp of tool.lamps) {
+    if (lamp.id === "files_read") {
+      lamp.state = "on";
+    }
+  }
+}
+
+describe("tool not followed", () => {
+  it("never says on its card that no lamp is lit, and says that its code could not be followed", () => {
+    const tools = server(PARTIAL).tools;
+    const index = tools.findIndex((tool) => tool.gaps.length > 0);
+    const { container } = renderWithIntl(<ToolGrid tools={tools} selected={-1} onPick={() => {}} />, "fr");
+    const card = container.querySelector(`[data-tool-card="${index}"]`);
+    expect(card?.textContent).toContain("Pas vérifié : son code n'a pas pu être suivi");
+    expect(card?.textContent).not.toContain("Aucun voyant allumé");
+  });
+
+  it("does not show the sentence of the AI on the card of a tool not followed", () => {
+    const view = partialView((raw) => {
+      unfollowedTool(raw).plain_sentence = "Cet outil ne touche à rien.";
+    });
+    const tools = view.result!.servers[0].tools;
+    const index = tools.findIndex((tool) => tool.gaps.length > 0);
+    const { container } = renderWithIntl(<ToolGrid tools={tools} selected={-1} onPick={() => {}} />, "fr");
+    const card = container.querySelector(`[data-tool-card="${index}"]`);
+    expect(card?.textContent).not.toContain("Cet outil ne touche à rien.");
+    expect(card?.textContent).toContain("Pas vérifié : son code n'a pas pu être suivi");
+  });
+
+  it("adds on the card that the rest of the code could not be followed when a lamp is lit", () => {
+    const view = partialView((raw) => {
+      lightFilesRead(unfollowedTool(raw));
+    });
+    const tools = view.result!.servers[0].tools;
+    const index = tools.findIndex((tool) => tool.gaps.length > 0);
+    const { container } = renderWithIntl(<ToolGrid tools={tools} selected={-1} onPick={() => {}} />, "en");
+    expect(container.querySelector(`[data-tool-card="${index}"]`)?.textContent).toContain(
+      "Can read your files. The rest of its code could not be followed.",
+    );
+  });
+
+  it("never says on its sheet that its code lights no lamp", () => {
+    const tools = server(PARTIAL).tools;
+    const index = tools.findIndex((tool) => tool.gaps.length > 0);
+    const { container } = renderWithIntl(<ToolSheet tool={tools[index]} index={index} alerts={[]} />, "fr");
+    expect(container.textContent).toContain("MCPlain n'a pas pu suivre son code : il ne peut pas dire ce que cet outil fait.");
+    expect(container.textContent).not.toContain("Rien de particulier");
+    expect(container.textContent).not.toContain("n'allume aucun voyant");
+    expect(container.textContent).toContain("Suivi incomplet :");
+  });
+
+  it("says on its sheet that it may do more when a lamp is lit", () => {
+    const view = partialView((raw) => {
+      lightFilesRead(unfollowedTool(raw));
+    });
+    const tools = view.result!.servers[0].tools;
+    const index = tools.findIndex((tool) => tool.gaps.length > 0);
+    const { container } = renderWithIntl(<ToolSheet tool={tools[index]} index={index} alerts={[]} />, "en");
+    expect(container.textContent).toContain("It may do more: part of its code could not be followed.");
+  });
+
+  it("keeps the plain sentence for a tool that was followed and lights no lamp", () => {
+    const tools = server(PARTIAL).tools;
+    const index = tools.findIndex((tool) => tool.gaps.length === 0);
+    const { container } = renderWithIntl(<ToolSheet tool={tools[index]} index={index} alerts={[]} />, "fr");
+    expect(container.textContent).toContain("Rien de particulier : son code n'allume aucun voyant.");
+  });
+
+  it("shows the precise cause of a call not followed in the technical details only", () => {
+    const view = partialView((raw) => {
+      const items = raw.result.verdict.coverage!.not_checked as Record<string, unknown>[];
+      items[0].reason = "unresolved_call";
+      items[0].cause = "alias";
+    });
+    const { container } = renderWithIntl(<ReportView analysis={view} />, "fr");
+    const item = container.querySelector('[data-coverage-item="call"]');
+    expect(item?.textContent).toContain(
+      "Cet outil appelle une partie de son propre code d'une façon que MCPlain ne sait pas encore suivre.",
+    );
+    expect(item?.textContent).not.toContain("elle est rangée sous un autre nom");
+    const details = container.querySelector('[data-unresolved-cause="alias"]');
+    expect(details?.closest("#details-panel")).not.toBeNull();
+    expect(details?.textContent).toContain("find");
+    expect(details?.textContent).toContain("elle est rangée sous un autre nom");
+    const sheetIndex = view.result!.servers[0].tools.findIndex((tool) => tool.gaps.length > 0);
+    const sheet = renderWithIntl(
+      <ToolSheet tool={view.result!.servers[0].tools[sheetIndex]} index={sheetIndex} alerts={[]} />,
+      "fr",
+    );
+    expect(sheet.container.textContent).not.toContain("elle est rangée sous un autre nom");
+  });
+
+  it.each(["fr", "en"])("never says on a red verdict that nothing suspicious was found (%s)", (locale) => {
+    const raw = rawView(RED) as RawResult;
+    const partial = rawView(PARTIAL) as RawResult;
+    raw.result.verdict.coverage = partial.result.verdict.coverage;
+    const view = parseAnalysisView(raw);
+    const { container } = renderWithIntl(<ReportView analysis={view!} />, locale);
+    const coverage = container.querySelector("[data-coverage]");
+    expect(coverage).not.toBeNull();
+    expect(coverage?.textContent).not.toContain("Rien de suspect");
+    expect(coverage?.textContent).not.toContain("Nothing suspicious");
+    if (locale === "fr") {
+      expect(coverage?.textContent).toContain("Le verdict ne porte que sur ce qui a été vérifié.");
+    } else {
+      expect(coverage?.textContent).toContain("The verdict only covers what was checked.");
+    }
   });
 });
 

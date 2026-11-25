@@ -30,7 +30,7 @@ describe("parseAnalysisView", () => {
     const item = { kind: "network", reason: "network_unresolved", name: "httpx", file: "a.py", line: 1 };
     const body = { ...result("gray"), verdict: { color: "gray", coverage: coverage([item]) } };
     const parsed = parseAnalysisView(view("done", body))?.result?.verdict.coverage;
-    expect(parsed?.not_checked).toEqual([{ ...item, snippet: null }]);
+    expect(parsed?.not_checked).toEqual([{ ...item, snippet: null, cause: null }]);
     expect(parsed?.not_checked_count).toBe(0);
     expect(parseAnalysisView(view("done", result("green")))?.result?.verdict.coverage).toBeNull();
   });

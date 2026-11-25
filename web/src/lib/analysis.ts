@@ -60,6 +60,7 @@ export type CoverageItem = {
   file: string | null;
   line: number | null;
   snippet: string | null;
+  cause: string | null;
 };
 
 export type Coverage = {
@@ -405,6 +406,7 @@ function coverageItem(value: unknown): CoverageItem {
     file: optionalText(fields.file),
     line: optionalInteger(fields.line),
     snippet: optionalText(fields.snippet),
+    cause: optionalMessageKey(fields.cause),
   };
 }
 

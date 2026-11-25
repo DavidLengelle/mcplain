@@ -41,6 +41,17 @@ export function LevelMark({ level }: { level: ToolLevel }) {
 export function ToolSentence({ tool }: { tool: Tool }) {
   const t = useTranslations("tools");
   const actions = useLampActions()(tool.lamps);
+  if (tool.gaps.length > 0) {
+    if (actions === null) {
+      return <span data-not-followed="">{t("notFollowed")}</span>;
+    }
+    return (
+      <span data-not-followed="">
+        {t("canDo", { actions })}{" "}
+        {t("partlyFollowed")}
+      </span>
+    );
+  }
   if (tool.plain_sentence !== null) {
     return <RawText value={tool.plain_sentence} limit={300} expandable={false} className="font-sans" />;
   }

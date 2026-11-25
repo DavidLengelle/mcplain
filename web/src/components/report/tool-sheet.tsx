@@ -193,12 +193,18 @@ function CodeCan({ tool }: { tool: Tool }) {
   const state = useTranslations("lamps");
   const engine = useEngineString();
   const lit = litLamps(tool.lamps);
+  const followed = tool.gaps.length === 0;
   const { places, more } = findingPlaces(tool);
 
   return (
     <div className="rounded-2xl bg-panel2 px-[22px] py-5">
       <h4 className="font-condensed text-lg font-bold tracking-[0.08em]">{t("codeCan")}</h4>
-      {lit.length === 0 && <p className="mt-3 text-lg leading-snug font-semibold">{t("nothing")}</p>}
+      {lit.length === 0 && followed && <p className="mt-3 text-lg leading-snug font-semibold">{t("nothing")}</p>}
+      {lit.length === 0 && !followed && (
+        <p data-not-followed="" className="mt-3 text-lg leading-snug font-semibold">
+          {t("notFollowed")}
+        </p>
+      )}
       {lit.map((lamp) => (
         <p key={lamp.id} data-can={lamp.id} className="mt-3 text-lg leading-snug font-semibold">
           {t("canAction", { action: engine(`lamp.${lamp.id}.phrase`) })}
@@ -209,6 +215,11 @@ function CodeCan({ tool }: { tool: Tool }) {
           )}
         </p>
       ))}
+      {lit.length > 0 && !followed && (
+        <p data-not-followed="" className="mt-3 text-lg leading-snug font-semibold">
+          {t("partlyFollowed")}
+        </p>
+      )}
       {tool.gaps.length > 0 && (
         <p className="mt-3 text-sm text-ink2">
           {t("incomplete")}{" "}

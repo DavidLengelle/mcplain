@@ -460,6 +460,8 @@
       "danger": "Danger"
     },
     "noLamp": "No lamp lit",
+    "notFollowed": "Not checked: its code could not be followed",
+    "partlyFollowed": "The rest of its code could not be followed.",
     "canDo": "Can {actions}.",
     "automatic": "Automatic summary"
   },
@@ -483,6 +485,8 @@
     "parameters": "Its parameters",
     "codeCan": "WHAT ITS CODE CAN DO",
     "nothing": "Nothing special: its code lights no lamp.",
+    "notFollowed": "MCPlain could not follow its code, so it cannot tell what this tool does.",
+    "partlyFollowed": "It may do more: part of its code could not be followed.",
     "canAction": "Can {action}.",
     "incomplete": "Incomplete tracking:",
     "whereInCode": "Where in the code:",
@@ -504,6 +508,7 @@
     "invisible": "Invisible characters",
     "invisibleCount": "{label} × {count}",
     "outside": "Points outside the tools (startup, installation, package)",
+    "unresolved": "Calls not followed, precise cause",
     "reputation": "Reputation (OSV.dev)",
     "why": "Why this package",
     "rules": "Rules version",

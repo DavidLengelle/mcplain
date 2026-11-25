@@ -123,6 +123,42 @@ function OutsideItem({ result, tools }: { result: AnalysisResult; tools: Tool[] 
   );
 }
 
+function UnresolvedItem({ result }: { result: AnalysisResult }) {
+  const t = useTranslations("details");
+  const items = (result.verdict.coverage?.not_checked ?? []).filter((item) => item.cause !== null);
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <Item label={t("unresolved")} wide>
+      <ul className="flex flex-col gap-1.5">
+        {items.map((item, index) => (
+          <li key={index} data-unresolved-cause={item.cause}>
+            {item.name !== null && <RawText value={item.name} limit={120} />}
+            {item.file !== null && (
+              <span className="font-normal text-ink2">
+                {t("colon")}
+                <RawText value={coveragePlace(item.file, item.line)} limit={200} />
+              </span>
+            )}
+            <span className="font-normal text-ink2">
+              {t("colon")}
+              <EngineText code={`coverage.cause.${item.cause}`} />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Item>
+  );
+}
+
+function coveragePlace(file: string, line: number | null): string {
+  if (line === null) {
+    return file;
+  }
+  return `${file}:${line}`;
+}
+
 function ReputationItem({ result }: { result: AnalysisResult }) {
   const t = useTranslations("details");
   const reputation = result.reputation;
@@ -272,6 +308,7 @@ export function TechDetails({ analysis, result, server, tools, open, onToggle }:
       >
         {server !== null && <ServerItems server={server} />}
         <OutsideItem result={result} tools={tools} />
+        <UnresolvedItem result={result} />
         <ReputationItem result={result} />
         <SourceItems analysis={analysis} result={result} />
       </dl>

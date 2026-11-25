@@ -151,6 +151,19 @@ for (const theme of ["light", "dark"] as const) {
   });
 }
 
+test("the card and the sheet of a tool not followed never say that it lights no lamp", async ({ page }) => {
+  await serveAnalysis(page, [reportView("partial")]);
+  await page.goto(`/fr/analyses/${ID}`);
+  const card = page.locator('[data-tool-card="0"]');
+  await expect(card).toContainText("Pas vérifié : son code n'a pas pu être suivi");
+  await expect(card).not.toContainText("Aucun voyant allumé");
+  await card.click();
+  const sheet = page.locator('[data-sheet="0"]');
+  await expect(sheet).toContainText("MCPlain n'a pas pu suivre son code : il ne peut pas dire ce que cet outil fait.");
+  await expect(sheet).not.toContainText("n'allume aucun voyant");
+  await expect(page.locator('[data-coverage-item="call"]')).toContainText("find");
+});
+
 test("a call not followed shows its line of code as raw text", async ({ page }) => {
   await serveAnalysis(page, [reportView("partial")]);
   await page.goto(`/analyses/${ID}`);

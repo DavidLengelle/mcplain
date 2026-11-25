@@ -9,10 +9,10 @@ import { RawText } from "../raw-text";
 export const COVERAGE_HEADING_ID = "coverage-heading";
 
 function conclusionCode(color: VerdictColor): string {
-  if (color === "orange") {
-    return "coverage.partial_verdict";
+  if (color === "gray") {
+    return "coverage.nothing_found";
   }
-  return "coverage.nothing_found";
+  return "coverage.partial_verdict";
 }
 
 function placeOf(item: CoverageItem): string | null {

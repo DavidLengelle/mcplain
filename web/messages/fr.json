@@ -460,6 +460,8 @@
       "danger": "Danger"
     },
     "noLamp": "Aucun voyant allumé",
+    "notFollowed": "Pas vérifié : son code n'a pas pu être suivi",
+    "partlyFollowed": "Le reste de son code n'a pas pu être suivi.",
     "canDo": "Peut {actions}.",
     "automatic": "Résumé automatique"
   },
@@ -483,6 +485,8 @@
     "parameters": "Ses paramètres",
     "codeCan": "CE QUE SON CODE PEUT FAIRE",
     "nothing": "Rien de particulier : son code n'allume aucun voyant.",
+    "notFollowed": "MCPlain n'a pas pu suivre son code : il ne peut pas dire ce que cet outil fait.",
+    "partlyFollowed": "Il peut faire plus : une partie de son code n'a pas pu être suivie.",
     "canAction": "Peut {action}.",
     "incomplete": "Suivi incomplet :",
     "whereInCode": "Où dans le code :",
@@ -504,6 +508,7 @@
     "invisible": "Caractères invisibles",
     "invisibleCount": "{label} × {count}",
     "outside": "Points hors des outils (démarrage, installation, paquet)",
+    "unresolved": "Appels non suivis, raison précise",
     "reputation": "Réputation (OSV.dev)",
     "why": "Pourquoi ce paquet",
     "rules": "Version des règles",
