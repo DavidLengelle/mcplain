@@ -59,6 +59,7 @@ from mcplain.capabilities import (
     JAVASCRIPT_ENV_OBJECTS,
     JAVASCRIPT_NETWORK_CLIENTS,
     JAVASCRIPT_OFFLINE_PARTS,
+    JAVASCRIPT_OPEN_CONSTANTS,
     JAVASCRIPT_OPEN_FUNCTIONS,
     JAVASCRIPT_PLAIN_CALLS,
     JAVASCRIPT_PLAIN_METHODS,
@@ -70,6 +71,7 @@ from mcplain.capabilities import (
     JAVASCRIPT_UNPROVABLE_REQUESTS,
     JAVASCRIPT_URL_GLOBALS,
     JAVASCRIPT_URL_KEYS,
+    JAVASCRIPT_READ_OPEN_FLAGS,
     JAVASCRIPT_WRITE_FLAG_CHARS,
     LOCAL_HOSTS,
     NETWORK_BODY_KEYS,
@@ -181,6 +183,7 @@ EQUALITY_OPERATORS: frozenset[str] = frozenset({"===", "=="})
 INSTALL_HOOKS: tuple[str, ...] = ("preinstall", "install", "postinstall")
 ENTRY_FIELDS: tuple[str, ...] = ("main", "bin")
 MAX_CONSTANT_DEPTH = 5
+MAX_FLAG_HELPER_DEPTH = 2
 RESOLVE_EXTENSIONS: tuple[str, ...] = (".js", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".jsx")
 SOURCE_SWAPS: dict[str, tuple[str, ...]] = {
     ".js": (".ts", ".tsx"),
@@ -2582,7 +2585,123 @@ class _JavaScriptFile:
             detail = f"{qualified} flags={flags.value or '?'}"
             if flags.dynamic or any(character in flags.value for character in JAVASCRIPT_WRITE_FLAG_CHARS):
                 capability = Capability.FS_WRITE
+            names = None
+            if flags.dynamic:
+                names = self._read_only_flags(arguments[1], 0)
+            if names:
+                capability = Capability.FS_READ
+                detail = f"{qualified} flags={'|'.join(names)}"
         self._add(capability, call, detail)
+
+    def _read_only_flags(self, node: Node | None, depth: int) -> list[str] | None:
+        """Return the read-only fs.constants that make numeric open flags, or None when they may write"""
+
+        current = unwrap(node)
+        if current is None:
+            return None
+        if current.type == "binary_expression":
+            operator = node_text(current.child_by_field_name("operator") or current)
+            left = self._read_only_flags(current.child_by_field_name("left"), depth)
+            right_node = unwrap(current.child_by_field_name("right"))
+            if left is None or right_node is None:
+                return None
+            if operator == "??" and right_node.type == "number" and node_text(right_node) == "0":
+                return left
+            right = self._read_only_flags(right_node, depth)
+            if operator != "|" or right is None:
+                return None
+            return left + right
+        if current.type in REFERENCE_TYPES:
+            name = self._open_constant(current)
+            if name is None or name not in JAVASCRIPT_READ_OPEN_FLAGS:
+                return None
+            return [name]
+        if current.type == "call_expression" and depth < MAX_FLAG_HELPER_DEPTH:
+            return self._helper_flags(current, depth)
+        return None
+
+    def _helper_flags(self, call: Node, depth: int) -> list[str] | None:
+        """Return the read-only flags a local function without parameters returns, like readFlags()"""
+
+        function = unwrap(call.child_by_field_name("function"))
+        if function is None or function.type != "identifier" or call_arguments(call):
+            return None
+        definition = self.functions.get(node_text(function))
+        if definition is None:
+            return None
+        parameters = definition.child_by_field_name("parameters") or definition.child_by_field_name("parameter")
+        if parameters is not None and [child for child in parameters.named_children if child.type != "comment"]:
+            return None
+        if parameters is not None and parameters.type == "identifier":
+            return None
+        body = definition.child_by_field_name("body")
+        if body is None:
+            return None
+        if body.type != "statement_block":
+            return self._read_only_flags(body, depth + 1)
+        statements = [child for child in body.named_children if child.type != "comment"]
+        if len(statements) != 1 or statements[0].type != "return_statement" or not statements[0].named_children:
+            return None
+        return self._read_only_flags(statements[0].named_children[0], depth + 1)
+
+    def _open_constant(self, node: Node) -> str | None:
+        """Return the name of an fs.constants member, written in full, imported, or destructured from fs.constants"""
+
+        root = node
+        while root.type == "member_expression":
+            inner = unwrap(root.child_by_field_name("object"))
+            if inner is None:
+                return None
+            root = inner
+        if root.type != "identifier" or self._local_binding(node_text(root), node.start_byte):
+            return None
+        resolved = self.resolve(node)
+        prefix = f"{JAVASCRIPT_OPEN_CONSTANTS}."
+        if resolved is not None and resolved[1] and resolved[0].startswith(prefix):
+            return resolved[0][len(prefix):]
+        if node.type == "identifier":
+            return self._destructured_constant(node_text(node))
+        return None
+
+    def _local_binding(self, name: str, offset: int) -> bool:
+        """Tell whether a name is a local variable of the code, not a require of a module, which shadows any import"""
+
+        values = [value for item, start, end, value in self.lookups if item == name and start <= offset < end]
+        constant = self.constants.get(name)
+        if constant is not None:
+            values.append(constant)
+        return any(self._required_module(value) is None for value in values)
+
+    def _destructured_constant(self, name: str) -> str | None:
+        """Return the fs.constants member a name gets from const { O_RDONLY } = fs.constants, bound only once"""
+
+        found: list[str] = []
+        for declarator in self.nodes["variable_declarator"]:
+            pattern = declarator.child_by_field_name("name")
+            value = declarator.child_by_field_name("value")
+            if pattern is None or value is None:
+                continue
+            if pattern.type == "identifier" and node_text(pattern) == name:
+                return None
+            if pattern.type != "object_pattern":
+                continue
+            resolved = self.resolve(unwrap(value))
+            for child in pattern.named_children:
+                key = None
+                if child.type == "shorthand_property_identifier_pattern" and node_text(child) == name:
+                    key = name
+                elif child.type == "pair_pattern":
+                    target = child.child_by_field_name("value")
+                    if target is not None and node_text(target) == name:
+                        key = property_name(child.child_by_field_name("key"))
+                if key is None:
+                    continue
+                if resolved is None or not resolved[1] or resolved[0] != JAVASCRIPT_OPEN_CONSTANTS:
+                    return None
+                found.append(key)
+        if len(found) != 1:
+            return None
+        return found[0]
 
     def _env_key(self, node: Node, key_node: Node | None) -> None:
         """Classify an environment read as a secret or a plain variable"""

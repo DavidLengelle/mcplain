@@ -429,6 +429,10 @@ JAVASCRIPT_RULES: tuple[ApiRule, ...] = (
 
 JAVASCRIPT_OPEN_FUNCTIONS: frozenset[str] = frozenset({"fs.open", "fs.openSync"})
 JAVASCRIPT_WRITE_FLAG_CHARS = "wa+"
+JAVASCRIPT_OPEN_CONSTANTS = "fs.constants"
+JAVASCRIPT_READ_OPEN_FLAGS: frozenset[str] = frozenset(
+    {"O_RDONLY", "O_NOFOLLOW", "O_NONBLOCK", "O_CLOEXEC", "O_DIRECTORY", "O_NOATIME", "O_NOCTTY"}
+)
 JAVASCRIPT_NETWORK_CLIENTS: frozenset[str] = frozenset(
     {"axios.create", "got.extend", "ky.create", "ky.extend", "undici.Client", "undici.Pool"}
 )
