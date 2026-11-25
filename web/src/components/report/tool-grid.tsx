@@ -117,6 +117,7 @@ function ToolCard({ tool, index, selected, onPick }: CardProps) {
       className={cn(
         "flex flex-col gap-1.5 rounded-2xl bg-panel px-[18px] pt-[18px] pb-4 text-left text-ink no-underline transition duration-150 hover:-translate-y-0.5 hover:bg-card-hover motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         ring,
+        !selected && "hover:inset-ring-2 hover:inset-ring-muted",
       )}
     >
       <span className="flex items-center justify-between gap-2">

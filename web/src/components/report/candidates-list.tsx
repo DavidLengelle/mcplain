@@ -39,7 +39,7 @@ export function CandidatesList({ analysis, result }: { analysis: AnalysisView; r
               disabled={pending}
               aria-busy={chosen === candidate.path}
               onClick={() => choose(candidate.path)}
-              className="flex min-h-11 w-full cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 rounded-xl px-4 py-3 text-left text-ink hover:bg-row-hover disabled:cursor-wait"
+              className="flex min-h-11 w-full cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 rounded-xl px-4 py-3 text-left text-ink hover:bg-row-hover hover:inset-ring-2 hover:inset-ring-muted disabled:cursor-wait"
             >
               <span className="font-mono text-[15px]">
                 <RawText value={candidate.path} limit={200} expandable={false} />

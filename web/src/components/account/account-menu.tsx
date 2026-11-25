@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { authClient } from "@/lib/auth-client";
 
-const ITEM_CLASS = "flex min-h-11 w-full items-center rounded-md px-3 text-left text-ink no-underline hover:bg-row-hover";
+const ITEM_CLASS = "flex min-h-11 w-full items-center rounded-md px-3 text-left text-ink no-underline hover:bg-row-hover hover:inset-ring-2 hover:inset-ring-muted";
 const OUTLINE_CLASS =
   "flex min-h-11 items-center rounded-[10px] border-[1.5px] border-btn-border px-3.5 font-semibold text-ink no-underline hover:bg-row-hover";
 

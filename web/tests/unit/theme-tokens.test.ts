@@ -174,6 +174,12 @@ describe("theme tokens", () => {
       expect(contrast(theme["--row-hover"], theme["--panel"])).toBeGreaterThanOrEqual(1.05);
       expect(contrast(theme["--card-hover"], theme["--panel"])).toBeGreaterThanOrEqual(1.05);
     });
+
+    it(`gives the hover ring 3:1 at least against the panel and the hover backgrounds in the ${name} theme`, () => {
+      for (const item of ["--panel", "--row-hover", "--card-hover", "--page"]) {
+        expect(contrast(theme["--muted"], theme[item])).toBeGreaterThanOrEqual(LARGE);
+      }
+    });
   }
 
   it("uses the field border token for every field, and nowhere else", () => {

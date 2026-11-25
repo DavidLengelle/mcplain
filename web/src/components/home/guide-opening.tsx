@@ -33,7 +33,7 @@ export function GuideOpening() {
             <a
               href={`#${id}`}
               data-toc={id}
-              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-panel px-3.5 text-[15px] text-ink no-underline transition-colors hover:bg-row-hover motion-reduce:transition-none"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-panel px-3.5 text-[15px] text-ink no-underline transition-colors hover:bg-row-hover hover:inset-ring-2 hover:inset-ring-muted motion-reduce:transition-none"
             >
               <span className="font-condensed font-bold text-accent">{chapterNumber(id)}</span>
               {chapters(`${id}.toc`)}

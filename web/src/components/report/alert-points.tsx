@@ -43,7 +43,7 @@ function PointRow({ alert, tools, onPickTool, onOpenDetails }: { alert: Alert } 
         href={`#${target}`}
         onClick={pick}
         data-point={alert.rule}
-        className="flex flex-wrap items-center gap-x-[18px] gap-y-2 rounded-xl px-4 py-3.5 text-ink no-underline hover:bg-row-hover"
+        className="flex flex-wrap items-center gap-x-[18px] gap-y-2 rounded-xl px-4 py-3.5 text-ink no-underline hover:bg-row-hover hover:inset-ring-2 hover:inset-ring-muted"
       >
         <span aria-hidden="true" className={cn("size-3 flex-none rounded-full", DOT[color])} />
         <span className="min-w-0 flex-[1_1_260px]">
