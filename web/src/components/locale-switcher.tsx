@@ -2,9 +2,26 @@
 
 import { useLocale, useTranslations } from "next-intl";
 
-import { Link, usePathname } from "@/i18n/navigation";
+import { getPathname, Link, usePathname } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
+
+const ITEM_CLASS = "flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold no-underline";
+const CURRENT_CLASS = "bg-toggle-on-bg text-toggle-on-fg";
+const OTHER_CLASS = "text-toggle-fg";
+
+function LocaleLabel({ locale }: { locale: string }) {
+  const t = useTranslations("localeSwitcher");
+  return (
+    <>
+      {t(`short.${locale}`)}
+      <span className="sr-only" lang={locale}>
+        {" "}
+        {t(`name.${locale}`)}
+      </span>
+    </>
+  );
+}
 
 export function LocaleSwitcher() {
   const t = useTranslations("localeSwitcher");
@@ -16,22 +33,29 @@ export function LocaleSwitcher() {
       <ul className="flex gap-0.5 rounded-[10px] bg-toggle-bg p-[3px]">
         {routing.locales.map((locale) => (
           <li key={locale}>
-            <Link
-              href={pathname}
-              locale={locale}
-              hrefLang={locale}
-              aria-current={locale === current}
-              className={cn(
-                "flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-toggle-fg no-underline",
-                locale === current && "bg-toggle-on-bg text-toggle-on-fg",
-              )}
-            >
-              {t(`short.${locale}`)}
-              <span className="sr-only" lang={locale}>
-                {" "}
-                {t(`name.${locale}`)}
-              </span>
-            </Link>
+            {locale === current && (
+              <Link
+                href={pathname}
+                prefetch={false}
+                hrefLang={locale}
+                aria-current={true}
+                data-locale-link={locale}
+                className={cn(ITEM_CLASS, CURRENT_CLASS)}
+              >
+                <LocaleLabel locale={locale} />
+              </Link>
+            )}
+            {locale !== current && (
+              <a
+                href={getPathname({ href: pathname, locale, forcePrefix: true })}
+                hrefLang={locale}
+                aria-current={false}
+                data-locale-link={locale}
+                className={cn(ITEM_CLASS, OTHER_CLASS)}
+              >
+                <LocaleLabel locale={locale} />
+              </a>
+            )}
           </li>
         ))}
       </ul>
