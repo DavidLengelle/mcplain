@@ -127,7 +127,7 @@ export function AnalysisField({ variant }: { variant: FieldVariant }) {
           <SubmitLabel idle={t("submit")} busy={t("submitting")} pending={pending} />
         </button>
       </div>
-      <p id={ids.error} aria-live="polite" className={cn("font-semibold text-red", ERROR[variant])}>
+      <p id={ids.error} aria-live="polite" className={cn("font-semibold [overflow-wrap:anywhere] text-red", ERROR[variant])}>
         {error !== null && (
           <span className={cn("block", variant === "hero" && "pt-2.5")}>
             <StartErrorText error={error} />

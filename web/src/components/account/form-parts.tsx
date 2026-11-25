@@ -54,7 +54,7 @@ export function FormMessage({ id, tone, children }: { id: string; tone: "error" 
       id={id}
       role="status"
       aria-live="polite"
-      className={cn("min-h-6 font-semibold", tone === "error" && "text-red", tone === "info" && "text-ink")}
+      className={cn("min-h-6 font-semibold [overflow-wrap:anywhere]", tone === "error" && "text-red", tone === "info" && "text-ink")}
     >
       {children}
     </p>
