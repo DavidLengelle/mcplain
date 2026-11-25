@@ -70,8 +70,19 @@ test("the admin turns on two-step verification, signs in with a code then a back
   await page.getByLabel("Mot de passe", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: "CONTINUER" }).click();
   const key = (await page.getByTestId("totp-key").textContent()) ?? "";
-  expect(key).toMatch(/^([A-Z2-7]{4} )+[A-Z2-7]{1,4}$/);
-  const secret = key.replaceAll(" ", "");
+  expect(key).toMatch(/^[A-Z2-7]{16,}$/);
+  const copied = await page.getByTestId("totp-key").evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    return selection?.toString() ?? "";
+  });
+  expect(copied).toBe(key);
+  expect(copied).not.toMatch(/\s/);
+  await expect(page.locator("[data-testid=totp-key] [data-key-group]").first()).toHaveText(key.slice(0, 4));
+  const secret = key;
   const field = page.getByLabel("Code à 6 chiffres");
   await expect(field).toHaveAttribute("inputmode", "numeric");
   const first = await freshCode(secret, used);

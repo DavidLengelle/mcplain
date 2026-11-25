@@ -8,7 +8,7 @@ import { SignInForm } from "@/components/account/sign-in-form";
 import { AdminPanel } from "@/components/admin/admin-panel";
 import { banAccount, findAccount, parseAccount, unbanAccount } from "@/lib/admin";
 import { authErrorKey } from "@/lib/auth-errors";
-import { asksSecondFactor, groupedKey, hasTwoFactor, isAdminRole, secretFromUri, typedBackupCode, typedCode } from "@/lib/two-factor";
+import { asksSecondFactor, hasTwoFactor, isAdminRole, keyGroups, secretFromUri, typedBackupCode, typedCode } from "@/lib/two-factor";
 
 import { renderWithIntl } from "./intl";
 
@@ -86,7 +86,7 @@ describe("the helpers of the second factor", () => {
     expect(secretFromUri("https://example.com/?secret=ABC")).toBeNull();
     expect(secretFromUri("otpauth://totp/x?secret=not%20base32")).toBeNull();
     expect(secretFromUri("not a link")).toBeNull();
-    expect(groupedKey("ABCDEFGHIJ")).toBe("ABCD EFGH IJ");
+    expect(keyGroups("ABCDEFGHIJ")).toEqual(["ABCD", "EFGH", "IJ"]);
     expect(typedCode(" 123 456 ")).toBe("123456");
     expect(typedCode("12-34-5678")).toBe("123456");
     expect(typedBackupCode(" a1b2c-3d4e5 ")).toBe("a1b2c-3d4e5");
@@ -173,7 +173,13 @@ describe("the security part of the account", () => {
     fireEvent.click(screen.getByRole("button", { name: "ACTIVER LA DOUBLE AUTHENTIFICATION" }));
     fill("Mot de passe", PASSWORD);
     fireEvent.click(screen.getByRole("button", { name: "CONTINUER" }));
-    expect((await screen.findByTestId("totp-key")).textContent).toBe(groupedKey(SECRET));
+    const key = await screen.findByTestId("totp-key");
+    expect(key.textContent).toBe(SECRET);
+    expect(key.textContent).not.toMatch(/\s/);
+    expect(Array.from(key.querySelectorAll("[data-key-group]"), (group) => group.textContent)).toEqual(keyGroups(SECRET));
+    for (const group of key.querySelectorAll("[data-key-group]")) {
+      expect(group.textContent?.length).toBeLessThanOrEqual(4);
+    }
     expect(enable).toHaveBeenCalledWith({ password: PASSWORD });
     expect(screen.queryByText(CODES[0] ?? "")).toBeNull();
     fill("Code à 6 chiffres", "123456");

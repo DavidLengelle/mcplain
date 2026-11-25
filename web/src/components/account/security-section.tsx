@@ -5,7 +5,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 
 import { RawText } from "@/components/raw-text";
 import { authClient } from "@/lib/auth-client";
-import { CODE_DIGITS, groupedKey, hasTwoFactor, secretFromUri } from "@/lib/two-factor";
+import { CODE_DIGITS, hasTwoFactor, keyGroups, secretFromUri } from "@/lib/two-factor";
 
 import { BackupCodes } from "./backup-codes";
 import { CodeField } from "./code-field";
@@ -142,8 +142,12 @@ function KeyStep({ secret, onConfirmed, onCancel }: { secret: string; onConfirme
         <li>{t("security.stepName")}</li>
         <li>
           {t("security.stepKey")}
-          <p data-testid="totp-key" className="mt-2 rounded-md bg-code-bg px-3 py-2 font-mono text-[18px] tracking-[0.08em] break-all text-ink select-all">
-            <RawText value={groupedKey(secret)} />
+          <p data-testid="totp-key" className="mt-2 rounded-md bg-code-bg px-3 py-2 font-mono text-[18px] tracking-[0.08em] text-ink select-all">
+            {keyGroups(secret).map((group, index) => (
+              <span key={index} data-key-group="" className="mr-[1ch] inline-block last:mr-0">
+                <RawText value={group} className="whitespace-nowrap" />
+              </span>
+            ))}
           </p>
         </li>
         <li>{t("security.stepType")}</li>

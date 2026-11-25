@@ -21,12 +21,12 @@ export function secretFromUri(uri: string): string | null {
   return secret;
 }
 
-export function groupedKey(secret: string): string {
+export function keyGroups(secret: string): string[] {
   const groups: string[] = [];
   for (let index = 0; index < secret.length; index += KEY_GROUP) {
     groups.push(secret.slice(index, index + KEY_GROUP));
   }
-  return groups.join(" ");
+  return groups;
 }
 
 export function typedCode(text: string): string {

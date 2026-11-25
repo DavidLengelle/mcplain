@@ -14,10 +14,10 @@ export function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => 
       <h3 className="font-condensed text-[24px] font-bold">{t("codesTitle")}</h3>
       <p>{t("codesIntro")}</p>
       <p className="font-semibold">{t("codesOnce")}</p>
-      <ol className="grid grid-cols-2 gap-2 font-mono text-[17px]">
+      <ol className="flex flex-col items-start gap-2 font-mono text-[17px]">
         {codes.map((code) => (
           <li key={code} data-testid="backup-code" className="rounded-md border-[1.5px] border-btn-border px-3 py-2">
-            <RawText value={code} />
+            <RawText value={code} className="whitespace-nowrap" />
           </li>
         ))}
       </ol>
