@@ -75,7 +75,11 @@ function AuthorBadge({ translated, showTranslation }: { translated: boolean; sho
   return (
     <span
       data-translated={String(showTranslation)}
-      className="mt-2.5 inline-block rounded-2xl bg-orig-bg px-2.5 py-0.5 text-xs font-semibold text-orig-fg"
+      className={cn(
+        "mt-2.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold",
+        showTranslation && "bg-accent text-on-accent",
+        !showTranslation && "bg-orig-bg text-orig-fg",
+      )}
     >
       {label}
     </span>
@@ -103,12 +107,17 @@ function Announced({ tool, translation }: { tool: Tool; translation: ToolTransla
       <div className="mt-2.5" data-description="">
         {description === "" && tool.description_is_dynamic && <p className="text-ink2">{t("dynamicDescription")}</p>}
         {description === "" && !tool.description_is_dynamic && <p className="text-ink2">{t("noDescription")}</p>}
-        {description !== "" && (
-          <RawText
-            value={shownText(tool.description, translation?.description ?? null, showTranslation)}
-            variant="block"
-            limit={2400}
-          />
+        {description !== "" && showTranslation && (
+          <p data-description-translated="" className="text-base leading-[1.6] text-ink3">
+            <RawText
+              value={shownText(tool.description, translation?.description ?? null, showTranslation)}
+              limit={2400}
+              className="font-sans text-base"
+            />
+          </p>
+        )}
+        {description !== "" && !showTranslation && (
+          <RawText value={tool.description} variant="block" limit={2400} />
         )}
       </div>
       {description !== "" && tool.description_is_dynamic && (
@@ -148,7 +157,9 @@ function Announced({ tool, translation }: { tool: Tool; translation: ToolTransla
                   </span>
                   {parameter.description !== null && (
                     <>
-                      {t("colon")}
+                      <span data-parameter-colon="" className="font-mono whitespace-pre">
+                        {t("colon")}
+                      </span>
                       <span className="text-ink2">
                         <RawText
                           value={shownText(parameter.description, parameterTranslation, showTranslation)}

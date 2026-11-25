@@ -14,6 +14,8 @@ import {
 } from "@/lib/ai-text";
 import type { Tool } from "@/lib/analysis";
 
+import FRENCH from "../../messages/fr.json";
+
 import { renderWithIntl } from "./intl";
 import { loadView } from "./reports";
 
@@ -345,6 +347,39 @@ describe("the translation in the sheet", () => {
     expect(container.querySelector("[data-description]")?.textContent).toContain(original.slice(0, 40));
     fireEvent.click(screen.getByRole("button", { name: "Voir la traduction" }));
     expect(container.querySelector('[data-translated="true"]')).not.toBeNull();
+  });
+
+  it("shows the translation in the text font under a blue badge, and the original in the code font under a black badge", async () => {
+    const { container } = await openSheet(
+      Array.from({ length: 30 }, (_, index) => ({ id: `tool_${index}`, text: "Lit un fichier." })),
+    );
+    await waitFor(() => expect(container.querySelector('[data-translated="true"]')).not.toBeNull());
+    expect(container.querySelector('[data-translated="true"]')?.className).toContain("bg-accent");
+    const translated = container.querySelector("[data-description-translated] [data-raw-text]");
+    expect(translated?.className).toContain("font-sans");
+    expect(translated?.className).not.toContain("font-mono");
+    fireEvent.click(screen.getByRole("button", { name: "Voir l'original" }));
+    expect(container.querySelector('[data-translated="false"]')?.className).toContain("bg-orig-bg");
+    expect(container.querySelector("[data-description-translated]")).toBeNull();
+    expect(container.querySelector("[data-description] [data-raw-text]")?.className).toContain("font-mono");
+  });
+
+  it("writes the separator of a parameter in the code font, so its spaces show", async () => {
+    serve([answer("failed")], [translation("ready", { items: [] })]);
+    const view = loadView(ORANGE);
+    const tool = view.result?.servers[0].tools[0];
+    const described = tool?.parameters.filter((parameter) => parameter.description !== null).length ?? 0;
+    expect(described).toBeGreaterThan(0);
+    const { container } = renderWithIntl(<ReportView analysis={view} />, "fr");
+    fireEvent.click(container.querySelector('[data-tool-card="0"]') as Element);
+    await act(async () => {});
+    const colons = container.querySelectorAll("[data-parameter-colon]");
+    expect(colons).toHaveLength(described);
+    for (const colon of colons) {
+      expect(colon.textContent).toBe(FRENCH.sheet.colon);
+      expect(colon.className).toContain("font-mono");
+      expect(colon.className).toContain("whitespace-pre");
+    }
   });
 
   it("translates the parameters, keeps the original of an untranslated one, and switches the whole card", async () => {
