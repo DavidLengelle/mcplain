@@ -1,18 +1,18 @@
 {
-  "engine_version": "0.6.1",
-  "date": "2026-11-12T17:16:27+00:00",
-  "source": "2026-11-12-engine-0.6.1.json",
+  "engine_version": "0.7.0",
+  "date": "2026-11-25T17:53:24+00:00",
+  "source": "2026-11-25-engine-0.7.0.json",
   "reds_left_out": 0,
   "servers": {
     "fetch": {
       "color": "orange",
       "gray_case": null,
-      "version": "2026.11.11"
+      "version": "2026.11.18"
     },
     "filesystem": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.3.0"
+      "version": "2.4.0"
     },
     "github-go": {
       "color": "gray",
@@ -22,22 +22,22 @@
     "time": {
       "color": "green",
       "gray_case": null,
-      "version": "2026.11.11"
+      "version": "2026.11.18"
     },
     "git": {
       "color": "orange",
       "gray_case": null,
-      "version": "2026.11.11"
+      "version": "2026.11.18"
     },
     "everything": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.3.0"
+      "version": "2.3.1"
     },
     "memory": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.1.1"
+      "version": "2.2.1"
     },
     "sequential-thinking": {
       "color": "gray",
@@ -97,32 +97,32 @@
     "sentry": {
       "color": "gray",
       "gray_case": "no_tools_found",
-      "version": "0.49.0"
+      "version": "0.51.0"
     },
     "supabase": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.16.1"
+      "version": "0.19.0"
     },
     "context7": {
       "color": "orange",
       "gray_case": null,
-      "version": "4.7.0"
+      "version": "4.8.0"
     },
     "chrome-devtools": {
       "color": "gray",
       "gray_case": "no_tools_found",
-      "version": "1.13.0"
+      "version": "1.14.0"
     },
     "playwright": {
       "color": "gray",
       "gray_case": "not_a_server",
-      "version": "0.0.85"
+      "version": "0.0.86"
     },
     "firecrawl": {
       "color": "orange",
       "gray_case": null,
-      "version": "3.40.0"
+      "version": "3.41.0"
     },
     "gcloud": {
       "color": "orange",
@@ -137,7 +137,7 @@
     "mongodb": {
       "color": "gray",
       "gray_case": "no_tools_found",
-      "version": "3.3.0"
+      "version": "3.4.0"
     },
     "stripe": {
       "color": "orange",
@@ -152,17 +152,17 @@
     "hostinger": {
       "color": "orange",
       "gray_case": null,
-      "version": "3.40.0"
+      "version": "4.23.1"
     },
     "storybook": {
       "color": "gray",
       "gray_case": "no_tools_found",
-      "version": "10.6.7"
+      "version": "10.6.9"
     },
     "desktop-commander": {
       "color": "red",
       "gray_case": null,
-      "version": "0.3.3",
+      "version": "0.3.4",
       "verified": true,
       "rules": [
         "R10"
@@ -171,7 +171,7 @@
     "gitlab": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.3.26"
+      "version": "3.0.0"
     },
     "figma": {
       "color": "orange",
@@ -181,7 +181,7 @@
     "n8n": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.102.0"
+      "version": "2.103.2"
     },
     "xcodebuild": {
       "color": "orange",
@@ -191,17 +191,17 @@
     "ms-365": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.184.0"
+      "version": "0.191.0"
     },
     "calculator": {
-      "color": "green",
-      "gray_case": null,
+      "color": "gray",
+      "gray_case": "incomplete_tracking",
       "version": "0.2.1"
     },
     "atlassian": {
       "color": "orange",
       "gray_case": null,
-      "version": "0.24.3"
+      "version": "0.24.8"
     },
     "blender": {
       "color": "gray",
@@ -216,7 +216,7 @@
     "aws-documentation": {
       "color": "orange",
       "gray_case": null,
-      "version": "1.2.5"
+      "version": "1.2.7"
     },
     "clickhouse": {
       "color": "orange",
@@ -226,12 +226,12 @@
     "workspace": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.4.2"
+      "version": "2.7.0"
     },
     "excel": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.3.0"
+      "version": "2.3.6"
     },
     "chroma": {
       "color": "orange",
@@ -246,7 +246,7 @@
     "dbt": {
       "color": "orange",
       "gray_case": null,
-      "version": "2.10.1"
+      "version": "2.10.3"
     },
     "pagerduty": {
       "color": "orange",

@@ -242,19 +242,19 @@ de ce dossier n'est décrit nulle part ailleurs.
 Sept mesures comptent. La première, faite avant toute correction (moteur 0.2.1). La mesure propre du
 3 novembre 2026 (moteur 0.4.0, règles version 2). La mesure propre du 3 novembre au soir (moteur 0.5.0, règles
 version 3, séance 7 quater), faite après les corrections décidées ce jour-là. La mesure du 4 novembre (moteur
-0.5.1, séance 7 quinquies), qui a servi de référence publique jusqu'au 9 novembre. La mesure du 9 novembre (moteur 0.5.2, corpus partie 2). Celle du 9 novembre après les décisions de David (moteur 0.6.0, règles version 4). Et celle du 12 novembre (moteur 0.6.1, règles version 4, enquête sur fetch 2026.11.11), qui est la nouvelle référence publique. Les mesures propres ont été faites sur une machine vérifiée avant de
+0.5.1, séance 7 quinquies), qui a servi de référence publique jusqu'au 9 novembre. La mesure du 9 novembre (moteur 0.5.2, corpus partie 2). Celle du 9 novembre après les décisions de David (moteur 0.6.0, règles version 4). Celle du 12 novembre (moteur 0.6.1, règles version 4, enquête sur fetch 2026.11.11). Et celle du 25 novembre (moteur 0.7.0, règles version 4, séance 11), qui est la nouvelle référence publique. Les mesures propres ont été faites sur une machine vérifiée avant de
 commencer (charge basse, aucun conteneur d'un autre projet), avec des images reconstruites et des analyses
 fraîches (aucune servie par le cache).
 
-| | Moteur 0.2.1 (29 octobre) | Moteur 0.4.0 (3 novembre) | Moteur 0.5.0 (3 novembre au soir) | Moteur 0.5.1 (4 novembre) | Moteur 0.5.2 (9 novembre) | Moteur 0.6.0 (9 novembre) | Moteur 0.6.1 (12 novembre) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Vert | 3 | 5 | 5 | 5 | 5 | 5 | 6 |
-| Orange | 30 | 30 | 36 | 35 | 34 | 34 | 34 |
-| Rouge | 7 | 7 | 1 | 1 | 1 | 1 | 1 |
-| Gris | 12 | 10 | 10 | 11 | 12 | 12 | 11 |
-| Délais dépassés | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| Échecs à part | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| Verdicts clairs | 78,4 % | 82,4 % | 82,4 % | 80,4 % | 78,4 % | 78,4 % | 80,4 % |
+| | Moteur 0.2.1 (29 octobre) | Moteur 0.4.0 (3 novembre) | Moteur 0.5.0 (3 novembre au soir) | Moteur 0.5.1 (4 novembre) | Moteur 0.5.2 (9 novembre) | Moteur 0.6.0 (9 novembre) | Moteur 0.6.1 (12 novembre) | Moteur 0.7.0 (25 novembre) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Vert | 3 | 5 | 5 | 5 | 5 | 5 | 6 | 4 |
+| Orange | 30 | 30 | 36 | 35 | 34 | 34 | 34 | 34 |
+| Rouge | 7 | 7 | 1 | 1 | 1 | 1 | 1 | 1 |
+| Gris | 12 | 10 | 10 | 11 | 12 | 12 | 11 | 13 |
+| Délais dépassés | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Échecs à part | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Verdicts clairs | 78,4 % | 82,4 % | 82,4 % | 80,4 % | 78,4 % | 78,4 % | 80,4 % | 76,5 % |
 
 Ce qui a changé entre 0.2.1 et 0.4.0 (séances 7 et 7 bis) :
 
@@ -326,12 +326,29 @@ Ce qui a changé entre 0.6.0 et 0.6.1 (12 novembre, décisions de David) :
   écrit dans le code (`issues/…`). O01 se tait dans ce cas précis (`docs/rules.fr.md`, O01) ;
 - aucun autre serveur ne change ; la référence publique est écrite avec cette mesure.
 
+Ce qui a changé entre 0.6.1 et 0.7.0 (25 novembre, séance 11, décisions de David) :
+
+- entre les deux, la référence du 24 novembre avait déjà passé sequential-thinking 2.2.0 de vert à gris (nouvelle
+  version, moteur inchangé) ;
+- calculator passe de vert à gris (`incomplete_tracking`) : il choisit sa fonction dans une table d'opérateurs
+  (`operator.add`…), et il appelle une fonction fabriquée par une autre. Depuis la règle `unresolved_call`, un appel de
+  code du serveur que le moteur ne sait pas résoudre laisse l'outil non suivi, et une fonction choisie dans une table de
+  fonctions extérieures aussi (décision de David) ;
+- filesystem perd O04 (faux positif : ses outils de lecture ouvrent les fichiers avec `fs.constants.O_RDONLY`) et reste
+  orange (O08) ;
+- aucun autre serveur ne change de couleur. Beaucoup d'orange et le rouge gagnent des points « pas vérifié » (raison
+  `unresolved_call`), sans changer de couleur ; le rouge et les orange lus en partie montrent maintenant ce qui n'a pas
+  été vérifié ;
+- mesure faite sur une pile reconstruite depuis le code de la séance : 41 analyses servies par le cache (même version
+  du moteur), et une contre-mesure des 52 serveurs dans des ateliers neufs a donné exactement les mêmes couleurs, cas
+  gris et règles. La référence publique est écrite avec cette mesure.
+
 ## 9. Les causes de gris restantes
 
-Mesure 0.6.1, sans compter le témoin Go (ceux de 0.5.0, plus launchdarkly et sentry, moins sentry-archived) :
+Mesure 0.7.0, sans compter le témoin Go (ceux de 0.6.1, plus sequential-thinking et calculator) :
 
 | Cause | Serveurs | Pourquoi |
 | --- | --- | --- |
 | `not_a_server` | 2 | Le vrai code est dans une autre dépendance (deux enveloppes). |
 | `no_tools_found` | 6 | Les outils sont dans des paquets séparés, déclarés d'une façon que MCPlain ne connaît pas encore, ou dans un paquet tout-en-un sans SDK déclaré (sentry, chrome-devtools). |
-| `incomplete_tracking` | 2 | Des objets reçus en paramètre (type inconnu), et du code exécuté dans le navigateur. |
+| `incomplete_tracking` | 4 | Des objets reçus en paramètre ou créés dans la valeur par défaut d'un paramètre (type inconnu), du code exécuté dans le navigateur, et une table de fonctions extérieures (calculator). |
