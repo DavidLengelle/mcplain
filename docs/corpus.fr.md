@@ -28,6 +28,12 @@ engine/tests/fixtures/corpus/
   gray/<nom>/     des serveurs honnêtes que MCPlain ne peut pas lire en entier
 ```
 
+Depuis la séance 11 (25 novembre 2026), `gray/notes-*` et `gray/calculator-operator-table` montrent chacun une façon dont
+un outil appelle son propre code sans que MCPlain sache le suivre (lacune `unresolved_call`, avec sa raison précise :
+alias, lambda, `partial`, fonction fabriquée, enveloppe, `.call`, méthode d'un objet, table de fonctions…). Leur témoin,
+`green/notes-direct-call`, fait le même appel en direct : il est suivi, il allume « Lit tes fichiers » et reste vert.
+`engine/tests/test_unresolved_calls.py` vérifie la raison de chacun.
+
 Chaque serveur est écrit dans un style différent (Python ou JavaScript/TypeScript, SDK haut niveau ou bas niveau,
 classe, paquet compacté...). Le corpus public ne contient **que des serveurs honnêtes**.
 

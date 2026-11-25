@@ -220,7 +220,7 @@ Guide : `docs/accounts.fr.md`, sections 14 à 18.
       e-mails dans Mailpit et ses comptes.
 - [ ] À clé égale, garder le chemin le plus parlant pour l'explication (souvent le plus court) : fetch 2026.11.11 cite le
       chemin de robots.txt, car deux chemins mènent à la même requête.
-- [ ] filesystem 2.3.0 a gagné O04, à examiner plus tard.
+- [x] filesystem 2.3.0 a gagné O04 : faux positif, corrigé en séance 11 (drapeaux d'ouverture en lecture seule).
 - [ ] Un hôte fixé chez l'appelant et passé à une fonction qui fait la requête (`"https://api.example.com/" + ville`, puis
       `requests.get(url)` ailleurs) allume encore O01 : limite connue, déjà là avant 0.6.1.
 - [ ] Un client reçu en paramètre : son adresse de base n'est lue que dans les appels du même fichier (sans appel dans le
@@ -327,23 +327,50 @@ revue : hors du dépôt.
       F23 (place de la mention du cache, ordre de la page de rapport) et « Afficher tout » de F09 (bouton interne de RawText,
       20 px de haut).
 
+## SÉANCE 11 : LE CONTRE-ESSAI (faite le 25 novembre 2026, moteur 0.7.0, règles version 4)
+
+But : MCPlain ne dit jamais « rien trouvé » sur du code qu'il n'a pas lu. Une couleur ne pouvait aller que vers plus de
+prudence. Bilan hors du dépôt.
+
+- [x] F10, cause A : le moteur savait que l'outil `sequentialthinking` de 866e8fb8 n'avait pas été suivi (lacune
+      `unknown_type`, 0 outil suivi sur 1), mais le site choisissait sa phrase d'après les voyants seuls. Un outil avec une
+      lacune ne dit plus jamais « Aucun voyant allumé » ni « son code n'allume aucun voyant » : sa carte dit « Pas vérifié :
+      son code n'a pas pu être suivi », sa fiche « MCPlain n'a pas pu suivre son code : il ne peut pas dire ce que cet outil
+      fait. », et la phrase de l'IA n'est pas montrée sur sa carte. Guide : `docs/web.fr.md`.
+- [x] F10, cause B (trouvée en contre-essai) : un appel de code du serveur que le moteur ne savait pas résoudre passait
+      sans lacune, et le serveur pouvait sortir vert. Règle générale (décision de David) : tout appel, dans le code suivi
+      depuis un outil, qui peut mener à une fonction ou une méthode du code du serveur et que le moteur ne sait pas résoudre
+      crée la lacune `unresolved_call`, avec sa raison précise (`alias`, `lambda`, `partial`, `bind`, `wrapper`,
+      `returned_function`, `call_apply`, `object_method`, `function_table`, `server_method`). Les appels vers des
+      bibliothèques extérieures ne comptent pas, sauf une fonction choisie dans une table de fonctions (`OPS[op](a, b)` avec
+      `operator.add` : gris, décision de David). La raison précise ne s'affiche que dans les détails techniques.
+      Fixtures : `engine/tests/fixtures/corpus/gray/notes-*` et `calculator-operator-table`, témoin
+      `green/notes-direct-call` ; test : `engine/tests/test_unresolved_calls.py`.
+- [x] « Ce qui n'a pas été vérifié » existe aussi sur un rouge lu en partie, avec « Le verdict ne porte que sur ce qui a
+      été vérifié » ; « Rien de suspect dans ce qui a été lu » ne s'affiche que sur un gris (site et ligne de commande).
+- [x] O04 de filesystem 2.3.0 (et 2.4.0) : faux positif. `fs.openSync(name, readFlags())`, où `readFlags()` renvoie
+      `fs.constants.O_RDONLY | noFollow() | (fs.constants.O_NONBLOCK ?? 0)`, est une lecture. Des drapeaux comptent comme une
+      lecture seulement s'ils ne sont faits que de constantes « lecture » de `fs.constants` (écrites en entier, importées ou
+      déstructurées depuis ce module), de `|`, de `?? 0`, ou d'un appel à une petite fonction du même fichier sans paramètre
+      qui les renvoie. Une variable locale du même nom, un nombre écrit en dur, `O_WRONLY`, `O_RDWR`, `O_CREAT`, `O_APPEND`
+      ou des drapeaux reçus en paramètre restent des écritures. Fixtures : `rules/O04/open_flags_write` (O04 gardé) et
+      `open_flags_read`. filesystem reste orange (O08).
+- [x] F15, F19, F20 corrigés (voir « Retouches de textes »). Notice de secours : sur une lecture partielle, « Dans ce qui a
+      été lu, rien n'allume un voyant. Une partie n'a pas pu être vérifiée. » (`ai.notice.fallback.nothing_partial`).
+- [x] Banc : calculator passe de vert à gris (table de fonctions `operator`, et une fonction fabriquée par une autre). Aucun
+      autre changement de couleur ; filesystem perd O04. Corpus et DVMCP : inchangés.
+
 ## PROCHAINE ÉTAPE
 
-Examiner l'O04 de filesystem 2.3.0 et la contradiction F10 (section suivante), puis la mise en ligne chez OVH (points
-ci-dessous).
+Séance 11b (le formulaire de l'IA, section suivante), puis la mise en ligne chez OVH (points ci-dessous).
 
 ## AVANT LA MISE EN LIGNE
 
-- [ ] filesystem 2.3.0 a gagné O04 : à examiner (noté le 12 novembre 2026, section « Banc automatique »).
-- [ ] F10 (séance 10a) : un rapport gris peut se contredire. Rapport `866e8fb8` (`@modelcontextprotocol/server-sequential-thinking`
-      2.2.0, gris « suivi incomplet »). Les voyants du serveur montrent « Lit tes fichiers » et « Va sur Internet » allumés ; la
-      carte du seul outil, `sequentialthinking`, dit « Aucun voyant allumé » (`tools.noLamp`) et sa fiche « Rien de particulier :
-      son code n'allume aucun voyant. » (`sheet.nothing`, dans `web/messages/`). D'où vient chaque information : les voyants du serveur viennent de tout le code lu, ici du code
-      de démarrage (`dist/index.js:164`, `fs.realpathSync` dans `isEntryPoint` ; `dist/http.js:53`, `http.createServer` dans
-      `startHttpServer`) ; les voyants de l'outil ne viennent que du code suivi depuis l'outil, et ce code n'a pas été suivi
-      (`dist/index.js:121`, `thinkingServer.processThought(args)`, raison `unknown_type`, 0 outil suivi sur 1). La fiche
-      affirme donc « son code n'allume aucun voyant » alors que son code n'a pas été lu. Un débutant peut croire l'outil sans
-      effet. À régler dans le moteur (`lamps.py`) ou dans les textes de la carte et de la fiche, avec l'accord de David.
+- [x] filesystem 2.3.0 a gagné O04 : faux positif, corrigé en séance 11.
+- [x] F10 (séance 10a) : un rapport gris pouvait se contredire (rapport `866e8fb8`). Corrigé en séance 11 (voir plus haut).
+- [ ] Séance 11b : le formulaire de l'IA doit dire qu'un outil n'a pas été suivi (règle 4 : l'IA peut alerter, jamais
+      rassurer). Aujourd'hui `ai_form.py` donne les capacités d'un outil d'après ses voyants seuls : une notice de l'IA peut
+      encore dire qu'un outil non suivi ne fait rien. Le site retire déjà la phrase de l'IA de la carte d'un tel outil.
 
 - [ ] Les tests de pile ne doivent effacer que leurs propres lignes (`stack/admin.spec.ts` vide `signup_counts`). Constaté le
       25 novembre 2026 sur la pile locale : ce test vide toute la table `signup_counts` (`resetSignups` de
@@ -352,17 +379,14 @@ ci-dessous).
 
 ## RETOUCHES DE TEXTES (avec l'accord de David)
 
-Relevées en séance 10a, non corrigées en 10b (textes de l'API, du moteur ou validés).
+Relevées en séance 10a, corrigées en séance 11.
 
-- [ ] F15 : notice de secours, « MCPlain a reconnu 1 outil(s) » : le pluriel n'est pas accordé alors que le nombre est connu.
-      Texte `ai.notice.fallback.count` dans `api/src/mcplain_api/locales/fr.json` et `en.json`.
-- [ ] F19 : gris « langage non pris en charge », « MCPlain ne sait pas encore lire le langage go. » : le nom du langage est en
-      minuscules. Texte `gray.unsupported_language.reason` de `engine/src/mcplain/locales/fr.json` et `en.json` ; le paramètre
-      `{language}` vient du moteur.
-- [ ] F20 : liste de liens (« awesome »), deux phrases presque identiques : « Choisis-en un et colle son lien. » (texte
-      `gray.link_list.advice` du moteur, `engine/src/mcplain/locales/fr.json` et `en.json`) puis « Colle son lien dans le champ
-      en haut de la page. » (texte `report.pasteAbove` de `web/messages/fr.json` et `en.json`, affiché par
-      `web/src/components/report/link-list-notice.tsx`), sans exemple tiré de la liste.
+- [x] F15 : notice de secours, « MCPlain a reconnu 1 outil dans ce serveur. » (`ai.notice.fallback.count_one`) ou « … {count}
+      outils … » (`ai.notice.fallback.count`) : l'API choisit selon le nombre.
+- [x] F19 : « MCPlain ne sait pas encore lire le langage Go. » / « MCPlain cannot read Go code yet. » : le moteur passe le nom
+      du langage tel qu'on l'écrit (`LANGUAGE_NAMES` de `engine/src/mcplain/detect.py` ; `jvm` donne « Java/Kotlin »).
+- [x] F20 : le conseil du moteur devient « Choisis un des serveurs de la liste. » / « Pick one of the servers in the list. » ;
+      la phrase du site (« Colle son lien dans le champ en haut de la page. ») reste.
 
 ## MISE EN LIGNE (comptes)
 
@@ -396,6 +420,12 @@ Relevées en séance 10a, non corrigées en 10b (textes de l'API, du moteur ou v
 
 ## PLUS TARD
 
+- Suivre ce qui est sûr au lieu de laisser une lacune `unresolved_call` : un alias (`reader = read_note`), `f.call(...)`,
+  `functools.partial(f, ...)`, `f.bind(...)`. En séance 11, la règle ne fait qu'ajouter des lacunes (une couleur ne pouvait
+  aller que vers plus de prudence).
+- `os.open` en Python n'est reconnu ni comme une lecture ni comme une écriture (constaté en séance 11) : aucun voyant ne
+  s'allume pour lui.
+
 - Les refus de l'anti-rafale (`burst_limit`) et les ALTCHA ratés (`altcha_invalid`) ne sont comptés nulle part : le cadran « Refus »
   de la 9c-2 ne les montre donc pas (décision de David du 24 novembre 2026). À ajouter si un jour on veut les suivre (une table par
   jour, sans adresse, comme `quota_refusals`).
@@ -410,7 +440,9 @@ Relevées en séance 10a, non corrigées en 10b (textes de l'API, du moteur ou v
 - sequential-thinking 2.2.0 gris (suivi incomplet) : dans l'outil `sequentialthinking`, l'appel
   `thinkingServer.processThought(args)` (`dist/index.js`, ligne 121) n'est pas suivi, car le moteur ne connaît pas le type de
   `thinkingServer` (raison `unknown_type`) ; il ne peut donc pas rejoindre la méthode qui fait le travail. La 2.1.1 était verte.
-  Référence du banc passée de vert à gris le 24 novembre 2026, moteur inchangé.
+  Référence du banc passée de vert à gris le 24 novembre 2026, moteur inchangé. Cause trouvée en séance 11 : l'objet est créé
+  dans la valeur par défaut d'un paramètre (`createServer(thinkingServer = new SequentialThinkingServer())`), que le moteur
+  ne suit pas. Le suivre rendrait le vert ; décidé le 25 novembre 2026 de le laisser gris pour l'instant.
 
 ## PROTECTIONS CONTRE LES ROBOTS ET QUOTAS (décidé le 23 octobre 2026)
 

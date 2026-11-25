@@ -250,14 +250,14 @@ affichent.
 | --- | --- | --- | --- |
 | 1 | `identity-line.tsx` | la vue et la source | paquet, version, origine, date `analyzed_at` |
 | 2 | `verdict-block.tsx` (+ `gauge.tsx`) | la vue et le résultat | la jauge, le mot, le titre et la phrase du moteur, « Relancer » si besoin |
-| 2 bis | `coverage-block.tsx` | `verdict.coverage` | pour un gris partiel ou un orange lu en partie : VÉRIFIÉ, puis PAS VÉRIFIÉ (voir plus bas) |
+| 2 bis | `coverage-block.tsx` | `verdict.coverage` | pour un gris partiel, ou un orange ou un rouge lu en partie : VÉRIFIÉ, puis PAS VÉRIFIÉ (voir plus bas) |
 | 3 | `ai-notice-slot.tsx` (+ `use-ai-text.ts`) | la réponse de `/notice` | la notice de l'IA marquée « Résumé automatique », l'avis d'alerte neutre, ou la notice de secours (voir `docs/ai.fr.md`) |
 | 4 | `plain-summary.tsx` | le résultat et le serveur | EN CLAIR : ce qu'il peut faire, ce qu'on a trouvé, ce que tu peux faire |
 | 5 | `lamp-cluster.tsx` | le serveur | les six voyants, leur état écrit, le compteur |
 | 6 | `alert-points.tsx` | le résultat, les outils, deux fonctions de clic | DANGER (n) puis À VÉRIFIER (n), une ligne par alerte |
-| 7 | `tool-grid.tsx` | les outils, l'outil choisi, une fonction de clic | une carte par outil, avec son contour |
+| 7 | `tool-grid.tsx` | les outils, l'outil choisi, une fonction de clic | une carte par outil, avec son contour (outil non suivi : voir plus bas) |
 | 8 | `tool-sheet.tsx` | l'outil choisi et ses alertes | la fiche : pourquoi, passage du code, texte de l'auteur, ce que son code peut faire |
-| 9 | `tech-details.tsx` | la vue, le résultat, le serveur, ouvert ou non | les détails techniques, repliés |
+| 9 | `tech-details.tsx` | la vue, le résultat, le serveur, ouvert ou non | les détails techniques, repliés ; dont « Appels non suivis, raison précise » (`coverage.cause.*`) |
 | 10 | `report-end.tsx`, `back-to-top.tsx` | la vue | la date du code lu, la mention du cache, la flèche de remontée |
 
 Deux états vivent dans `report-view.tsx` : l'outil choisi et l'ouverture des détails. Un clic sur une ligne
@@ -268,6 +268,20 @@ l'en-tête (`header-height.tsx` la mesure et la range dans `--header-height`).
 
 Cas particuliers : plusieurs serveurs dans le lien donnent `candidates-list.tsx` (pas de verdict) ; une liste
 de liens donne `link-list-notice.tsx`.
+
+**Un outil non suivi** (séance 11, F10) : le moteur a laissé une lacune sur l'outil (`tool.gaps` non vide), donc une partie
+de son code n'a pas été lue. Le site ne dit alors jamais qu'il n'allume aucun voyant :
+
+- carte sans voyant : « Pas vérifié : son code n'a pas pu être suivi » (`tools.notFollowed`) ; avec des voyants : « Peut … »
+  puis « Le reste de son code n'a pas pu être suivi. » (`tools.partlyFollowed`). La phrase de l'IA n'est pas montrée sur
+  cette carte : le formulaire de l'IA ne sait pas encore qu'un outil n'a pas été suivi ;
+- fiche sans voyant : « MCPlain n'a pas pu suivre son code : il ne peut pas dire ce que cet outil fait. » (`sheet.notFollowed`) ;
+  avec des voyants, en plus : « Il peut faire plus : une partie de son code n'a pas pu être suivie. » (`sheet.partlyFollowed`).
+  La ligne « Suivi incomplet : … » reste ;
+- « Rien de particulier : son code n'allume aucun voyant. » (`sheet.nothing`) reste pour un outil suivi en entier.
+
+La raison précise d'un appel non suivi (`cause` : alias, lambda, partial…) ne s'affiche que dans les détails techniques,
+jamais dans la liste PAS VÉRIFIÉ ni sur la fiche (décision de David du 25 novembre 2026).
 
 ### Le gris partiel
 
@@ -280,15 +294,15 @@ Pense à un contrôle technique : le garagiste te dit ce qu'il a contrôlé, pui
 | Partie | Ce qu'elle affiche | D'où vient le texte |
 | --- | --- | --- |
 | Titre | CE QUE MCPLAIN A PU LIRE | `messages/*.json`, clé `coverage.heading` |
-| VÉRIFIÉ | « Outils entièrement suivis : 1 sur 2. Fichiers lus : 1 sur 1. » puis « Rien de suspect dans ce qui a été lu. » | moteur : `coverage.checked`, `coverage.nothing_found`. Sur un orange, la deuxième phrase est « Une partie de ce serveur n'a pas pu être lue en entier. Le verdict ne porte que sur ce qui a été vérifié. » (`coverage.partial_verdict`) |
+| VÉRIFIÉ | « Outils entièrement suivis : 1 sur 2. Fichiers lus : 1 sur 1. » puis « Rien de suspect dans ce qui a été lu. » | moteur : `coverage.checked`, `coverage.nothing_found`. Sur un orange ou un rouge, la deuxième phrase est « Une partie de ce serveur n'a pas pu être lue en entier. Le verdict ne porte que sur ce qui a été vérifié. » (`coverage.partial_verdict`) : « Rien de suspect » ne s'affiche que sur un gris |
 | PAS VÉRIFIÉ | une ligne par point : le type (appel, description, fichier, bibliothèque réseau, outils), le nom, l'emplacement `fichier:ligne`, la raison, et la ligne de code | moteur : `coverage.kind.*`, `coverage.reason.*` ; nom, emplacement et ligne de code par `RawText` |
 | Fin de liste | « … et 44 autres points. » quand le moteur a coupé la liste (30 points au plus) | moteur : `coverage.more` |
 
 Règles :
 
 - La couleur reste grise. La phrase « Ça ne veut pas dire que ce MCP est sûr » reste dans le bloc du verdict.
-- Le bloc n'existe que si le moteur l'envoie : jamais pour un vert, un orange, un rouge, ni pour un gris « rien
-  lu ». Le site ne calcule rien : il affiche les nombres du moteur.
+- Le bloc n'existe que si le moteur l'envoie : jamais pour un vert ni pour un gris « rien lu » ; pour un orange ou un
+  rouge, seulement si la lecture est incomplète. Le site ne calcule rien : il affiche les nombres du moteur.
 - Le nom d'un outil, un chemin de fichier ou une ligne de code viennent du code analysé : toujours `RawText`.
   Le test « shows every third-party field … with RawText » le vérifie aussi sur ces rapports.
 
