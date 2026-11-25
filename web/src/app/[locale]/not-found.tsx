@@ -8,15 +8,16 @@ export default function NotFoundPage() {
 
   return (
     <PageContainer>
-      <div className="flex flex-col gap-4">
-        <h1 className="text-3xl font-bold">{t("title")}</h1>
-        <p>{t("body")}</p>
-        <p>
-          <Link href="/" className="underline underline-offset-4">
-            {t("home")}
-          </Link>
-        </p>
-      </div>
+      <section data-not-found="" className="flex flex-col items-start gap-4 rounded-[22px] bg-panel px-6 py-7 sm:px-8">
+        <h1 className="font-condensed text-[38px] leading-tight font-bold sm:text-[44px]">{t("title")}</h1>
+        <p className="max-w-[60ch] text-lg leading-[1.55] text-ink2">{t("body")}</p>
+        <Link
+          href="/"
+          className="inline-flex min-h-11 items-center font-semibold text-accent underline underline-offset-4 hover:text-accent-hover"
+        >
+          {t("home")}
+        </Link>
+      </section>
     </PageContainer>
   );
 }
