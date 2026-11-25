@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dashboard } from "@/components/admin/dashboard";
+import { SpendDial } from "@/components/admin/money";
 import { parseAmount, parseCredit, parseSpend, share } from "@/lib/admin-dashboard";
 
 import { renderWithIntl } from "./intl";
@@ -350,5 +351,38 @@ describe("the dashboard client", () => {
     expect(share(15, 10)).toBe(1);
     expect(share(1, 0)).toBe(0);
     expect(share(-1, 10)).toBe(0);
+  });
+});
+
+describe("the spend per day", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("details only the days with a paid call, and counts the other days on one line", async () => {
+    const quiet = { cost_usd: 0, notice_usd: 0, translation_usd: 0, paid_calls: 0 };
+    const paid = { cost_usd: 0.03, notice_usd: 0.01, translation_usd: 0.02, paid_calls: 2 };
+    const answerSpend = { ...spend(7), per_day: days(7, (day) => (day.endsWith("01") ? paid : quiet)) };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => answer(200, answerSpend)),
+    );
+    renderWithIntl(<SpendDial days={7} refresh={0} />, "fr");
+    const list = await screen.findByTestId("admin-spend-days");
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows).toHaveLength(7);
+    const detailed = rows.filter((row) => (row.textContent ?? "").includes("appels payés"));
+    expect(detailed).toHaveLength(1);
+    expect(screen.getByTestId("admin-spend-quiet-days").textContent).toBe("6 jours sans appel payé");
+  });
+
+  it("says nothing more when every day had a paid call", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => answer(200, spend(7))),
+    );
+    renderWithIntl(<SpendDial days={7} refresh={0} />, "fr");
+    await screen.findByTestId("admin-spend-days");
+    expect(screen.queryByTestId("admin-spend-quiet-days")).toBeNull();
   });
 });

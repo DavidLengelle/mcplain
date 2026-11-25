@@ -838,6 +838,7 @@
         "period": "Over {days} days: notices {notice}, translations {translation}, {calls, plural, =0 {no paid call} one {# paid call} other {# paid calls}}.",
         "perDay": "Per day",
         "dayDetail": "notices {notice} · translations {translation} · {calls, plural, =0 {no paid call} one {# paid call} other {# paid calls}}",
+        "quietDays": "{count, plural, one {# day without a paid call} other {# days without a paid call}}",
         "source": "Source: the ai_calls table, with the same function as the fuses. The day and the month are counted in UTC."
       },
       "balance": {

@@ -16,6 +16,7 @@ import {
   type Credit,
   type Days,
   type Spend,
+  type SpendDay,
 } from "@/lib/admin-dashboard";
 
 import { useOutcomeText } from "./outcome";
@@ -33,6 +34,10 @@ function Gauge({ label, value, limit, reached, testId }: { label: string; value:
       {reached && <p className="font-semibold text-warn-text">{t("reached")}</p>}
     </div>
   );
+}
+
+function paidDay(item: SpendDay): boolean {
+  return item.paidCalls > 0 || item.costUsd > 0;
 }
 
 function WriterState({ spend }: { spend: Spend }) {
@@ -68,7 +73,14 @@ export function SpendDial({ days, refresh }: { days: Days; refresh: number }) {
     );
   }
   const spend = read.value;
+  const dayDetail = (item: SpendDay) => {
+    if (!paidDay(item)) {
+      return undefined;
+    }
+    return t("dayDetail", { notice: dollars(item.noticeUsd), translation: dollars(item.translationUsd), calls: item.paidCalls });
+  };
   const highest = Math.max(0, ...spend.perDay.map((item) => item.costUsd));
+  const quietDays = spend.perDay.filter((item) => !paidDay(item)).length;
   return (
     <DialCard id="admin-spend-title" title={t("title")} testId="admin-spend">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -88,10 +100,15 @@ export function SpendDial({ days, refresh }: { days: Days; refresh: number }) {
             value={item.costUsd}
             max={highest}
             shown={dollars(item.costUsd)}
-            detail={t("dayDetail", { notice: dollars(item.noticeUsd), translation: dollars(item.translationUsd), calls: item.paidCalls })}
+            detail={dayDetail(item)}
           />
         ))}
       </BarList>
+      {quietDays > 0 && (
+        <p className="text-sm text-muted" data-testid="admin-spend-quiet-days">
+          {t("quietDays", { count: quietDays })}
+        </p>
+      )}
       <p className="text-sm text-muted">{t("source")}</p>
     </DialCard>
   );
