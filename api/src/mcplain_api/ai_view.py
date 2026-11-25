@@ -103,12 +103,17 @@ def fallback_notice(result: AnalysisResult | None) -> dict[str, Any]:
         return {"variant": "no_tools", "messages": [{"code": "ai.notice.fallback.no_tools", "params": {}}], "actions": []}
     actions = [f"lamp.{lamp.id}.phrase" for lamp in server.lamps if lamp.state != LAMP_OFF]
     second = "ai.notice.fallback.nothing"
+    if result is not None and result.verdict is not None and result.verdict.coverage is not None:
+        second = "ai.notice.fallback.nothing_partial"
     if actions:
         second = "ai.notice.fallback.can"
+    count = "ai.notice.fallback.count"
+    if len(server.tools) == 1:
+        count = "ai.notice.fallback.count_one"
     return {
         "variant": "tools",
         "messages": [
-            {"code": "ai.notice.fallback.count", "params": {"count": str(len(server.tools))}},
+            {"code": count, "params": {"count": str(len(server.tools))}},
             {"code": second, "params": {}},
             {"code": "ai.notice.fallback.unavailable", "params": {}},
         ],

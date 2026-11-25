@@ -199,7 +199,7 @@ describe("the notice block", () => {
   it("shows the fallback made from text codes and lamps", () => {
     const { container } = renderWithIntl(<AiNoticeSlot answer={parsed(answer("failed"))} waiting={false} />, "fr");
     const text = container.querySelector("[data-notice-fallback]")?.textContent ?? "";
-    expect(text).toContain("MCPlain a reconnu 2 outil(s) dans ce serveur.");
+    expect(text).toContain("MCPlain a reconnu 2 outils dans ce serveur.");
     expect(text).toContain("Il peut lire tes fichiers et aller sur Internet.");
     expect(text).toContain("MCPlain n'a pas pu écrire de résumé automatique pour ce serveur.");
     expect(screen.queryByText("Résumé automatique")).toBeNull();

@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from helpers import lamps_of, make_settings, report, tool_report
 from sqlalchemy.orm import sessionmaker
 
+from mcplain.verdict import RULES_VERSION
 from mcplain_api.ai_client import API_URL, build_body, call_api
 from mcplain_api.ai_prompts import NOTICE_SYSTEM
 from mcplain_api.ai_view import _insert
@@ -210,12 +211,47 @@ def test_fallback_is_built_from_the_lamps_as_codes_and_parameters(client: TestCl
     assert "MCPlain n'a pas pu écrire de résumé automatique pour ce serveur." in texts.values()
 
 
+def fallback_of(client: TestClient, sessions: sessionmaker, data: dict[str, object]) -> dict[str, object]:
+    """Store one finished report and return the fallback of its notice"""
+
+    with sessions.begin() as session:
+        row = Analysis(input_raw="uvx demo", state="done", result=data)
+        session.add(row)
+        session.flush()
+        identifier = str(row.id)
+    return client.post(f"/api/analyses/{identifier}/notice", json={"lang": "fr"}).json()["fallback"]
+
+
+def test_fallback_counts_one_tool_in_the_singular(client: TestClient, sessions: sessionmaker) -> None:
+    """One tool: its own text, without a plural to guess"""
+
+    fallback = fallback_of(client, sessions, report([tool_report("a")]))
+    assert fallback["messages"][0] == {"code": "ai.notice.fallback.count_one", "params": {"count": "1"}}
+
+
+def test_fallback_without_lamp_says_nothing_only_on_a_full_reading(client: TestClient, sessions: sessionmaker) -> None:
+    """No lamp on a full reading: nothing; no lamp on a partial reading: nothing in what was read, and part not checked"""
+
+    full = fallback_of(client, sessions, report([tool_report("a"), tool_report("b")]))
+    assert full["messages"][1] == {"code": "ai.notice.fallback.nothing", "params": {}}
+    partial = report([tool_report("a"), tool_report("b")])
+    partial["verdict"] = {
+        "color": "gray",
+        "gray_case": "incomplete_tracking",
+        "rules_version": RULES_VERSION,
+        "rules_count": 25,
+        "coverage": {"tools_total": 2, "tools_followed": 1, "files_total": 1, "files_read": 1},
+    }
+    fallback = fallback_of(client, sessions, partial)
+    assert fallback["messages"][1] == {"code": "ai.notice.fallback.nothing_partial", "params": {}}
+
+
 @pytest.mark.parametrize("language", ["en", "fr"])
 def test_every_fallback_text_exists_in_both_languages(client: TestClient, language: str) -> None:
     """The variant without a tool and the one without a lamp too"""
 
     texts = client.get(f"/api/messages/{language}").json()
-    for code in ("count", "can", "nothing", "unavailable", "no_tools"):
+    for code in ("count", "count_one", "can", "nothing", "nothing_partial", "unavailable", "no_tools"):
         assert f"ai.notice.fallback.{code}" in texts
 
 

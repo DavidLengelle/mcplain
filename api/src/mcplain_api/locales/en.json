@@ -1,8 +1,10 @@
 {
   "api.analysis_not_finished": "This analysis is not finished yet.",
-  "ai.notice.fallback.count": "MCPlain recognized {count} tool(s) in this server.",
+  "ai.notice.fallback.count": "MCPlain recognized {count} tools in this server.",
+  "ai.notice.fallback.count_one": "MCPlain recognized 1 tool in this server.",
   "ai.notice.fallback.can": "It can {actions}.",
   "ai.notice.fallback.nothing": "Its code turns on no lamp.",
+  "ai.notice.fallback.nothing_partial": "Nothing that was read turns on a lamp. Part of it could not be checked.",
   "ai.notice.fallback.unavailable": "MCPlain could not write an automatic summary for this server.",
   "ai.notice.fallback.no_tools": "MCPlain recognized no tool in this server, so it has no automatic summary.",
   "api.altcha_unavailable": "The automatic check of robots is not available right now. Try again in a moment.",
