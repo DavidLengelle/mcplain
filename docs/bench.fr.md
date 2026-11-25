@@ -239,22 +239,22 @@ de ce dossier n'est décrit nulle part ailleurs.
 
 ## 8. Avant et après les séances 7
 
-Sept mesures comptent. La première, faite avant toute correction (moteur 0.2.1). La mesure propre du
+Huit mesures comptent. La première, faite avant toute correction (moteur 0.2.1). La mesure propre du
 3 novembre 2026 (moteur 0.4.0, règles version 2). La mesure propre du 3 novembre au soir (moteur 0.5.0, règles
 version 3, séance 7 quater), faite après les corrections décidées ce jour-là. La mesure du 4 novembre (moteur
-0.5.1, séance 7 quinquies), qui a servi de référence publique jusqu'au 9 novembre. La mesure du 9 novembre (moteur 0.5.2, corpus partie 2). Celle du 9 novembre après les décisions de David (moteur 0.6.0, règles version 4). Celle du 12 novembre (moteur 0.6.1, règles version 4, enquête sur fetch 2026.11.11). Et celle du 25 novembre (moteur 0.7.0, règles version 4, séance 11), qui est la nouvelle référence publique. Les mesures propres ont été faites sur une machine vérifiée avant de
+0.5.1, séance 7 quinquies), qui a servi de référence publique jusqu'au 9 novembre. La mesure du 9 novembre (moteur 0.5.2, corpus partie 2). Celle du 9 novembre après les décisions de David (moteur 0.6.0, règles version 4). Celle du 12 novembre (moteur 0.6.1, règles version 4, enquête sur fetch 2026.11.11). Celle du 25 novembre (moteur 0.7.0, règles version 4, séance 11). Et celle du 25 novembre au soir (moteur 0.8.0, règles version 4, séance 11b), qui est la nouvelle référence publique. Les mesures propres ont été faites sur une machine vérifiée avant de
 commencer (charge basse, aucun conteneur d'un autre projet), avec des images reconstruites et des analyses
 fraîches (aucune servie par le cache).
 
-| | Moteur 0.2.1 (29 octobre) | Moteur 0.4.0 (3 novembre) | Moteur 0.5.0 (3 novembre au soir) | Moteur 0.5.1 (4 novembre) | Moteur 0.5.2 (9 novembre) | Moteur 0.6.0 (9 novembre) | Moteur 0.6.1 (12 novembre) | Moteur 0.7.0 (25 novembre) |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Vert | 3 | 5 | 5 | 5 | 5 | 5 | 6 | 4 |
-| Orange | 30 | 30 | 36 | 35 | 34 | 34 | 34 | 34 |
-| Rouge | 7 | 7 | 1 | 1 | 1 | 1 | 1 | 1 |
-| Gris | 12 | 10 | 10 | 11 | 12 | 12 | 11 | 13 |
-| Délais dépassés | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| Échecs à part | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| Verdicts clairs | 78,4 % | 82,4 % | 82,4 % | 80,4 % | 78,4 % | 78,4 % | 80,4 % | 76,5 % |
+| | Moteur 0.2.1 (29 octobre) | Moteur 0.4.0 (3 novembre) | Moteur 0.5.0 (3 novembre au soir) | Moteur 0.5.1 (4 novembre) | Moteur 0.5.2 (9 novembre) | Moteur 0.6.0 (9 novembre) | Moteur 0.6.1 (12 novembre) | Moteur 0.7.0 (25 novembre) | Moteur 0.8.0 (25 novembre au soir) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Vert | 3 | 5 | 5 | 5 | 5 | 5 | 6 | 4 | 2 |
+| Orange | 30 | 30 | 36 | 35 | 34 | 34 | 34 | 34 | 35 |
+| Rouge | 7 | 7 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| Gris | 12 | 10 | 10 | 11 | 12 | 12 | 11 | 13 | 14 |
+| Délais dépassés | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Échecs à part | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Verdicts clairs | 78,4 % | 82,4 % | 82,4 % | 80,4 % | 78,4 % | 78,4 % | 80,4 % | 76,5 % | 74,5 % |
 
 Ce qui a changé entre 0.2.1 et 0.4.0 (séances 7 et 7 bis) :
 
@@ -343,12 +343,33 @@ Ce qui a changé entre 0.6.1 et 0.7.0 (25 novembre, séance 11, décisions de Da
   du moteur), et une contre-mesure des 52 serveurs dans des ateliers neufs a donné exactement les mêmes couleurs, cas
   gris et règles. La référence publique est écrite avec cette mesure.
 
+Ce qui a changé entre 0.7.0 et 0.8.0 (25 novembre au soir, séance 11b, décisions de David) :
+
+- le moteur lit des fonctions de base qui lui manquaient (`os.open`, `os.write`, `os.path.exists`, `tempfile`, `zipfile`,
+  les méthodes de `Path`, `webbrowser.open`, `worker_threads.Worker`...) et les bibliothèques extérieures mesurées sur le banc
+  qui touchent fichiers, commandes ou réseau (`pg`, `markitdown`, `playwright`, `puppeteer`, `keyring`...). Toute utilisation
+  d'une de ces bibliothèques compte pour tout ce qu'elle peut faire ;
+- postgres-archived passe de vert à gris (`network_unresolved`) : son outil passe par `pg`, une bibliothèque réseau que
+  MCPlain ne lit pas. Créer le client n'est pas une requête : le verrou du vert le garde gris ;
+- markitdown passe de vert à gris (`network_unresolved`) : même cas avec la bibliothèque `markitdown`, qui lit des fichiers et
+  des adresses ;
+- puppeteer-archived passe de gris (`incomplete_tracking`) à orange (O08) : `puppeteer` lance un navigateur. Ses 7 outils non
+  suivis restent dans « ce qui n'a pas été vérifié » (condition de David, vérifiée sur le rapport) ;
+- git reste orange et gagne O04 : GitPython lance la commande git dans des outils annoncés `readOnlyHint` (faux positif connu
+  d'O04, `docs/rules.fr.md`) ;
+- atlassian, sqlite-archived, workspace, clickhouse et duckduckgo allument des voyants en plus, sans changer de couleur ;
+- premier banc de 0.8.0 : trois gros paquets (pdf, launchdarkly, desktop-commander) dépassaient le délai de l'atelier, à cause
+  d'une recherche refaite à chaque appel. Corrigé avant la mesure ; contre-mesure des 52 serveurs dans des ateliers neufs :
+  exactement les mêmes couleurs, cas gris et règles que le banc. La référence publique est écrite avec cette mesure.
+
 ## 9. Les causes de gris restantes
 
-Mesure 0.7.0, sans compter le témoin Go (ceux de 0.6.1, plus sequential-thinking et calculator) :
+Mesure 0.8.0, sans compter le témoin Go (ceux de 0.6.1, plus sequential-thinking, calculator, postgres-archived et
+markitdown, moins puppeteer-archived) :
 
 | Cause | Serveurs | Pourquoi |
 | --- | --- | --- |
 | `not_a_server` | 2 | Le vrai code est dans une autre dépendance (deux enveloppes). |
 | `no_tools_found` | 6 | Les outils sont dans des paquets séparés, déclarés d'une façon que MCPlain ne connaît pas encore, ou dans un paquet tout-en-un sans SDK déclaré (sentry, chrome-devtools). |
-| `incomplete_tracking` | 4 | Des objets reçus en paramètre ou créés dans la valeur par défaut d'un paramètre (type inconnu), du code exécuté dans le navigateur, et une table de fonctions extérieures (calculator). |
+| `incomplete_tracking` | 3 | Des objets reçus en paramètre ou créés dans la valeur par défaut d'un paramètre (type inconnu), et une table de fonctions extérieures (calculator). |
+| `network_unresolved` | 2 | Une bibliothèque réseau que MCPlain ne lit pas, utilisée sans requête reconnue (`pg` pour postgres-archived, `markitdown`). |

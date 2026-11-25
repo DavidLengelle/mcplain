@@ -34,6 +34,13 @@ alias, lambda, `partial`, fonction fabriquée, enveloppe, `.call`, méthode d'un
 `green/notes-direct-call`, fait le même appel en direct : il est suivi, il allume « Lit tes fichiers » et reste vert.
 `engine/tests/test_unresolved_calls.py` vérifie la raison de chacun.
 
+Depuis la séance 11b (moteur 0.8.0), six serveurs montrent des fonctions ajoutées aux tables : `orange/notes-journal-osopen`
+(`os.open` en écriture puis `os.write`), `green/notes-osopen-read` (`os.open(path, os.O_RDONLY)` puis `os.read` : une
+lecture, il reste vert), `orange/notes-path-open` (`Path.open("w")` et `Path.rename`), `orange/export-tempdir` (`tempfile` et
+`zipfile`), `orange/search-worker` (`worker_threads.Worker`) et `gray/notes-postgres-pg` (`pg`, une bibliothèque réseau que
+MCPlain ne lit pas : gris `network_unresolved`). Chaque fonction ajoutée a aussi sa ligne dans
+`engine/tests/test_base_functions.py`.
+
 Chaque serveur est écrit dans un style différent (Python ou JavaScript/TypeScript, SDK haut niveau ou bas niveau,
 classe, paquet compacté...). Le corpus public ne contient **que des serveurs honnêtes**.
 

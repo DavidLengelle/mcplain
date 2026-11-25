@@ -361,22 +361,45 @@ prudence. Bilan hors du dépôt.
 - [x] Banc : calculator passe de vert à gris (table de fonctions `operator`, et une fonction fabriquée par une autre). Aucun
       autre changement de couleur ; filesystem perd O04. Corpus et DVMCP : inchangés.
 
+## SÉANCE 11B : LES ANGLES MORTS (faite le 25 novembre 2026, moteur 0.8.0, règles version 4)
+
+But : fermer les deux derniers trous qui pouvaient donner un faux feu vert avant la mise en ligne. Bilan hors du dépôt.
+
+- [x] Formulaire de l'IA (`notice-v4`) : chaque capacité vaut `yes`, `no` ou `unknown`. `unknown` pour un outil avec une
+      lacune (dont `unresolved_call`) ou hors du code serveur, pour tous les outils d'un serveur lu en partie, et pour
+      `internet` quand une bibliothèque réseau n'est pas suivie. Nouveau champ `server_capabilities` (démarrage compris), champ
+      `libraries` retiré. L'IA ne dit jamais qu'un outil ou le serveur « ne fait pas » quelque chose (décision de David). La
+      traduction, le contrôle de sortie et les fusibles ne changent pas. Guide : `docs/ai.fr.md`.
+- [x] `scripts/notice-diagnose.sh --repeat N` et l'affichage du formulaire envoyé ; V5 de la matrice adaptée à `notice-v4`.
+- [x] `os.open` : lecture seulement avec des constantes de lecture de `os` (`os.O_RDONLY`...), écrites en entier ou importées
+      depuis `os` ; une variable locale du même nom, un nombre, un paramètre ou `getattr` restent une écriture. Fixtures :
+      `rules/O04/osopen_flags_write` et `osopen_flags_read`, corpus `orange/notes-journal-osopen` et `green/notes-osopen-read`.
+- [x] Inventaire des fonctions de base, mesuré : ajoutés `os.read`, `os.write` et les fonctions sur un descripteur,
+      `os.fdopen`, `os.path.exists` et compagnie, `os.startfile`, `io.FileIO`, `tempfile`, `zipfile`, `tarfile`, `gzip`,
+      `bz2`, `lzma`, `dbm`, `sqlite3.connect`, `shelve`, `extractall`, `webbrowser`, `poplib`, `imaplib`, `nntplib`,
+      `xmlrpc.client`, `http.server`, `socketserver`, les méthodes `loop.*` d'asyncio, les sockets Unix d'asyncio,
+      `importlib.util`, les méthodes de `Path` (sur un `Path` seulement) ; en Node `fs.ftruncate`, `fs.fchmod`, `fs.fchown`,
+      `fs.futimes`, `fs.readv`, `fs.watch`, `fs.glob`, `fs.openAsBlob`, `worker_threads.Worker`, `process.dlopen` et
+      `createRequire` sous un autre nom. Tests : `engine/tests/test_base_functions.py`.
+- [x] Bibliothèques extérieures mesurées sur le banc qui touchent fichiers, commandes ou réseau (`pg`, `markitdown`,
+      `playwright`, `puppeteer`, `keyring`, `dotenv`, GitPython...) : toute utilisation compte pour tout ce qu'elles peuvent
+      faire (`PYTHON_LIBRARIES` et `JAVASCRIPT_LIBRARIES` de `engine/src/mcplain/capabilities.py`).
+- [x] O04 : faux positif connu ajouté (git_status de mcp-server-git, annoncé `readOnlyHint`, lance git status par GitPython).
+- [x] Banc : postgres-archived et markitdown passent de vert à gris (`network_unresolved`), puppeteer-archived de gris à
+      orange (O08, ses 7 outils non suivis restent affichés). git gagne O04. Corpus et DVMCP inchangés. Guide :
+      `docs/bench.fr.md`, partie 8.
+
 ## PROCHAINE ÉTAPE
 
-Séance 11b (le formulaire de l'IA, section suivante), puis la mise en ligne chez OVH (points ci-dessous).
+La mise en ligne chez OVH (points ci-dessous).
 
 ## AVANT LA MISE EN LIGNE
 
 - [x] filesystem 2.3.0 a gagné O04 : faux positif, corrigé en séance 11.
 - [x] F10 (séance 10a) : un rapport gris pouvait se contredire (rapport `866e8fb8`). Corrigé en séance 11 (voir plus haut).
-- [ ] Séance 11b : le formulaire de l'IA doit dire qu'un outil n'a pas été suivi (règle 4 : l'IA peut alerter, jamais
-      rassurer). Aujourd'hui `ai_form.py` donne les capacités d'un outil d'après ses voyants seuls : une notice de l'IA peut
-      encore dire qu'un outil non suivi ne fait rien. Le site retire déjà la phrase de l'IA de la carte d'un tel outil.
-- [ ] Séance 11b : `os.open` en Python n'est reconnu ni comme une lecture ni comme une écriture (constaté en séance 11). C'est
-      un faux vert possible : un outil qui écrit avec `os.open` et `os.write` peut sortir sans voyant.
-- [ ] Séance 11b : inventaire des fonctions de base (Python : os, shutil, pathlib, io, tempfile, subprocess, socket ; Node : fs,
-      fs/promises, child_process, net, http, https) qui touchent fichiers, commandes ou réseau et qui manquent aux tables du
-      moteur.
+- [x] Séance 11b : le formulaire de l'IA dit `unknown` pour un outil non suivi, jamais « non » (voir plus haut).
+- [x] Séance 11b : `os.open` reconnu (lecture seulement avec des constantes de lecture de `os`).
+- [x] Séance 11b : inventaire des fonctions de base fait et mesuré, ajouts dans les tables du moteur (voir plus haut).
 
 - [ ] Les tests de pile ne doivent effacer que leurs propres lignes (`stack/admin.spec.ts` vide `signup_counts`). Constaté le
       25 novembre 2026 sur la pile locale : ce test vide toute la table `signup_counts` (`resetSignups` de
@@ -436,7 +459,21 @@ Relevées en séance 10a, corrigées en séance 11.
 
 - Surveiller les nouvelles versions des serveurs de référence (fetch, filesystem, time, git...) : être prévenu quand une version
   sort, pour vérifier son verdict et mettre à jour la version épinglée des tests de pile. Pas codé.
-- Liste des bibliothèques dans le formulaire de l'IA.
+- Une vraie liste des bibliothèques (décision de David, séance 11b) : le champ `libraries` du formulaire de l'IA a été retiré,
+  car il restait toujours vide. Une liste utile (les dépendances déclarées, filtrées) reste à faire.
+- Bibliothèques extérieures non mesurées sur le banc : seules celles que les 52 serveurs importent sont dans les tables
+  (séance 11b). Les autres pilotes de bases de données (`asyncpg`, `pymysql`, `redis`, `mongodb`...), SDK de services et
+  outils de fichiers restent à ajouter, avec la même lecture prudente.
+- Serveurs web, journaux, outils de développement, laissés de côté en séance 11b (décision de David) : `express`, `hono`,
+  `cors`, `uvicorn`, `starlette`, `fastapi` portent la connexion MCP elle-même ; `winston`, `pino` peuvent écrire un fichier ;
+  `vite`, `vitest`, `prettier` ne servent qu'au développement. Cas qui reste invisible : un outil qui lance lui-même un serveur
+  web pendant son exécution (exemple : `express.static(dir)` puis `app.listen(...)` dans un outil `share_folder`). Piste :
+  compter un serveur web seulement s'il est lancé depuis le code d'un outil.
+- `.rename` et `.replace` sur un objet de type inconnu ne sont pas vus (exemple : `dest = make_target(); dest.replace(tmp)`) :
+  ces noms sont trop courants (`str.replace`, `DataFrame.rename`) pour une règle par nom. Les méthodes de `Path` ne comptent que
+  sur un objet reconnu comme `Path` (séance 11b). Même limite pour `anyio.Path`.
+- `createRequire` : `const load = createRequire(...)` se comporte comme `require` pour l'appel lui-même, mais les membres du
+  module chargé par `load("fs")` ne sont pas rattachés à `fs` (seuls les noms de méthodes connus, comme `writeFileSync`, sont vus).
 - Retester la sortie imposée avec `scripts/notice-diagnose.sh --with-format` (abandonnée le 9 novembre 2026 : accents cassés en
   français).
 - Lire les paquets tout-en-un fabriqués par un bundler (cas de sentry 0.49.0) pour y reconnaître les outils, afin qu'ils ne

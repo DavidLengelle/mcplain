@@ -24,13 +24,36 @@ par `api/src/mcplain_api/ai_form.py` depuis le rapport validé en base :
 
 | Case | Ce qu'elle contient | Filtre |
 | --- | --- | --- |
-| `tools` | nom de l'outil, et oui ou non pour les 6 voyants | lettres, chiffres et `_`, 40 caractères, 60 outils. Un autre signe devient `_`. Un nom vide devient `tool_1`, `tool_2`... |
+| `tools` | nom de l'outil, et `yes`, `no` ou `unknown` pour les 6 voyants | lettres, chiffres et `_`, 40 caractères, 60 outils. Un autre signe devient `_`. Un nom vide devient `tool_1`, `tool_2`... |
+| `server_capabilities` | les 6 mêmes capacités pour tout le code du serveur, démarrage compris (voyants du serveur), mêmes trois valeurs | trois mots fixes |
 | `domains_cited_in_code` | les noms d'hôte des adresses écrites dans le code du serveur | `[a-z0-9.-]`, 253 caractères, 20 domaines. Jamais le chemin de l'adresse. Les fichiers de test ne comptent pas. |
-| `libraries` | toujours vide | Le rapport ne garde que les dépendances signalées comme malveillantes. Le moteur n'a pas été touché pour ça. |
 | `language`, `tool_count` | le langage (liste fixe) et le nombre d'outils | |
 
 Elle ne voit pas : la couleur du verdict, le nom du paquet, les descriptions, le README, les commentaires, les chaînes du code,
-les signalements. « danger » compte comme « oui », sans plus.
+les signalements, les dépendances. « danger » compte comme « oui », sans plus. Le champ `libraries`, toujours vide, a été retiré
+en séance 11b : une liste vide pouvait se lire « n'utilise aucune bibliothèque ».
+
+**Les trois valeurs (séance 11b, prompt `notice-v4`).** Avant, une capacité valait `true` ou `false`, et un outil que MCPlain
+n'avait pas pu suivre partait avec six `false` : l'IA pouvait écrire qu'il ne faisait rien. Maintenant :
+
+- `yes` : le voyant est allumé (`on` ou `danger`) ;
+- `unknown` : le voyant est éteint, mais MCPlain ne peut pas le savoir. C'est le cas pour toutes les capacités éteintes d'un
+  outil avec une lacune de suivi (dont `unresolved_call`) ou déclaré hors du code serveur ; pour tous les outils d'un serveur
+  lu en partie (fichier compilé, sauté ou illisible : un outil qui appelle ce code n'a pas de lacune) ; et pour `internet`
+  quand une bibliothèque réseau n'est pas suivie. `server_capabilities` suit les mêmes cas : un seul outil non suivi suffit ;
+- `no` : rien trouvé dans le code du serveur lui-même. Ça ne veut jamais dire que le serveur ne le fait pas : MCPlain ne lit
+  pas les bibliothèques qu'il utilise.
+
+Un outil non suivi reste dans le formulaire. Exemple, calculator (une lacune, aucun voyant) : ses six capacités et les six
+`server_capabilities` valent `unknown`.
+
+Le prompt (`api/src/mcplain_api/ai_prompts.py`) explique ces trois valeurs, et interdit à l'IA d'écrire ou de laisser entendre,
+où que ce soit, qu'un outil ou le serveur « ne fait pas » quelque chose, quelle que soit la valeur (décision de David). Il donne
+les mots à éviter, en anglais et en français (« only », « without », « seulement », « sans », « lecture seule »...). La seule
+phrase négative permise : « MCPlain n'a pas pu vérifier ce que fait cet outil. » (« vérifier » passe le contrôle de sortie,
+« vérifié » non). Un titre, une phrase ou un usage ne présente jamais un outil comme inoffensif, petit ou limité. `mismatch` ne
+joue que sur une capacité `yes`. Le contrôle de sortie, lui, n'a pas changé. Sur le site, la phrase de l'IA d'un outil avec une
+lacune n'apparaît ni sur sa carte ni sur sa fiche (tests de `web/tests/unit/report.test.tsx`).
 
 Un test (`test_canary_never_reaches_the_request_body`) place le mot `CANARY-7f3a` dans tous ces textes, et vérifie qu'il n'est
 jamais dans la requête.
@@ -122,7 +145,7 @@ Faux positifs acceptés par David, avec un test à leur nom :
 **Pourquoi la règle `encoding`.** Au premier vrai essai (9 novembre 2026), la notice française contenait « Ă » suivi d'une espace
 insécable à la place de « à », et « Ă© » à la place de « é » : les octets UTF-8 lus en Windows-1250. Le code de MCPlain est en
 UTF-8 de bout en bout, et un test le vérifie (`test_french_text_crosses_the_chain_unchanged`) : ces caractères étaient déjà dans le
-texte rendu par l'IA. La règle les arrête. C'est un défaut intermittent (voir 4 bis). Les prompts sont en `notice-v3` et
+texte rendu par l'IA. La règle les arrête. C'est un défaut intermittent (voir 4 bis). Les prompts sont en `notice-v4` et
 `translation-v3`.
 
 ## 4 bis. Le défaut d'encodage est intermittent, et la parade
@@ -249,9 +272,13 @@ l'empreinte du code Python rangée dans l'image avec les 50 derniers commits). I
 dernier commit.
 
 `scripts/notice-diagnose.sh` envoie une fois la notice française d'une analyse déjà en base, construite par les mêmes fonctions que
-le rédacteur (`notice_body`). Mode par défaut : la requête réelle. Avec `--with-format` : la même, plus `output_config.format`. Il
+le rédacteur (`notice_body`). L'argument après le mode nomme l'analyse : le texte collé (`input_raw`) de la dernière analyse finie.
+Il affiche d'abord le formulaire envoyé (noms filtrés et trois mots fixes, rien d'un tiers). Avec `--repeat N` en premier
+argument (de 1 à 10), il envoie N fois la même requête, chacune affichée et contrôlée, puis le coût total. Exemple, trois essais
+sur un outil non suivi : `scripts/notice-diagnose.sh --repeat 3 "uvx mcp-server-calculator"`. Mode par défaut : la requête réelle. Avec `--with-format` : la même, plus `output_config.format`. Il
 affiche le texte brut, chaque caractère non ASCII avec son code, le résultat du contrôle de sortie, les jetons et le coût (environ
 0,6 centime). Avec `--matrix`, il envoie la notice 3 fois pour chacune de 5 variantes (V1 la requête réelle, V2 sans la liste des
-mots interdits dans le prompt, V3 effort `medium`, V4 sans `thinking`, V5 l'ancien mode B à l'identique), puis affiche un tableau :
+mots interdits dans le prompt, V3 effort `medium`, V4 sans `thinking`, V5 l'ancien mode B : les règles du prompt actuel, puis la phrase du schéma de l'ancien mode B à la place de l'exemple JSON ; depuis
+`notice-v4`, ce n'est plus l'ancien prompt à l'identique, et V2 garde des lettres accentuées dans la nouvelle règle), puis affiche un tableau :
 réponses cassées sur 3, jetons et coût moyens, coût total (environ 8 centimes). Il n'écrit rien en base, rien dans le cache, et ne
 compte pas dans le fusible. C'est toi qui le lances.
