@@ -391,7 +391,7 @@ But : fermer les deux derniers trous qui pouvaient donner un faux feu vert avant
 
 ## PROCHAINE ÉTAPE
 
-La mise en ligne chez OVH (points ci-dessous).
+La mise en ligne chez OVH (points ci-dessous), puis la séance « faire reculer le gris ».
 
 ## AVANT LA MISE EN LIGNE
 
@@ -446,6 +446,22 @@ Relevées en séance 10a, corrigées en séance 11.
 - Vérifier l'heure du VPS : synchronisation NTP active (`timedatectl` doit dire `System clock synchronized: yes`). Le code TOTP
   dépend de l'heure : un serveur décalé de plus de 30 secondes refuse les bons codes.
 - `MCPLAIN_PUBLIC_URL` est aussi lu par l'API : c'est la seule origine acceptée pour les changements de la page `/admin`.
+
+## SÉANCE : FAIRE RECULER LE GRIS (après la mise en ligne OVH, décidé le 25 novembre 2026)
+
+Pourquoi : après la séance 11b, le banc compte 2 verts, 35 orange, 1 rouge et 14 gris. Trop de gris donne l'image d'un outil
+qui ne sait pas lire. Le gris reste la bonne réponse quand MCPlain ne sait pas : cette séance doit lui apprendre à lire, jamais
+deviner. Étapes, dans cet ordre :
+
+1. Mesurer d'abord : compter les 14 gris du banc par raison précise (cas gris, puis `cause` des lacunes, bibliothèque non
+   suivie...), pour attaquer le plus gros groupe en premier.
+2. Suivre les appels courants signalés par `unresolved_call` (alias, `partial`, table de fonctions : calculator).
+3. Reconnaître les requêtes des bibliothèques réseau (`client.query` de `pg`, `convert` de `markitdown`) : postgres-archived et
+   markitdown.
+4. Relier un objet à sa classe (sequential-thinking : instance créée dans la valeur par défaut d'un paramètre).
+5. Rouvrir le sens des couleurs (décision du 3 novembre) : distinguer un accès cohérent avec ce que le serveur annonce d'un accès
+   surprenant, toujours par des règles Python, jamais par l'IA.
+6. Tester sur les MCP les plus installés, pas seulement sur le banc.
 
 ## PLUS TARD
 

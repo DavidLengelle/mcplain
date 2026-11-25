@@ -37,10 +37,14 @@ en séance 11b : une liste vide pouvait se lire « n'utilise aucune bibliothèqu
 n'avait pas pu suivre partait avec six `false` : l'IA pouvait écrire qu'il ne faisait rien. Maintenant :
 
 - `yes` : le voyant est allumé (`on` ou `danger`) ;
-- `unknown` : le voyant est éteint, mais MCPlain ne peut pas le savoir. C'est le cas pour toutes les capacités éteintes d'un
-  outil avec une lacune de suivi (dont `unresolved_call`) ou déclaré hors du code serveur ; pour tous les outils d'un serveur
-  lu en partie (fichier compilé, sauté ou illisible : un outil qui appelle ce code n'a pas de lacune) ; et pour `internet`
-  quand une bibliothèque réseau n'est pas suivie. `server_capabilities` suit les mêmes cas : un seul outil non suivi suffit ;
+- `unknown` : le voyant est éteint, mais MCPlain ne peut pas le savoir. Quatre cas :
+  1. l'outil a une lacune de suivi (dont `unresolved_call`) : toutes ses capacités éteintes ;
+  2. l'outil est déclaré hors du code serveur : toutes ses capacités éteintes ;
+  3. le serveur est lu en partie (fichier compilé, sauté ou illisible ; un outil qui appelle ce code n'a pas de lacune) :
+     toutes les capacités éteintes de tous les outils ;
+  4. une bibliothèque réseau n'est pas suivie : `internet` de tous les outils, s'il n'est pas allumé.
+
+  `server_capabilities` suit les mêmes cas : un seul outil non suivi suffit ;
 - `no` : rien trouvé dans le code du serveur lui-même. Ça ne veut jamais dire que le serveur ne le fait pas : MCPlain ne lit
   pas les bibliothèques qu'il utilise.
 
@@ -270,6 +274,16 @@ environ. Lui seul appelle vraiment l'API. C'est toi qui le lances, jamais les te
 `scripts/notice-smoke.sh` affiche la version des prompts et le commit de l'image qui tourne (`scripts/image-commit.sh`, qui compare
 l'empreinte du code Python rangée dans l'image avec les 50 derniers commits). Il s'arrête si l'image n'est pas construite depuis le
 dernier commit.
+
+**Vrai essai du 25 novembre 2026 (prompt `notice-v4`), lancé par David** :
+`scripts/notice-diagnose.sh --repeat 3 "uvx mcp-server-calculator"` (un outil non suivi, lacune `unresolved_call`).
+
+- Formulaire envoyé : tout en `unknown` (les six capacités de `calculate` et les six `server_capabilities`).
+- 3 notices acceptées sur 3 par le contrôle de sortie.
+- Aucune phrase qui dit que l'outil ne fait pas quelque chose. La seule phrase négative : « MCPlain n'a pas pu vérifier ce que
+  fait cet outil ».
+- Aucun encodage cassé (mojibake).
+- Coût total : 1,7 centime.
 
 `scripts/notice-diagnose.sh` envoie une fois la notice française d'une analyse déjà en base, construite par les mêmes fonctions que
 le rédacteur (`notice_body`). L'argument après le mode nomme l'analyse : le texte collé (`input_raw`) de la dernière analyse finie.
