@@ -64,6 +64,15 @@ const PAIRS: Pair[] = [
   { text: "--ink", background: "--input-bg", minimum: BODY },
   { text: "--ink", background: "--row-hover", minimum: BODY },
   { text: "--ink", background: "--card-hover", minimum: BODY },
+  { text: "--faint", background: "--row-hover", minimum: BODY },
+  { text: "--faint", background: "--card-hover", minimum: BODY },
+  { text: "--red", background: "--row-hover", minimum: BODY },
+  { text: "--red", background: "--card-hover", minimum: BODY },
+  { text: "--gray", background: "--row-hover", minimum: BODY },
+  { text: "--gray", background: "--card-hover", minimum: BODY },
+  { text: "--green", background: "--row-hover", minimum: BODY },
+  { text: "--green", background: "--card-hover", minimum: BODY },
+  { text: "--accent", background: "--row-hover", minimum: BODY },
 ];
 
 function tokens(block: string): Tokens {
@@ -154,6 +163,16 @@ describe("theme tokens", () => {
       for (const ratio of ratios) {
         expect(ratio).toBeGreaterThanOrEqual(LARGE);
       }
+    });
+  }
+
+  for (const [name, theme] of [
+    ["light", light],
+    ["dark", dark],
+  ] as const) {
+    it(`keeps the hover backgrounds distinct from the panel in the ${name} theme`, () => {
+      expect(contrast(theme["--row-hover"], theme["--panel"])).toBeGreaterThanOrEqual(1.05);
+      expect(contrast(theme["--card-hover"], theme["--panel"])).toBeGreaterThanOrEqual(1.05);
     });
   }
 
