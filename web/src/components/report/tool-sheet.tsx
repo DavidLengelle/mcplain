@@ -244,6 +244,7 @@ export function ToolSheet({ tool, index, alerts, translation = null }: SheetProp
   return (
     <section
       id={SHEET_ID}
+      tabIndex={-1}
       aria-labelledby={SHEET_TITLE_ID}
       data-sheet={index}
       className="scroll-mt-4 rounded-[22px] bg-panel px-5 py-7 sm:px-[30px]"

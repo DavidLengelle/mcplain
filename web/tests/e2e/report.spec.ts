@@ -200,3 +200,23 @@ test("from the cache, the report says so with the date of the real analysis", as
   await page.goto(`/analyses/${ID}`);
   await expect(page.locator("[data-from-cache]")).toContainText("Result taken from an analysis of");
 });
+
+test("Enter on a tool card moves the focus to its sheet, and Tab goes on from the sheet, not from the top", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await serveAnalysis(page, [reportView("orange")]);
+  await page.goto(`/analyses/${ID}`);
+  const card = page.locator('[data-tool-card="1"]');
+  await card.focus();
+  await page.keyboard.press("Enter");
+  const sheet = page.locator('[data-sheet="1"]');
+  await expect(sheet).toBeFocused();
+  await page.keyboard.press("Tab");
+  const forward = await sheet.evaluate((element) => {
+    const active = document.activeElement;
+    if (active === null || active === document.body) {
+      return false;
+    }
+    return element.contains(active) || Boolean(element.compareDocumentPosition(active) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(forward).toBe(true);
+});

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { parseNoticeAnswer, parseTranslationAnswer, translationOfTool, withPlainTitles } from "@/lib/ai-text";
 import type { AnalysisResult, AnalysisView, Tool } from "@/lib/analysis";
+import { SHEET_ID } from "@/lib/constants";
 import { alertsOfTool, defaultToolIndex, firstServer } from "@/lib/report";
 
 import { AiNoticeSlot } from "./ai-notice-slot";
@@ -52,6 +53,11 @@ function FullReport({ analysis, result }: { analysis: AnalysisView; result: Anal
   const [detailsOpen, setDetailsOpen] = useState(false);
   const tool = tools[selected] ?? null;
 
+  function pickTool(index: number) {
+    setSelected(index);
+    requestAnimationFrame(() => document.getElementById(SHEET_ID)?.focus({ preventScroll: true }));
+  }
+
   return (
     <div className="flex flex-col gap-7" data-report="">
       <IdentityLine analysis={analysis} source={result.source} />
@@ -61,9 +67,9 @@ function FullReport({ analysis, result }: { analysis: AnalysisView; result: Anal
       {server !== null && <PlainSummary result={result} server={server} />}
       {server !== null && <LampCluster server={server} />}
       {(server !== null || alerts.length > 0) && (
-        <AlertPoints result={result} tools={tools} onPickTool={setSelected} onOpenDetails={() => setDetailsOpen(true)} />
+        <AlertPoints result={result} tools={tools} onPickTool={pickTool} onOpenDetails={() => setDetailsOpen(true)} />
       )}
-      {server !== null && <ToolGrid tools={tools} selected={selected} onPick={setSelected} />}
+      {server !== null && <ToolGrid tools={tools} selected={selected} onPick={pickTool} />}
       {tool !== null && (
         <ToolSheet
           tool={tool}
