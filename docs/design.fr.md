@@ -31,10 +31,10 @@ ci-dessous est tiré du fichier CSS ; si tu changes une valeur, change-la dans `
 | `--line` | `#C9D3DE` | `#1E2A36` | filet sous l'en-tête et au-dessus du pied de page |
 | `--code-bg` | `#FFFFFF` | `#0C131B` | fond des extraits de code et des textes de tiers en bloc |
 | `--input-bg` | `#FFFFFF` | `#141E29` | fond du champ de saisie |
-| `--input-border` | `#7A8EA3` | `#2A3A4B` | bord du champ de saisie |
+| `--field-border` | `#677B90` | `#61768C` | bord des champs (input, textarea, select) ; 3:1 au moins contre le fond du champ et contre le panneau (séance 10b, remplace `--input-border` de la maquette) |
 | `--btn-border` | `#7A8EA3` | `#3A4D61` | bord des boutons secondaires |
-| `--row-hover` | `#D7E0E9` | `#18232F` | survol d'une ligne d'alerte |
-| `--card-hover` | `#D6E0EA` | `#1A2633` | survol d'une carte d'outil |
+| `--row-hover` | `#DCE4EC` | `#18232F` | survol d'une ligne d'alerte (clair éclairci en séance 10b, voir « Contrastes ») |
+| `--card-hover` | `#DCE4EC` | `#1A2633` | survol d'une carte d'outil (clair éclairci en séance 10b) |
 | `--ink` | `#0C131B` | `#EDF2F7` | texte principal |
 | `--ink2` | `#26384A` | `#C6D2DE` | texte secondaire (phrases) |
 | `--ink3` | `#1C2B3A` | `#DCE4EC` | texte de l'auteur dans la fiche |
@@ -102,7 +102,7 @@ premier coup d'oeil : **l'outil** en haut (on agit), **le guide** dessous (on li
 **La bande outil** (`id="analyser"`) occupe toute la largeur de l'écran : fond `--panel`, trait `--line` en
 bas. Son contenu reste dans le conteneur habituel (1180 px, centré). À gauche : sur-titre en `--accent`, titre
 h1 (Saira Condensed, de 42 à 70 px selon la largeur), phrase en `--ink2`, grand champ (60 px de haut, fond
-`--panel2`, bord `--input-border`, rayon 12 px) et bouton ANALYSER (`--accent`, 22 px), puis « Essaie avec : » et
+`--panel2`, bord `--field-border`, rayon 12 px) et bouton ANALYSER (`--accent`, 22 px), puis « Essaie avec : » et
 les trois exemples (bord `--btn-border`, rayon 10 px, police de code), puis trois petits points `--accent`.
 À droite (dessous sur téléphone) : le bloc des voyants, `--cluster-bg`, rayon 22 px, les six ampoules
 **éteintes** sur trois colonnes, « Aucun MCP analysé » et une phrase. Aucune jauge : sans analyse, pas de verdict.
@@ -159,10 +159,46 @@ voyants : c'est un avis, pas une décision du moteur. **Jetons ajoutés : aucun.
 Tous les textes respectent 4,5:1 sur leur fond, et 3:1 pour les gros titres. Un test Vitest
 (`web/tests/unit/theme-tokens.test.ts`) lit les jetons des deux thèmes et vérifie les paires principales.
 
+**Les bords des champs** (`--field-border`) font au moins 3:1 contre le fond du champ (`--input-bg`, `--panel2`) et contre le
+panneau et la page, dans les deux thèmes (WCAG 1.4.11). Les autres bordures (boutons secondaires, filets) ne changent pas.
+
+**Les fonds de survol** (`--row-hover`, `--card-hover`) gardent `--faint`, `--red`, `--gray`, `--green` et `--accent` à 4,5:1
+au moins. En clair, ils sont à 1,06:1 contre le panneau, comme le survol des lignes en sombre ; la carte d'outil monte aussi de
+2 px au survol. Le test des jetons vérifie ces paires et l'écart avec le panneau.
+
 **Exception validée par David le 6 octobre 2026.** En thème clair, le grand mot « À VÉRIFIER » est en orange
 clair `#E8892E` sur `--panel` : 2,2:1, sous le minimum de 3:1. C'est accepté parce que la jauge (zone du
 milieu pleine, aiguille au centre) et le titre en `--ink` portent le même sens. Les petits textes orange
 utilisent `--warn-text` (brun foncé en clair, 12,9:1).
+
+## Les boutons principaux
+
+Un seul modèle, celui du bouton ANALYSER de la maquette : fond `--accent`, texte `--on-accent`, Saira Condensed 700 en 19 px,
+espacement `.06em`, en capitales, 48 px de haut, coins de 10 px (`BUTTON_CLASS` dans `web/src/components/account/form-parts.tsx`).
+Les capitales viennent du CSS (`uppercase`) : le texte des fichiers de messages ne change pas, et le nom lu par les lecteurs
+d'écran reste celui du texte. Les boutons secondaires gardent leur bord `--btn-border` et leur casse normale.
+
+## Le mode téléphone
+
+Le « mode téléphone » vaut pour une largeur sous 768 px **ou** une hauteur sous 500 px (donc aussi un téléphone tenu à
+l'horizontale). La requête est écrite une fois dans `globals.css` (variantes `phone:` et `desk:`) et une fois dans
+`web/src/lib/phone-mode.ts` ; un test vérifie qu'elles sont identiques. Dans ce mode, l'en-tête collé est une barre de 64 px :
+logo, analyses restantes (« 2/3 », la phrase entière pour les lecteurs d'écran), bouton NOUVELLE ANALYSE et bouton Menu. Le menu
+contient la ligne complète du compteur, le thème, la langue et le compte. Le champ de saisie reste en haut de la page, mais défile
+avec elle. Partout, `scroll-padding-top` vaut la hauteur réelle de la partie collée de l'en-tête (WCAG 2.4.11).
+
+## Écarts assumés avec la maquette
+
+Ces différences avec `docs/design/maquette-rapport-b.html` sont voulues. Ne les « corrige » pas sans l'accord de David.
+
+| Écart | Maquette | Site | Pourquoi |
+| --- | --- | --- | --- |
+| Petits libellés des cartes (« OUTIL 01 ») | `--faint` | `--muted` | 4,5:1 sur `--panel` et au survol, dans les deux thèmes (séance 5) |
+| Boutons de thème et de langue | 40 px de haut | 44 px | cible tactile de 44 px (séance 5) ; EN et FR font 41 à 43 px de large, au-dessus de 24 px |
+| Titre du verdict orange | phrase d'exemple de la maquette | phrase de la règle du moteur (« Peut aller sur n'importe quel site ») | le site ne décide d'aucun texte de verdict (séance 5) |
+| Thème au chargement | aucun éclair | un bref éclair du thème du système reste possible sur une machine lente | le script de thème tourne avant l'hydratation, pas avant le tout premier affichage (`docs/web.fr.md`, section 8) (séance 5) |
+| Grand mot « À VÉRIFIER » en clair | `#E8892E` sur `--panel` | inchangé : 2,2:1 | validé le 6 octobre 2026, voir « Contrastes » |
+| En-tête sur téléphone | en-tête complet, collé | barre compacte de 64 px, menu, champ non collé (section « Le mode téléphone ») | l'en-tête complet prenait 38 % de l'écran (49 % à l'horizontale) et cachait le focus (séance 10b, décision de David du 25 novembre 2026) ; l'ordinateur ne change pas |
 
 ## Interdits
 

@@ -1,7 +1,7 @@
 # Travaux prévus
 
 Ce fichier garde les décisions prises pour les séances à venir. Lis la partie qui concerne ta séance avant de
-commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8, 9a, 9b et 9c (9c-1, 9c-2, 9c-3), le corpus partie 2 et l'enquête fetch sont faits. Les parties
+commencer. Les séances 7, 7 bis, 7 ter, 7 quater, 7 quinquies, 8, 9a, 9b, 9c (9c-1, 9c-2, 9c-3), 10a et 10b, le corpus partie 2 et l'enquête fetch sont faits. Les parties
 « Protections » et « Adresses IP partagées » sont codées (séances 8, 9a et 9b).
 
 ## SÉANCE 7 : FIABILITÉ DU MOTEUR (faite le 29 octobre 2026, moteur 0.3.0)
@@ -298,9 +298,66 @@ Guides : `docs/admin.fr.md` (section 11) et `docs/analytics.fr.md`. **La séance
 - [x] Cookie `NEXT_LOCALE` de next-intl (il retient la langue quand elle n'est pas celle du navigateur) : **gardé** (décision de
       David du 24 novembre 2026), il est dit sur la page de confidentialité.
 
+## SÉANCE 10A : LE TOUR DU VÉHICULE (faite le 24 novembre 2026, aucune correction)
+
+- [x] Captures du site (clair et sombre, 1280 et 390 px, anglais, e-mails) et contrôles automatiques (axe, débordements,
+      cibles, contrastes, console, CSP), gardés hors du dépôt. 25 défauts relevés (2 G1, 10 G2, 13 G3).
+
+## SÉANCE 10B : LA PRÉPARATION (faite le 25 novembre 2026, moteur, règles, banc et rédacteur inchangés)
+
+Le site montre autrement ce qu'il disait déjà ; aucun texte validé n'est réécrit. Guide : `docs/design.fr.md` (« Le mode
+téléphone », « Les boutons principaux », « Écarts assumés avec la maquette »). Captures avant et après et planche de
+revue : hors du dépôt.
+
+- [x] F01 : en « mode téléphone » (largeur sous 768 px ou hauteur sous 500 px), l'en-tête collé est une barre de 64 px (logo,
+      « 2/3 », NOUVELLE ANALYSE, Menu) ; le champ reste en haut mais défile ; `scroll-padding-top` égal à la partie collée de
+      l'en-tête, partout (WCAG 2.4.11). L'ordinateur ne change pas.
+- [x] F02 : plus d'erreur dans la console des pages anglaises. Le lien de la langue courante n'a plus le préfixe forcé `/en`
+      (il était préchargé, puis la redirection 307 était réécrite en https par `upgrade-insecure-requests`) ; le lien vers
+      l'autre langue recharge la page entière, et la redirection `/en` vers `/` pose toujours `NEXT_LOCALE`. CSP inchangée.
+- [x] G2 : flèche « remonter » après un écran seulement ; messages longs qui passent à la ligne ; jeton `--field-border`
+      (3:1 contre le champ et le panneau) ; « Mon compte » nommé par son texte ; noms de verdict de /admin jamais coupés ;
+      boutons principaux comme ANALYSER ; cibles de 24 px ; clé 2FA par groupes de 4 copiée sans espaces, un code de secours
+      par ligne ; traduction de l'auteur en Saira sous une pastille bleue.
+- [x] G3 : page 404 au style du site ; exemple du champ terminé par « … » ; séparateur des paramètres lisible ; titre de la
+      boîte de signalement en capitales ; textes en police de code coupés aux tirets d'abord ; survol clair éclairci
+      (`#DCE4EC`) ; /admin à 1180 px, détail des coûts seulement les jours payés et « N jours sans appel payé » ; « Échec le
+      {date} » sur un échec ; le focus va sur la fiche d'un outil choisi.
+- [x] Non corrigés (zones protégées) : F10 (voir « Avant la mise en ligne »), F15, F19, F20 (voir « Retouches de textes »),
+      F23 (place de la mention du cache, ordre de la page de rapport) et « Afficher tout » de F09 (bouton interne de RawText,
+      20 px de haut).
+
 ## PROCHAINE ÉTAPE
 
-Une passe de finition visuelle du site, puis la mise en ligne chez OVH (points ci-dessous).
+Examiner l'O04 de filesystem 2.3.0 et la contradiction F10 (section suivante), puis la mise en ligne chez OVH (points
+ci-dessous).
+
+## AVANT LA MISE EN LIGNE
+
+- [ ] filesystem 2.3.0 a gagné O04 : à examiner (noté le 12 novembre 2026, section « Banc automatique »).
+- [ ] F10 (séance 10a) : un rapport gris peut se contredire. Rapport `866e8fb8` (`@modelcontextprotocol/server-sequential-thinking`
+      2.2.0, gris « suivi incomplet »). Les voyants du serveur montrent « Lit tes fichiers » et « Va sur Internet » allumés ; la
+      carte du seul outil, `sequentialthinking`, dit « Aucun voyant allumé » (`tools.noLamp`) et sa fiche « Rien de particulier :
+      son code n'allume aucun voyant. » (`sheet.nothing`, dans `web/messages/`). D'où vient chaque information : les voyants du serveur viennent de tout le code lu, ici du code
+      de démarrage (`dist/index.js:164`, `fs.realpathSync` dans `isEntryPoint` ; `dist/http.js:53`, `http.createServer` dans
+      `startHttpServer`) ; les voyants de l'outil ne viennent que du code suivi depuis l'outil, et ce code n'a pas été suivi
+      (`dist/index.js:121`, `thinkingServer.processThought(args)`, raison `unknown_type`, 0 outil suivi sur 1). La fiche
+      affirme donc « son code n'allume aucun voyant » alors que son code n'a pas été lu. Un débutant peut croire l'outil sans
+      effet. À régler dans le moteur (`lamps.py`) ou dans les textes de la carte et de la fiche, avec l'accord de David.
+
+## RETOUCHES DE TEXTES (avec l'accord de David)
+
+Relevées en séance 10a, non corrigées en 10b (textes de l'API, du moteur ou validés).
+
+- [ ] F15 : notice de secours, « MCPlain a reconnu 1 outil(s) » : le pluriel n'est pas accordé alors que le nombre est connu.
+      Texte `ai.notice.fallback.count` dans `api/src/mcplain_api/locales/fr.json` et `en.json`.
+- [ ] F19 : gris « langage non pris en charge », « MCPlain ne sait pas encore lire le langage go. » : le nom du langage est en
+      minuscules. Texte `gray.unsupported_language.reason` de `engine/src/mcplain/locales/fr.json` et `en.json` ; le paramètre
+      `{language}` vient du moteur.
+- [ ] F20 : liste de liens (« awesome »), deux phrases presque identiques : « Choisis-en un et colle son lien. » (texte
+      `gray.link_list.advice` du moteur, `engine/src/mcplain/locales/fr.json` et `en.json`) puis « Colle son lien dans le champ
+      en haut de la page. » (texte `report.pasteAbove` de `web/messages/fr.json` et `en.json`, affiché par
+      `web/src/components/report/link-list-notice.tsx`), sans exemple tiré de la liste.
 
 ## MISE EN LIGNE (comptes)
 
@@ -319,6 +376,7 @@ Une passe de finition visuelle du site, puis la mise en ligne chez OVH (points c
 - Surveiller la prochaine demande de Dependabot pour uv : elle doit rester compatible avec `required-version = ">=0.13.6"` de
   `engine/`, `api/` et `bench/` (sinon `uv lock` échoue en CI).
 - Mentions de confidentialité : faites en 9c-3 (page `/privacy`) ; les relire une fois en ligne sur le domaine prévu, `mcplain.dev`.
+- Sur mcplain.dev, aucune erreur dans la console sur les pages anglaises (ouvrir `/`, cliquer EN et FR, outils du navigateur).
 - Tableau Umami par tunnel SSH seulement (`docs/analytics.fr.md`, section 8) : jamais de port public, jamais de relais TLS vers lui.
 - Umami sur le VPS, avant l'ouverture : `scripts/init-secrets.sh` (dont les trois secrets d'Umami), pile démarrée, puis
   `scripts/umami-first-setup.sh mcplain.dev` (mot de passe), `docker compose up -d web`, puis la 2FA dans le tableau (par le
