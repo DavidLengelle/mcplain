@@ -13,6 +13,7 @@ const ALL_SIZES = [...PHONE_SIZES, { width: 1280, height: 800 }] as const;
 const BAR_MAX = 64;
 const QUOTA = { kind: "anonymous", limit: 3, used: 1, remaining: 2, resets_at: "2026-11-26T00:00:00Z" };
 const TAB_LIMIT = 65;
+const RING_ROOM = 8;
 
 async function withQuota(page: Page): Promise<void> {
   await page.route("**/api/quota", async (route) => {
@@ -33,7 +34,7 @@ async function stuckBottom(page: Page): Promise<number> {
   });
 }
 
-type FocusPlace = { name: string; inHeader: boolean; top: number; bottom: number; viewport: number };
+type FocusPlace = { name: string; inHeader: boolean; top: number; ringTop: number; bottom: number; viewport: number };
 
 async function focusPlace(page: Page): Promise<FocusPlace | null> {
   return page.evaluate(async () => {
@@ -56,7 +57,13 @@ async function focusPlace(page: Page): Promise<FocusPlace | null> {
       return null;
     }
     const box = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    let ring = 0;
+    if (style.outlineStyle !== "none") {
+      ring = Number.parseFloat(style.outlineWidth) + Number.parseFloat(style.outlineOffset);
+    }
     return {
+      ringTop: box.top - ring,
       name: `${element.tagName} ${(element.textContent ?? "").trim().slice(0, 40)}`,
       inHeader: element.closest("[data-header-stuck]") !== null || getComputedStyle(element).position === "fixed",
       top: Math.round(box.top),
@@ -75,8 +82,8 @@ async function hiddenWhileTabbing(page: Page, key: "Tab" | "Shift+Tab"): Promise
       continue;
     }
     const bottom = await stuckBottom(page);
-    if (place.top < Math.floor(bottom) || place.top >= place.viewport) {
-      hidden.push(`${place.name} top=${place.top} bottom=${place.bottom} header=${bottom}`);
+    if (place.ringTop < bottom || place.top >= place.viewport) {
+      hidden.push(`${place.name} ring=${place.ringTop} top=${place.top} header=${bottom}`);
     }
   }
   return hidden;
@@ -98,7 +105,7 @@ for (const size of PHONE_SIZES) {
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
     expect(await stuckBottom(page)).toBeLessThanOrEqual(BAR_MAX);
     await expect(page.locator("#header-input")).not.toBeInViewport();
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingTop)).toBe(`${BAR_MAX}px`);
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingTop)).toBe(`${BAR_MAX + RING_ROOM}px`);
   });
 }
 
@@ -130,11 +137,11 @@ test("on a computer, the header keeps its place and its height", async ({ page }
   ]);
   const height = await header.evaluate((element) => element.getBoundingClientRect().height);
   expect(height).toBeLessThanOrEqual(110);
-  expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingTop)).toBe(`${Math.ceil(height)}px`);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingTop)).toBe(`${Math.ceil(height) + RING_ROOM}px`);
 });
 
 for (const size of ALL_SIZES) {
-  test(`tabbing forward and backward on a report, ${size.width}x${size.height}, never hides the focus under the header`, async ({ page }) => {
+  test(`tabbing forward and backward on a report, ${size.width}x${size.height}, never lets the focus ring touch the header`, async ({ page }) => {
     await page.setViewportSize(size);
     await withQuota(page);
     await serveAnalysis(page, [reportView("orange")]);
