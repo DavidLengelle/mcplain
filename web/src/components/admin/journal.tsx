@@ -52,7 +52,7 @@ export function Journal({ days, refresh }: { days: Days; refresh: number }) {
             <span className="text-sm text-muted">{moment(line.createdAt)}</span>
             <span className="font-semibold text-ink">{action}</span>
             <span className="text-ink2">{target}</span>
-            <span className="min-w-0 font-mono text-sm break-all text-ink2">
+            <span className="min-w-0 font-mono text-sm [overflow-wrap:anywhere] text-ink2">
               <RawText value={line.targetId} />
             </span>
             {line.targetKind === "analysis" && (

@@ -49,7 +49,7 @@ function Line({ entry }: { entry: HistoryEntry }) {
   return (
     <li data-testid="history-entry" className="flex flex-col gap-1 rounded-[12px] bg-panel px-4 py-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="min-w-0 font-mono break-all text-ink">
+        <span className="min-w-0 font-mono [overflow-wrap:anywhere] text-ink">
           <RawText value={entry.input} />
           {entry.select !== null && (
             <span className="text-muted">

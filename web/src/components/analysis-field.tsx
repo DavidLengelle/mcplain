@@ -145,7 +145,7 @@ export function AnalysisField({ variant }: { variant: FieldVariant }) {
               onClick={() => tryExample(example)}
               aria-label={home("exampleLabel", { example: exampleLabel(example) })}
               data-example={example}
-              className="min-h-11 max-w-full cursor-pointer rounded-[10px] border-[1.5px] border-btn-border bg-transparent px-3.5 py-1.5 text-left font-mono text-[13px] break-all text-ink transition-colors hover:bg-row-hover disabled:cursor-wait motion-reduce:transition-none"
+              className="min-h-11 max-w-full cursor-pointer rounded-[10px] border-[1.5px] border-btn-border bg-transparent px-3.5 py-1.5 text-left font-mono text-[13px] [overflow-wrap:anywhere] text-ink transition-colors hover:bg-row-hover disabled:cursor-wait motion-reduce:transition-none"
             >
               {exampleLabel(example)}
             </button>

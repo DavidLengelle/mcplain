@@ -59,7 +59,7 @@ function AccountView({ account, ownId, onChanged }: { account: AdminAccount; own
     <div data-testid="admin-account" className="flex flex-col gap-4 rounded-[14px] bg-panel2 p-5">
       <dl className="flex flex-col gap-2">
         <Row label={t("email")}>
-          <span className="font-mono break-all">
+          <span className="font-mono [overflow-wrap:anywhere]">
             <RawText value={account.email} />
           </span>
         </Row>

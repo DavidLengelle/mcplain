@@ -127,14 +127,14 @@ function ReportLine({ report, onChanged }: { report: VisitorReport; onChanged: (
         <dt className="font-semibold">{t("colorLabel")}</dt>
         <dd>{color}</dd>
         <dt className="font-semibold">{t("versionsLabel")}</dt>
-        <dd className="font-mono break-all">
+        <dd className="font-mono [overflow-wrap:anywhere]">
           <RawText value={t("versions", { engine: report.engineVersion ?? "-", rules: report.rulesVersion ?? "-" })} />
         </dd>
         <dt className="font-semibold">{t("reporterLabel")}</dt>
         <dd className="flex min-w-0 flex-wrap gap-x-2">
           <span>{reporter}</span>
           {report.accountId !== null && (
-            <span data-testid="admin-report-account" className="min-w-0 font-mono break-all">
+            <span data-testid="admin-report-account" className="min-w-0 font-mono [overflow-wrap:anywhere]">
               <RawText value={report.accountId} />
             </span>
           )}

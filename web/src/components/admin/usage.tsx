@@ -82,7 +82,7 @@ function Top({ analyses, onChanged }: { analyses: Analyses; onChanged: (outcome:
         <li key={`${item.kind}:${item.name}`} className="flex flex-col gap-1.5 rounded-[12px] bg-panel2 p-3">
           <p className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 text-ink">
             <span className="font-semibold tabular-nums text-muted">{index + 1}.</span>
-            <span className="min-w-0 font-mono font-semibold break-all">
+            <span className="min-w-0 font-mono font-semibold [overflow-wrap:anywhere]">
               <RawText value={item.name} />
             </span>
             <span className="font-mono text-sm text-muted">
