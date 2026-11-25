@@ -107,7 +107,7 @@ qu'en entrée (`tool_<i>` pour un outil, `tool_<i>_param_<j>` pour un paramètre
 
 L'API sait imposer un schéma JSON à la réponse (`output_config.format`). MCPlain ne s'en sert pas. Le 9 novembre 2026, en
 français, la sortie imposée a cassé les accents au début du texte (« Ă » suivi d'un caractère à la place de « à » ou « é »), deux
-fois de suite avec la même entrée (request-id `req_011Cgsjjrio3ZYG4SZuNTuMH`). La même requête sans sortie imposée, le prompt
+fois de suite avec la même entrée. La même requête sans sortie imposée, le prompt
 demandant juste du JSON, était propre, avec 190 jetons d'entrée en moins. La matrice du 10 novembre a ensuite montré que la sortie
 imposée n'était pas la seule cause : le défaut revient aussi sans elle (voir 4 bis). La décision de ne pas l'utiliser reste.
 
