@@ -103,7 +103,7 @@ export function PasswordField({ id, label, value, onChange, autoComplete, resetC
           aria-controls={id}
           onChange={(event) => toggle(event.target.checked)}
           onKeyDown={stopEnter}
-          className="size-5 shrink-0 cursor-pointer accent-accent"
+          className="size-6 shrink-0 cursor-pointer accent-accent"
         />
         <label htmlFor={toggleId} className="cursor-pointer text-[15px] text-ink2">
           {t("showPassword")}

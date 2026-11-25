@@ -58,8 +58,8 @@ export function QuotaLine({ quota, tall = false }: { quota: QuotaInfo; tall?: bo
           href="/account/sign-up"
           data-testid="shared-network"
           className={cn(
-            "text-[13px] text-muted underline underline-offset-4 hover:text-ink",
-            tall && "flex min-h-11 items-center",
+            "inline-flex min-h-6 items-center text-[13px] text-muted underline underline-offset-4 hover:text-ink",
+            tall && "min-h-11",
           )}
         >
           {t("sharedNetwork")}

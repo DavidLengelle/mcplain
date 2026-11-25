@@ -63,7 +63,7 @@ function Line({ entry }: { entry: HistoryEntry }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
         {date !== null && <span>{date}</span>}
         {entry.fromCache && <span data-testid="history-from-cache">{t("fromCache")}</span>}
-        <Link href={`/analyses/${entry.id}`} className={LINK_CLASS}>
+        <Link href={`/analyses/${entry.id}`} className={`${LINK_CLASS} inline-flex min-h-6 items-center`}>
           {t("open")}
         </Link>
       </div>
