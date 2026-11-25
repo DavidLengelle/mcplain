@@ -408,6 +408,17 @@ describe("tool not followed", () => {
     expect(card?.textContent).toContain("Pas vérifié : son code n'a pas pu être suivi");
   });
 
+  it("does not show the sentence of the AI on the sheet of a tool not followed", () => {
+    const view = partialView((raw) => {
+      unfollowedTool(raw).plain_sentence = "Cet outil ne touche à rien.";
+    });
+    const tools = view.result!.servers[0].tools;
+    const index = tools.findIndex((tool) => tool.gaps.length > 0);
+    const { container } = renderWithIntl(<ToolSheet tool={tools[index]} index={index} alerts={[]} />, "fr");
+    expect(container.textContent).not.toContain("Cet outil ne touche à rien.");
+    expect(container.textContent).toContain("MCPlain n'a pas pu suivre son code : il ne peut pas dire ce que cet outil fait.");
+  });
+
   it("adds on the card that the rest of the code could not be followed when a lamp is lit", () => {
     const view = partialView((raw) => {
       lightFilesRead(unfollowedTool(raw));
