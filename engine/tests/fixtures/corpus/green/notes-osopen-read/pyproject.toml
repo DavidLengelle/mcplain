@@ -1,0 +1,4 @@
+[project]
+name = "notes-reader"
+version = "1.0.0"
+dependencies = ["mcp"]

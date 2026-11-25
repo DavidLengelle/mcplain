@@ -1,0 +1,5 @@
+color = "orange"
+accept = ["orange"]
+rules = ["O08"]
+style = "JavaScript ES module, McpServer.registerTool, a search run in a worker thread started from a file of the server."
+tests = "new Worker() of worker_threads runs JavaScript code: Runs commands, O08, even for a file of the server itself."

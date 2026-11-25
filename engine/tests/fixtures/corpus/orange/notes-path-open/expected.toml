@@ -1,0 +1,5 @@
+color = "orange"
+accept = ["orange"]
+rules = ["O08"]
+style = "Python, FastMCP, notes saved with Path.open(\"w\") on a parameter annotated Path, renamed with Path.rename."
+tests = "Path methods are recognized when the object is a Path: open with a write mode and rename are writes, O08."

@@ -107,6 +107,27 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
         "sendgrid.*",
         "asyncio.open_connection",
         "asyncio.start_server",
+        "poplib.*",
+        "imaplib.*",
+        "nntplib.*",
+        "xmlrpc.client.ServerProxy",
+        "ssl.get_server_certificate",
+        "http.server.HTTPServer",
+        "http.server.ThreadingHTTPServer",
+        "socketserver.TCPServer",
+        "socketserver.ThreadingTCPServer",
+        "socketserver.ForkingTCPServer",
+        "socketserver.UDPServer",
+        "socketserver.ThreadingUDPServer",
+        "socketserver.ForkingUDPServer",
+    ),
+    *_rules(
+        RuleKind.METHOD,
+        Capability.NETWORK,
+        "create_connection",
+        "create_datagram_endpoint",
+        "create_server",
+        "sock_connect",
     ),
     *_rules(
         RuleKind.MODULE,
@@ -127,7 +148,12 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
         "asyncio.create_subprocess_shell",
         "pty.spawn",
         "pexpect.*",
+        "os.startfile",
+        "webbrowser.open",
+        "webbrowser.open_new",
+        "webbrowser.open_new_tab",
     ),
+    *_rules(RuleKind.METHOD, Capability.PROCESS_EXEC, "subprocess_exec", "subprocess_shell"),
     *_rules(
         RuleKind.MODULE,
         Capability.FS_WRITE,
@@ -154,6 +180,24 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
         "shutil.make_archive",
         "shutil.unpack_archive",
         "shutil.chown",
+        "os.write",
+        "os.pwrite",
+        "os.writev",
+        "os.pwritev",
+        "os.ftruncate",
+        "os.fchmod",
+        "os.fchown",
+        "os.mkfifo",
+        "os.mknod",
+        "os.sendfile",
+        "os.copy_file_range",
+        "tempfile.mkstemp",
+        "tempfile.mkdtemp",
+        "tempfile.NamedTemporaryFile",
+        "tempfile.TemporaryFile",
+        "tempfile.SpooledTemporaryFile",
+        "tempfile.TemporaryDirectory",
+        "shelve.open",
     ),
     *_rules(
         RuleKind.METHOD,
@@ -167,6 +211,7 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
         "symlink_to",
         "hardlink_to",
         "chmod",
+        "extractall",
     ),
     *_rules(
         RuleKind.MODULE,
@@ -180,6 +225,22 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
         "os.readlink",
         "glob.glob",
         "glob.iglob",
+        "os.read",
+        "os.pread",
+        "os.readv",
+        "os.preadv",
+        "os.fstat",
+        "os.fwalk",
+        "os.path.exists",
+        "os.path.lexists",
+        "os.path.isfile",
+        "os.path.isdir",
+        "os.path.islink",
+        "os.path.getsize",
+        "os.path.getmtime",
+        "os.path.getatime",
+        "os.path.getctime",
+        "io.open_code",
     ),
     *_rules(
         RuleKind.METHOD,
@@ -206,7 +267,10 @@ PYTHON_RULES: tuple[ApiRule, ...] = (
         "marshal.loads",
         "builtins.eval",
         "builtins.exec",
+        "importlib.util.module_from_spec",
+        "importlib.reload",
     ),
+    *_rules(RuleKind.METHOD, Capability.DYNAMIC_CODE, "exec_module"),
     *_rules(
         RuleKind.MODULE,
         Capability.BASE64_DECODE,
@@ -259,6 +323,63 @@ PYTHON_CLIENT_URL_KEYWORDS: tuple[str, ...] = ("base_url",)
 PYTHON_OPEN_GLOBALS: frozenset[str] = frozenset({"open"})
 PYTHON_OPEN_FUNCTIONS: frozenset[str] = frozenset({"io.open", "codecs.open", "aiofiles.open"})
 PYTHON_WRITE_MODE_CHARS = "wax+"
+
+
+@dataclass(frozen=True)
+class ModeRule:
+    """Class that says where a call that opens a file takes its mode, and which mode letters write"""
+
+    keyword: str
+    position: int
+    write_chars: str
+
+
+PYTHON_MODE_FUNCTIONS: dict[str, ModeRule] = {
+    "os.fdopen": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "io.FileIO": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "zipfile.ZipFile": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "tarfile.open": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "tarfile.TarFile": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "gzip.open": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "gzip.GzipFile": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "bz2.open": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "bz2.BZ2File": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "lzma.open": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "lzma.LZMAFile": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+    "dbm.open": ModeRule("flag", 1, "wcn"),
+    "anyio.open_file": ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS),
+}
+PYTHON_PATH_MODE = ModeRule("mode", 0, PYTHON_WRITE_MODE_CHARS)
+PYTHON_OS_OPEN = "os.open"
+PYTHON_OS_OPEN_FLAGS = "flags"
+PYTHON_OS_CONSTANTS = "os"
+PYTHON_READ_OPEN_FLAGS: frozenset[str] = frozenset(
+    {"O_RDONLY", "O_NOFOLLOW", "O_NONBLOCK", "O_CLOEXEC", "O_DIRECTORY", "O_NOATIME", "O_NOCTTY", "O_BINARY", "O_NOINHERIT"}
+)
+PYTHON_DATABASE_FILES: frozenset[str] = frozenset({"sqlite3.connect"})
+PYTHON_MEMORY_DATABASES: frozenset[str] = frozenset({":memory:"})
+PYTHON_UNIX_CONNECTIONS: frozenset[str] = frozenset({"asyncio.open_unix_connection", "asyncio.start_unix_server"})
+PYTHON_UNIX_METHODS: frozenset[str] = frozenset({"create_unix_connection"})
+PYTHON_PATH_CLASSES: frozenset[str] = frozenset(
+    {
+        "pathlib.Path",
+        "pathlib.PurePath",
+        "pathlib.PosixPath",
+        "pathlib.WindowsPath",
+        "pathlib.PurePosixPath",
+        "pathlib.PureWindowsPath",
+    }
+)
+PYTHON_PATH_RETURNING_METHODS: frozenset[str] = frozenset(
+    {"resolve", "absolute", "expanduser", "joinpath", "with_name", "with_suffix", "with_stem", "relative_to"}
+)
+PYTHON_PATH_RETURNING_ATTRIBUTES: frozenset[str] = frozenset({"parent"})
+PYTHON_PATH_WRITE_METHODS: frozenset[str] = frozenset(
+    {"rename", "replace", "lchmod", "copy", "move", "copy_into", "move_into"}
+)
+PYTHON_PATH_READ_METHODS: frozenset[str] = frozenset({"exists", "is_file", "is_dir", "walk", "readlink"})
+PYTHON_PATH_OPEN_METHOD = "open"
+PYTHON_LITERAL_MODE = re.compile(r"^[rwaxbtU+]{1,4}$")
 PYTHON_ENV_MAPPINGS: frozenset[str] = frozenset({"os.environ", "os.environb"})
 PYTHON_ENV_GETTERS: frozenset[str] = frozenset(
     {"os.getenv", "os.getenvb", "os.environ.get", "os.environ.setdefault", "os.environ.pop"}
@@ -266,6 +387,8 @@ PYTHON_ENV_GETTERS: frozenset[str] = frozenset(
 PYTHON_TEXT_HELPERS: frozenset[str] = frozenset({"textwrap.dedent", "inspect.cleandoc"})
 
 JAVASCRIPT_RULES: tuple[ApiRule, ...] = (
+    *_rules(RuleKind.MODULE, Capability.DYNAMIC_CODE, "worker_threads.Worker"),
+    *_rules(RuleKind.GLOBAL, Capability.DYNAMIC_CODE, "process.dlopen"),
     *_rules(
         RuleKind.GLOBAL,
         Capability.NETWORK,
@@ -374,6 +497,10 @@ JAVASCRIPT_RULES: tuple[ApiRule, ...] = (
         "fs.emptyDir*",
         "fs.ensureFile*",
         "fs.ensureDir*",
+        "fs.ftruncate*",
+        "fs.fchmod*",
+        "fs.fchown*",
+        "fs.futimes*",
     ),
     *_rules(
         RuleKind.GLOBAL,
@@ -412,6 +539,12 @@ JAVASCRIPT_RULES: tuple[ApiRule, ...] = (
         "fs.realpath*",
         "fs.access*",
         "fs.exists*",
+        "fs.readv*",
+        "fs.watch",
+        "fs.watchFile",
+        "fs.glob",
+        "fs.globSync",
+        "fs.openAsBlob",
     ),
     *_rules(RuleKind.GLOBAL, Capability.FS_READ, "Deno.readFile", "Deno.readTextFile", "Bun.file"),
     *_rules(
@@ -428,6 +561,7 @@ JAVASCRIPT_RULES: tuple[ApiRule, ...] = (
 )
 
 JAVASCRIPT_OPEN_FUNCTIONS: frozenset[str] = frozenset({"fs.open", "fs.openSync"})
+JAVASCRIPT_REQUIRE_FACTORIES: frozenset[str] = frozenset({"module.createRequire"})
 JAVASCRIPT_WRITE_FLAG_CHARS = "wa+"
 JAVASCRIPT_OPEN_CONSTANTS = "fs.constants"
 JAVASCRIPT_READ_OPEN_FLAGS: frozenset[str] = frozenset(
@@ -454,6 +588,134 @@ JAVASCRIPT_CHAIN_REWRITES: tuple[tuple[str, str], ...] = (
     ("fs.promises.", "fs."),
     ("dns.promises.", "dns."),
 )
+
+
+@dataclass(frozen=True)
+class Library:
+    """Class that names an outside library MCPlain does not read, and everything it may do; any use counts for all of it"""
+
+    name: str
+    capabilities: tuple[Capability, ...]
+
+
+def _library(name: str, *capabilities: Capability) -> Library:
+    """Build one library entry; a network library lists the network first"""
+
+    return Library(name, capabilities)
+
+
+NET = Capability.NETWORK
+READ = Capability.FS_READ
+WRITE = Capability.FS_WRITE
+RUN = Capability.PROCESS_EXEC
+SECRET = Capability.ENV_READ_SECRET
+
+PYTHON_LIBRARIES: tuple[Library, ...] = (
+    _library("psycopg", NET),
+    _library("psycopg_pool", NET),
+    _library("clickhouse_connect", NET),
+    _library("chromadb", NET, WRITE, READ),
+    _library("googleapiclient", NET),
+    _library("httplib2", NET),
+    _library("google_auth_httplib2", NET),
+    _library("google.auth", NET, READ, SECRET),
+    _library("google.oauth2", NET, READ, SECRET),
+    _library("falconpy", NET),
+    _library("pagerduty", NET),
+    _library("dbtsl", NET),
+    _library("curl_cffi", NET),
+    _library("httpcore", NET),
+    _library("authlib", NET, SECRET),
+    _library("pypac", NET),
+    _library("md2conf", NET),
+    _library("instructor", NET),
+    _library("opentelemetry.exporter", NET),
+    _library("key_value", NET, WRITE),
+    _library("markitdown", NET, READ),
+    _library("readabilipy", RUN),
+    _library("git", RUN, WRITE),
+    _library("chdb", WRITE, READ),
+    _library("openpyxl", WRITE, READ),
+    _library("pypdf", WRITE, READ),
+    _library("PIL", WRITE, READ),
+    _library("pyarrow", WRITE, READ),
+    _library("olefile", READ),
+    _library("dbt_artifacts_parser", READ),
+    _library("keyring", SECRET),
+    _library("dotenv", READ, SECRET),
+    _library("anyio.run_process", RUN),
+    _library("anyio.open_process", RUN),
+    _library("anyio.connect_tcp", NET),
+    _library("anyio.create_tcp_listener", NET),
+    _library("anyio.create_udp_socket", NET),
+    _library("anyio.create_connected_udp_socket", NET),
+    _library("jwt.PyJWKClient", NET),
+)
+JAVASCRIPT_LIBRARIES: tuple[Library, ...] = (
+    _library("pg", NET),
+    _library("mqtt", NET),
+    _library("openai", NET),
+    _library("@azure/identity", NET, SECRET),
+    _library("@azure/msal-node", NET, SECRET),
+    _library("@azure/msal-node-extensions", WRITE, READ),
+    _library("@azure/keyvault-secrets", NET, SECRET),
+    _library("azure-devops-node-api", NET),
+    _library("firecrawl", NET),
+    _library("@mendable/firecrawl-js", NET),
+    _library("@supabase/supabase-js", NET),
+    _library("@supabase/postgrest-js", NET),
+    _library("tus-js-client", NET, READ),
+    _library("openapi-fetch", NET),
+    _library("openapi-client-axios", NET),
+    _library("fetch-cookie", NET),
+    _library("socks-proxy-agent", NET),
+    _library("@sentry/node", NET),
+    _library("pdfjs-dist", NET, READ),
+    _library("@opentelemetry/exporter-prometheus", NET),
+    _library("playwright", NET, RUN, WRITE),
+    _library("playwright-core", NET, RUN, WRITE),
+    _library("puppeteer", NET, RUN, WRITE),
+    _library("puppeteer-core", NET, RUN, WRITE),
+    _library("@puppeteer/browsers", NET, RUN, WRITE),
+    _library("md-to-pdf", RUN, WRITE, READ),
+    _library("esbuild", RUN, WRITE),
+    _library("open", RUN),
+    _library("find-process", RUN),
+    _library("pid-port", RUN),
+    _library("caffeinate", RUN),
+    _library("better-sqlite3", WRITE, READ),
+    _library("exceljs", WRITE, READ),
+    _library("sharp", WRITE, READ),
+    _library("proper-lockfile", WRITE),
+    _library("chokidar", READ),
+    _library("isbinaryfile", READ),
+    _library("bplist-parser", READ),
+    _library("keytar", SECRET),
+    _library("dotenv", READ, SECRET),
+)
+
+
+def _library_rules(libraries: tuple[Library, ...]) -> tuple[ApiRule, ...]:
+    """Build the module rules of the libraries from their first capability: the library itself and everything inside it"""
+
+    rules: list[ApiRule] = []
+    for library in libraries:
+        rules.append(ApiRule(library.name, library.capabilities[0], RuleKind.MODULE))
+        rules.append(ApiRule(f"{library.name}.*", library.capabilities[0], RuleKind.MODULE))
+    return tuple(rules)
+
+
+PYTHON_RULES = (*PYTHON_RULES, *_library_rules(PYTHON_LIBRARIES))
+JAVASCRIPT_RULES = (*JAVASCRIPT_RULES, *_library_rules(JAVASCRIPT_LIBRARIES))
+
+
+def library_extras(qualified: str, libraries: tuple[Library, ...]) -> tuple[Capability, ...]:
+    """Return the other capabilities of the library a qualified name belongs to, after the one its rule gives"""
+
+    for library in libraries:
+        if belongs_to(qualified, library.name):
+            return library.capabilities[1:]
+    return ()
 
 
 def _network_libraries(rules: tuple[ApiRule, ...]) -> frozenset[str]:

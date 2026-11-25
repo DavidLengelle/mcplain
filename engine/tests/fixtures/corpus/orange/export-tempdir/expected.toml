@@ -1,0 +1,5 @@
+color = "orange"
+accept = ["orange"]
+rules = ["O08"]
+style = "Python, FastMCP, a tool that makes a temporary folder with tempfile and writes a zip archive in it."
+tests = "tempfile.mkdtemp and zipfile.ZipFile with mode w create files: Changes your files, O08."

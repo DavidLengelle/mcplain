@@ -1,0 +1,4 @@
+[project]
+name = "notes-keeper"
+version = "1.0.0"
+dependencies = ["mcp"]

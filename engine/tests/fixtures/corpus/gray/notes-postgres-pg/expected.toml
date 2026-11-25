@@ -1,0 +1,6 @@
+color = "gray"
+accept = ["gray"]
+rules = []
+gray_case = "network_unresolved"
+style = "JavaScript ES module, McpServer.registerTool, a notes database reached through a pg.Pool built from a parameter."
+tests = "pg is a network library MCPlain does not read: creating the pool is not a request, gray network_unresolved, never green."

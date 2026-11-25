@@ -1,0 +1,4 @@
+[project]
+name = "notes-export"
+version = "1.0.0"
+dependencies = ["mcp"]

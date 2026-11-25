@@ -60,7 +60,9 @@ from mcplain.capabilities import (
     JAVASCRIPT_NETWORK_CLIENTS,
     JAVASCRIPT_OFFLINE_PARTS,
     JAVASCRIPT_OPEN_CONSTANTS,
+    JAVASCRIPT_LIBRARIES,
     JAVASCRIPT_OPEN_FUNCTIONS,
+    JAVASCRIPT_REQUIRE_FACTORIES,
     JAVASCRIPT_PLAIN_CALLS,
     JAVASCRIPT_PLAIN_METHODS,
     JAVASCRIPT_PLAIN_VALUES,
@@ -86,6 +88,7 @@ from mcplain.capabilities import (
     is_offline_part,
     is_secret_name,
     javascript_network_library,
+    library_extras,
     match_rule,
     normalize_javascript_module,
     rewrite_javascript_chain,
@@ -2249,15 +2252,14 @@ class _JavaScriptFile:
                     target = self._url_kind(arguments)
                     self._add(Capability.NETWORK, call, f"{constructor}.{method}", target, self._sends(method, arguments))
                     return
+        if unwrap(callee) is not None and unwrap(callee).type == "call_expression" and self._made_require(callee, call):
+            self._require_call(call, arguments)
+            return
         resolved = self.resolve(callee)
         if resolved is not None:
             qualified, imported = resolved
-            if not imported and qualified == "require":
-                if arguments and arguments[0].type != "string":
-                    if self._json_require(arguments[0]):
-                        self._add(Capability.FS_READ, call, JSON_REQUIRE)
-                    else:
-                        self._add(Capability.DYNAMIC_CODE, call, "require()")
+            if not imported and (qualified == "require" or self._made_require(callee, call)):
+                self._require_call(call, arguments)
                 return
             if qualified in JAVASCRIPT_BUFFER_DECODERS:
                 if len(arguments) > 1 and self.static_text(arguments[1]).value in JAVASCRIPT_BASE64_ENCODINGS:
@@ -2291,9 +2293,11 @@ class _JavaScriptFile:
                 finding.plain = self.plain_request(qualified, call, arguments)
                 if finding.plain and finding.url_host is None and arguments:
                     finding.url_host = self._plain_host(arguments[0], call)
+                self._library_extras(call, qualified, imported)
                 return
             if rule is not None:
                 self._add(rule.capability, call, qualified)
+                self._library_extras(call, qualified, imported)
                 return
         if callee.type == "member_expression":
             method = property_name(callee.child_by_field_name("property"))
@@ -2418,6 +2422,37 @@ class _JavaScriptFile:
                 ):
                     return source
         return None
+
+    def _require_call(self, call: Node, arguments: list[Node]) -> None:
+        """Classify require(x): a name written in the code is an import, a .json path a read, anything else code"""
+
+        if arguments and arguments[0].type != "string":
+            if self._json_require(arguments[0]):
+                self._add(Capability.FS_READ, call, JSON_REQUIRE)
+            else:
+                self._add(Capability.DYNAMIC_CODE, call, "require()")
+
+    def _made_require(self, callee: Node, call: Node) -> bool:
+        """Tell whether a called name holds the require function made by module.createRequire()"""
+
+        current = unwrap(callee)
+        if current is None:
+            return False
+        value = current
+        if current.type == "identifier":
+            value = unwrap(self._value_of(current, call))
+        if value is None or value.type != "call_expression":
+            return False
+        resolved = self.resolve(value.child_by_field_name("function"))
+        return resolved is not None and resolved[1] and resolved[0] in JAVASCRIPT_REQUIRE_FACTORIES
+
+    def _library_extras(self, call: Node, qualified: str, imported: bool) -> None:
+        """Record the other capabilities of an outside library MCPlain does not read: any use counts for all of them"""
+
+        if not imported:
+            return
+        for capability in library_extras(qualified, JAVASCRIPT_LIBRARIES):
+            self._add(capability, call, qualified)
 
     def _value_of(self, name_node: Node, call: Node) -> Node | None:
         """Return the value a name holds at a call: a constant of the function or of the file, assigned once"""

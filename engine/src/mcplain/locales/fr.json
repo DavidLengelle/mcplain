@@ -494,7 +494,7 @@
   "rule.O03.plain_advice": "Utilise-le seulement si tu fais confiance au site d'où vient cette description.",
   "rule.O04.title": "Annonce contredite par le code",
   "rule.O04.explanation": "L'outil annonce qu'il est en lecture seule (readOnlyHint), mais son code écrit des fichiers, lance des commandes ou du code, ou envoie des données. Ou il annonce qu'il est fermé au monde extérieur (openWorldHint à false), mais son code utilise le réseau, même pour une simple lecture. Les clients IA ne vérifient pas ces indices.",
-  "rule.O04.false_positive": "Un outil de recherche « lecture seule » qui écrit un cache.",
+  "rule.O04.false_positive": "Un outil de recherche « lecture seule » qui écrit un cache. Ou git_status d'un serveur Git : annoncé avec readOnlyHint, il lance la commande git status par la bibliothèque GitPython.",
   "rule.O04.plain_title": "Fait plus que ce qu'il annonce",
   "rule.O04.plain_found": "L'outil dit qu'il ne fait que lire, ou qu'il reste hors d'Internet, mais son code écrit, lance ou envoie quelque chose.",
   "rule.O04.plain_advice": "Ne te fie pas à ce qu'il annonce. Regarde plutôt ce que son code peut faire.",

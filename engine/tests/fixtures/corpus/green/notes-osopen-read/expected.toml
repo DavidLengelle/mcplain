@@ -1,0 +1,5 @@
+color = "green"
+accept = ["green"]
+rules = []
+style = "Python, FastMCP, a tool that reads a note with os.path.exists, os.open(path, os.O_RDONLY) and os.read."
+tests = "os.open with a read-only constant of os and os.read are file reads: Reads your files, no O08, green."

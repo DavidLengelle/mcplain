@@ -63,8 +63,26 @@ from mcplain.capabilities import (
     PYTHON_NETWORK_CLIENTS,
     PYTHON_POSITIONAL_BASE_URL_CLIENTS,
     PYTHON_OFFLINE_PARTS,
+    PYTHON_DATABASE_FILES,
+    PYTHON_LIBRARIES,
+    PYTHON_LITERAL_MODE,
+    PYTHON_MEMORY_DATABASES,
+    PYTHON_MODE_FUNCTIONS,
     PYTHON_OPEN_FUNCTIONS,
     PYTHON_OPEN_GLOBALS,
+    PYTHON_OS_CONSTANTS,
+    PYTHON_OS_OPEN,
+    PYTHON_OS_OPEN_FLAGS,
+    PYTHON_PATH_CLASSES,
+    PYTHON_PATH_MODE,
+    PYTHON_PATH_OPEN_METHOD,
+    PYTHON_PATH_READ_METHODS,
+    PYTHON_PATH_RETURNING_ATTRIBUTES,
+    PYTHON_PATH_RETURNING_METHODS,
+    PYTHON_PATH_WRITE_METHODS,
+    PYTHON_READ_OPEN_FLAGS,
+    PYTHON_UNIX_CONNECTIONS,
+    PYTHON_UNIX_METHODS,
     PYTHON_PLAIN_CALLS,
     PYTHON_PLAIN_VALUES,
     PYTHON_PLAIN_WRAPPERS,
@@ -77,11 +95,13 @@ from mcplain.capabilities import (
     SAFE_HTTP_METHODS,
     URL_AFTER_METHOD,
     Capability,
+    ModeRule,
     RuleKind,
     belongs_to,
     find_sensitive_paths,
     is_offline_part,
     is_secret_name,
+    library_extras,
     match_rule,
     python_network_library,
 )
@@ -102,6 +122,8 @@ PYTHON_EXTENSIONS: frozenset[str] = frozenset({".py", ".pyw"})
 PLAIN_NODES: frozenset[str] = frozenset({"integer", "float", "true", "false", "none", "comment"})
 PLAIN_METHODS: frozenset[str] = frozenset({"encode", "lower", "upper", "strip", "format"})
 PACKAGE_VERSION_CALLS: frozenset[str] = frozenset({"importlib.metadata.version"})
+MAX_PATH_DEPTH = 5
+UNIX_PATH_FIRST = "asyncio.open_unix_connection"
 NODE_TYPES: tuple[str, ...] = (
     "import_statement",
     "import_from_statement",
@@ -732,6 +754,10 @@ class _PythonFile:
         if not imported or self.internal_target(qualified) is not None:
             return False
         if qualified in PYTHON_OPEN_FUNCTIONS or qualified in PYTHON_ENV_GETTERS or qualified in PYTHON_ENV_MAPPINGS:
+            return False
+        if qualified in PYTHON_MODE_FUNCTIONS or qualified in PYTHON_DATABASE_FILES or qualified in PYTHON_UNIX_CONNECTIONS:
+            return False
+        if qualified == PYTHON_OS_OPEN:
             return False
         return match_rule(PYTHON_RULES, qualified, RuleKind.MODULE) is None
 
@@ -1958,6 +1984,18 @@ class _PythonFile:
             if not imported and qualified in PYTHON_OPEN_GLOBALS:
                 self._open_call(call, arguments, qualified)
                 return
+            if imported and qualified in PYTHON_MODE_FUNCTIONS:
+                self._open_call(call, arguments, qualified, PYTHON_MODE_FUNCTIONS[qualified])
+                return
+            if imported and qualified == PYTHON_OS_OPEN:
+                self._os_open(call, arguments)
+                return
+            if imported and qualified in PYTHON_DATABASE_FILES:
+                self._database_file(call, arguments, qualified)
+                return
+            if imported and qualified in PYTHON_UNIX_CONNECTIONS:
+                self._unix_connection(call, arguments, qualified)
+                return
             if imported and qualified in PYTHON_ENV_GETTERS:
                 positional, keywords = split_arguments(arguments)
                 key = keywords.get("key")
@@ -1978,15 +2016,22 @@ class _PythonFile:
                 finding.plain = self.plain_request(qualified, call, arguments)
                 if finding.plain and finding.url_host is None:
                     finding.url_host = self._plain_host(qualified, call, arguments)
+                self._library_extras(call, qualified, imported)
                 return
             if rule is not None:
                 self._add(rule.capability, call, qualified)
+                self._library_extras(call, qualified, imported)
                 return
         if callee is not None and callee.type == "attribute":
             attribute = callee.child_by_field_name("attribute")
             if attribute is None:
                 return
             method = node_text(attribute)
+            if self._path_method(call, callee, method, arguments):
+                return
+            if method in PYTHON_UNIX_METHODS:
+                self._unix_connection(call, arguments, "." + method)
+                return
             rule = match_rule(PYTHON_RULES, method, RuleKind.METHOD)
             if rule is not None:
                 self._add(rule.capability, call, "." + method)
@@ -2133,21 +2178,208 @@ class _PythonFile:
             self.report.findings[-1].fixed_site = keeps_client_site(self._written_start(url, call, 0))
         return True
 
-    def _open_call(self, call: Node, arguments: Node | None, qualified: str) -> None:
-        """Classify open() as a read or a write from its mode argument"""
+    def _open_call(
+        self, call: Node, arguments: Node | None, qualified: str, rule: ModeRule = ModeRule("mode", 1, PYTHON_WRITE_MODE_CHARS)
+    ) -> None:
+        """Classify a call that opens a file as a read or a write from its mode argument; an unknown mode writes"""
 
         positional, keywords = split_arguments(arguments)
-        mode_node = keywords.get("mode")
-        if mode_node is None and len(positional) > 1:
-            mode_node = positional[1]
+        mode_node = keywords.get(rule.keyword)
+        if mode_node is None and len(positional) > rule.position:
+            mode_node = positional[rule.position]
         capability = Capability.FS_READ
         detail = qualified
         if mode_node is not None:
             mode = self.static_text(mode_node)
             detail = f"{qualified} mode={mode.value or '?'}"
-            if mode.dynamic or any(character in mode.value for character in PYTHON_WRITE_MODE_CHARS):
+            if mode.dynamic or any(character in mode.value for character in rule.write_chars):
                 capability = Capability.FS_WRITE
         self._add(capability, call, detail)
+
+    def _os_open(self, call: Node, arguments: Node | None) -> None:
+        """Classify os.open(): a read only when its flags are made of read constants of the os module, else a write"""
+
+        positional, keywords = split_arguments(arguments)
+        flags = keywords.get(PYTHON_OS_OPEN_FLAGS)
+        if flags is None and len(positional) > 1:
+            flags = positional[1]
+        if flags is not None and self._read_flags(flags):
+            self._add(Capability.FS_READ, call, f"{PYTHON_OS_OPEN} flags=read")
+            return
+        self._add(Capability.FS_WRITE, call, f"{PYTHON_OS_OPEN} flags=?")
+
+    def _read_flags(self, node: Node) -> bool:
+        """Tell whether flags are only read constants of os, written in full or imported, joined by | and parentheses"""
+
+        if node.type == "parenthesized_expression":
+            inner = node.named_children
+            return len(inner) == 1 and self._read_flags(inner[0])
+        if node.type == "binary_operator":
+            operator = node.child_by_field_name("operator")
+            left = node.child_by_field_name("left")
+            right = node.child_by_field_name("right")
+            if operator is None or node_text(operator) != "|" or left is None or right is None:
+                return False
+            return self._read_flags(left) and self._read_flags(right)
+        if node.type not in ("attribute", "identifier"):
+            return False
+        parts = dotted_parts(node)
+        if not parts or self._assigned_in_file(parts[0]):
+            return False
+        qualified, imported = self._resolve(parts)
+        module, _, constant = qualified.rpartition(".")
+        return imported and module == PYTHON_OS_CONSTANTS and constant in PYTHON_READ_OPEN_FLAGS
+
+    def _assigned_in_file(self, name: str) -> bool:
+        """Tell whether a name is the target of an assignment somewhere in the file"""
+
+        for assignment in self.nodes["assignment"]:
+            left = assignment.child_by_field_name("left")
+            if left is not None and left.type == "identifier" and node_text(left) == name:
+                return True
+        return False
+
+    def _database_file(self, call: Node, arguments: Node | None, qualified: str) -> None:
+        """Classify a database opened on a file as a write, unless it lives in memory"""
+
+        positional, keywords = split_arguments(arguments)
+        database = keywords.get("database")
+        if database is None and positional:
+            database = positional[0]
+        if database is not None:
+            name = self.static_text(database)
+            if not name.dynamic and name.value in PYTHON_MEMORY_DATABASES:
+                return
+        self._add(Capability.FS_WRITE, call, qualified)
+
+    def _unix_connection(self, call: Node, arguments: Node | None, detail: str) -> None:
+        """Classify a Unix socket connection: the Docker socket commands Docker, any other stays on this computer"""
+
+        positional, keywords = split_arguments(arguments)
+        position = 1
+        if detail == UNIX_PATH_FIRST:
+            position = 0
+        path = keywords.get("path")
+        if path is None and len(positional) > position:
+            path = positional[position]
+        if path is not None and self.static_text(path).value.endswith(DOCKER_SOCKET_SUFFIX):
+            self._add(Capability.DOCKER_SOCKET, call, detail)
+            return
+        self._add(Capability.LOCAL_CONNECTION, call, detail)
+
+    def _library_extras(self, call: Node, qualified: str, imported: bool) -> None:
+        """Record the other capabilities of an outside library MCPlain does not read: any use counts for all of them"""
+
+        if not imported:
+            return
+        for capability in library_extras(qualified, PYTHON_LIBRARIES):
+            self._add(capability, call, qualified)
+
+    def _path_method(self, call: Node, callee: Node, method: str, arguments: Node | None) -> bool:
+        """Record a file method of a pathlib path, and open() with a write mode written in the code on any object"""
+
+        receiver = callee.child_by_field_name("object")
+        is_path = receiver is not None and self._is_path(receiver, call, 0)
+        if method == PYTHON_PATH_OPEN_METHOD:
+            if is_path:
+                self._open_call(call, arguments, "Path.open", PYTHON_PATH_MODE)
+                return True
+            return self._literal_write_open(call, arguments)
+        if not is_path:
+            return False
+        if method in PYTHON_PATH_WRITE_METHODS:
+            self._add(Capability.FS_WRITE, call, f"Path.{method}")
+            return True
+        if method in PYTHON_PATH_READ_METHODS:
+            self._add(Capability.FS_READ, call, f"Path.{method}")
+            return True
+        return False
+
+    def _literal_write_open(self, call: Node, arguments: Node | None) -> bool:
+        """Record .open() on an object of unknown type when a write mode is written in the code"""
+
+        positional, keywords = split_arguments(arguments)
+        candidates = [keywords.get("mode"), *positional[:2]]
+        for candidate in candidates:
+            if candidate is None or candidate.type not in ("string", "concatenated_string"):
+                continue
+            mode = self.static_text(candidate)
+            if mode.dynamic or not PYTHON_LITERAL_MODE.match(mode.value):
+                continue
+            if any(character in mode.value for character in PYTHON_WRITE_MODE_CHARS):
+                self._add(Capability.FS_WRITE, call, f".open mode={mode.value}")
+                return True
+        return False
+
+    def _is_path(self, node: Node, at: Node, depth: int) -> bool:
+        """Tell whether an expression is a pathlib path: built, joined with /, derived, or a name that only holds one"""
+
+        if depth > MAX_PATH_DEPTH:
+            return False
+        if node.type == "parenthesized_expression":
+            inner = node.named_children
+            return len(inner) == 1 and self._is_path(inner[0], at, depth + 1)
+        if node.type == "call":
+            function = node.child_by_field_name("function")
+            if function is None:
+                return False
+            if function.type == "attribute":
+                method = function.child_by_field_name("attribute")
+                target = function.child_by_field_name("object")
+                if method is not None and target is not None and node_text(method) in PYTHON_PATH_RETURNING_METHODS:
+                    if self._is_path(target, at, depth + 1):
+                        return True
+            parts = dotted_parts(function)
+            if not parts:
+                return False
+            qualified, imported = self._resolve(parts)
+            return imported and qualified in PYTHON_PATH_CLASSES
+        if node.type == "binary_operator":
+            operator = node.child_by_field_name("operator")
+            left = node.child_by_field_name("left")
+            return operator is not None and node_text(operator) == "/" and left is not None and self._is_path(left, at, depth + 1)
+        if node.type == "attribute":
+            attribute = node.child_by_field_name("attribute")
+            target = node.child_by_field_name("object")
+            if attribute is None or target is None or node_text(attribute) not in PYTHON_PATH_RETURNING_ATTRIBUTES:
+                return False
+            return self._is_path(target, at, depth + 1)
+        if node.type != "identifier":
+            return False
+        if self._annotated_path(node_text(node), at):
+            return True
+        value = self._value_of(node, at)
+        return value is not None and self._is_path(value, at, depth + 1)
+
+    def _annotated_path(self, name: str, at: Node) -> bool:
+        """Tell whether a name is a parameter of the function around a node, annotated as a pathlib path"""
+
+        scope = at.parent
+        while scope is not None and scope.type != "function_definition":
+            scope = scope.parent
+        if scope is None:
+            return False
+        parameters = scope.child_by_field_name("parameters")
+        if parameters is None:
+            return False
+        for parameter in parameters.named_children:
+            if parameter.type not in ("typed_parameter", "typed_default_parameter"):
+                continue
+            named = parameter.child_by_field_name("name")
+            if named is None:
+                named = next((item for item in parameter.named_children if item.type == "identifier"), None)
+            annotation = parameter.child_by_field_name("type")
+            if named is None or annotation is None or node_text(named) != name:
+                continue
+            target = annotation
+            if target.type == "type" and target.named_children:
+                target = target.named_children[0]
+            parts = dotted_parts(target)
+            if not parts:
+                return False
+            qualified, imported = self._resolve(parts)
+            return imported and qualified in PYTHON_PATH_CLASSES
+        return False
 
     def _env_access(self, node: Node, key_node: Node | None) -> None:
         """Classify an environment read as a secret or a plain variable"""

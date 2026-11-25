@@ -1,0 +1,5 @@
+color = "orange"
+accept = ["orange"]
+rules = ["O08"]
+style = "Python, FastMCP, a tool that adds a line to a local journal with os.open and os.write."
+tests = "os.open with O_WRONLY | O_CREAT | O_APPEND and os.write are file writes: Changes your files, O08."

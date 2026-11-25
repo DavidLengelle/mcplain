@@ -173,6 +173,33 @@ def test_read_only_open_flags_do_not_fire_o04(fixtures: Path) -> None:
         assert {finding.capability.value for finding in tool.findings} == {"fs_read"}
 
 
+def test_os_open_flags_that_may_write_keep_o04(fixtures: Path) -> None:
+    """O_WRONLY, O_RDWR, O_CREAT, a local name that looks like O_RDONLY, a number, flags given as a parameter, a flag looked
+    up with getattr, or os.write on a read-only descriptor: O04 stays"""
+
+    result = analyze_fixture(fixtures / "rules" / "O04" / "osopen_flags_write")
+    fired = {alert.tool for alert in result.verdict.alerts if alert.rule == "O04"}
+    assert fired == {
+        "log_lookup",
+        "check_note",
+        "peek_note",
+        "raw_note",
+        "given_note",
+        "fallback_note",
+        "mixed_note",
+        "append_note",
+    }
+
+
+def test_os_open_with_read_constants_of_os_does_not_fire_o04(fixtures: Path) -> None:
+    """os.O_RDONLY with os.O_NOFOLLOW, written in full or imported from os, then os.read and os.path, only read"""
+
+    result = analyze_fixture(fixtures / "rules" / "O04" / "osopen_flags_read")
+    assert [alert.rule for alert in result.verdict.alerts if alert.rule == "O04"] == []
+    for tool in result.servers[0].tools:
+        assert {finding.capability.value for finding in tool.findings} == {"fs_read"}
+
+
 def test_open_network_follows_a_client_given_as_parameter(fixtures: Path) -> None:
     """The AI address reaches build_request on a client passed to a helper, then send: O01, and the request is followed"""
 
