@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
+import { BUTTON_CLASS } from "../account/form-parts";
 import { StartErrorText } from "../start-error";
 import { useAnalysisStart } from "../use-analysis-start";
 
@@ -20,11 +21,11 @@ export function RetryButton({ input, select }: { input: string; select: string |
         disabled={pending}
         onClick={() => start(input, select)}
         data-retry=""
-        className="min-h-11 cursor-pointer rounded-[10px] bg-accent px-5 font-condensed text-lg font-bold tracking-[0.06em] text-on-accent hover:bg-accent-hover disabled:cursor-wait"
+        className={BUTTON_CLASS}
       >
         {label}
       </button>
-      <p aria-live="polite" className="font-semibold text-red">
+      <p aria-live="polite" className="font-semibold [overflow-wrap:anywhere] text-red">
         {error !== null && <StartErrorText error={error} />}
       </p>
     </div>

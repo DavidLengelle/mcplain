@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export const INPUT_CLASS =
   "h-12 w-full min-w-0 rounded-[10px] border-2 border-field-border bg-input-bg px-4 text-base text-ink";
 export const BUTTON_CLASS =
-  "min-h-12 cursor-pointer rounded-[10px] bg-accent px-[22px] font-condensed text-[19px] font-bold tracking-[0.06em] text-on-accent hover:bg-accent-hover disabled:cursor-wait";
+  "inline-flex min-h-12 cursor-pointer items-center justify-center rounded-[10px] bg-accent px-[22px] font-condensed text-[19px] font-bold tracking-[0.06em] text-on-accent uppercase no-underline hover:bg-accent-hover disabled:cursor-wait";
 export const SECONDARY_BUTTON_CLASS =
   "min-h-11 cursor-pointer rounded-[10px] border-[1.5px] border-btn-border bg-transparent px-3.5 text-ink hover:bg-row-hover";
 export const LINK_CLASS = "font-semibold text-accent underline hover:text-accent-hover";
