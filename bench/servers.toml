@@ -289,7 +289,7 @@ id = "calculator"
 input = "uvx mcp-server-calculator"
 language = "python"
 group = "popular"
-why = "Small community server; known case: gray (recursive function not followed)"
+why = "Small community server; known case since engine 0.7.0: gray, calls not followed (unresolved_call): the operation is picked from a table of operator functions, and a function returned by another one is called"
 
 [[server]]
 id = "atlassian"
