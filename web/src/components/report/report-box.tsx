@@ -76,7 +76,7 @@ export function ReportBox({ analysisId }: { analysisId: string }) {
 
   return (
     <section aria-labelledby={`${formId}-title`} data-report-box="" className="flex flex-col gap-4 rounded-[18px] bg-panel p-5 sm:p-6">
-      <h2 id={`${formId}-title`} className="font-condensed text-[26px] leading-tight font-bold">
+      <h2 id={`${formId}-title`} className="font-condensed text-2xl leading-tight font-bold tracking-[0.08em] uppercase">
         {t("title")}
       </h2>
       {sent && (
