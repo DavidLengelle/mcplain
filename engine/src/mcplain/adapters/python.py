@@ -124,6 +124,7 @@ PLAIN_METHODS: frozenset[str] = frozenset({"encode", "lower", "upper", "strip", 
 PACKAGE_VERSION_CALLS: frozenset[str] = frozenset({"importlib.metadata.version"})
 MAX_PATH_DEPTH = 5
 UNIX_PATH_FIRST = "asyncio.open_unix_connection"
+PATHLIB_MODULE = "pathlib"
 NODE_TYPES: tuple[str, ...] = (
     "import_statement",
     "import_from_statement",
@@ -2279,7 +2280,7 @@ class _PythonFile:
         """Record a file method of a pathlib path, and open() with a write mode written in the code on any object"""
 
         receiver = callee.child_by_field_name("object")
-        is_path = receiver is not None and self._is_path(receiver, call, 0)
+        is_path = receiver is not None and self._imports_pathlib() and self._is_path(receiver, call, 0)
         if method == PYTHON_PATH_OPEN_METHOD:
             if is_path:
                 self._open_call(call, arguments, "Path.open", PYTHON_PATH_MODE)
@@ -2294,6 +2295,11 @@ class _PythonFile:
             self._add(Capability.FS_READ, call, f"Path.{method}")
             return True
         return False
+
+    def _imports_pathlib(self) -> bool:
+        """Tell whether the file imports something of pathlib: without it, no object of the file is a pathlib path"""
+
+        return any(value.split(".")[0] == PATHLIB_MODULE for value in self.aliases.values())
 
     def _literal_write_open(self, call: Node, arguments: Node | None) -> bool:
         """Record .open() on an object of unknown type when a write mode is written in the code"""

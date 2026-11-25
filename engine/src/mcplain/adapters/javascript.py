@@ -567,6 +567,7 @@ class _JavaScriptFile:
         self.language = language
         self.aliases: dict[str, str] = {}
         self.constants: dict[str, Node] = {}
+        self.require_names: frozenset[str] | None = None
         self.functions: dict[str, Node] = {}
         self.internal: dict[str, tuple[str, str | None]] = {}
         self.function_names: set[str] = set()
@@ -2433,18 +2434,34 @@ class _JavaScriptFile:
                 self._add(Capability.DYNAMIC_CODE, call, "require()")
 
     def _made_require(self, callee: Node, call: Node) -> bool:
-        """Tell whether a called name holds the require function made by module.createRequire()"""
+        """Tell whether a called name holds the require function made by module.createRequire(), or is such a call"""
 
         current = unwrap(callee)
         if current is None:
             return False
-        value = current
         if current.type == "identifier":
-            value = unwrap(self._value_of(current, call))
-        if value is None or value.type != "call_expression":
+            return node_text(current) in self._require_names()
+        return self._makes_require(current)
+
+    def _makes_require(self, node: Node | None) -> bool:
+        """Tell whether an expression is a call of module.createRequire()"""
+
+        if node is None or node.type != "call_expression":
             return False
-        resolved = self.resolve(value.child_by_field_name("function"))
+        resolved = self.resolve(node.child_by_field_name("function"))
         return resolved is not None and resolved[1] and resolved[0] in JAVASCRIPT_REQUIRE_FACTORIES
+
+    def _require_names(self) -> frozenset[str]:
+        """Return the names declared with the result of module.createRequire(), indexed once per file"""
+
+        if self.require_names is None:
+            names = set()
+            for declarator in self.nodes["variable_declarator"]:
+                target = declarator.child_by_field_name("name")
+                if target is not None and target.type == "identifier" and self._makes_require(unwrap(declarator.child_by_field_name("value"))):
+                    names.add(node_text(target))
+            self.require_names = frozenset(names)
+        return self.require_names
 
     def _library_extras(self, call: Node, qualified: str, imported: bool) -> None:
         """Record the other capabilities of an outside library MCPlain does not read: any use counts for all of them"""
