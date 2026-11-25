@@ -1,7 +1,7 @@
 {
-  "engine_version": "0.7.0",
-  "date": "2026-11-25T17:53:24+00:00",
-  "source": "2026-11-25-engine-0.7.0.json",
+  "engine_version": "0.8.0",
+  "date": "2026-11-25T21:45:11+00:00",
+  "source": "2026-11-25-engine-0.8.0.json",
   "reds_left_out": 0,
   "servers": {
     "fetch": {
@@ -55,8 +55,8 @@
       "version": "2025.4.8"
     },
     "postgres-archived": {
-      "color": "green",
-      "gray_case": null,
+      "color": "gray",
+      "gray_case": "network_unresolved",
       "version": "0.6.2"
     },
     "slack-archived": {
@@ -65,8 +65,8 @@
       "version": "2025.4.25"
     },
     "puppeteer-archived": {
-      "color": "gray",
-      "gray_case": "incomplete_tracking",
+      "color": "orange",
+      "gray_case": null,
       "version": "2025.5.12"
     },
     "brave-search-archived": {
@@ -239,8 +239,8 @@
       "version": "0.2.6"
     },
     "markitdown": {
-      "color": "green",
-      "gray_case": null,
+      "color": "gray",
+      "gray_case": "network_unresolved",
       "version": "0.0.1a8"
     },
     "dbt": {
