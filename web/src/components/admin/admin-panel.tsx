@@ -56,7 +56,7 @@ export function AdminPanel() {
     );
   }
   return (
-    <div className="mx-auto flex w-full max-w-[960px] flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <h1 className="font-condensed text-[38px] leading-tight font-bold sm:text-[44px]">{t("title")}</h1>
       <Dashboard />
       <AccountsSection ownId={user.id} />
