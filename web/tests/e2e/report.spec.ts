@@ -220,3 +220,38 @@ test("Enter on a tool card moves the focus to its sheet, and Tab goes on from th
   });
   expect(forward).toBe(true);
 });
+
+test("hovering a tool card or an alert row draws a muted ring, not only a background", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await serveAnalysis(page, [reportView("orange")]);
+  await page.goto(`/analyses/${ID}`);
+  const muted = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--muted").trim());
+  const rgb = await page.evaluate((color) => {
+    const probe = document.createElement("span");
+    probe.style.color = color;
+    document.body.append(probe);
+    const value = getComputedStyle(probe).color;
+    probe.remove();
+    return value;
+  }, muted);
+  for (const selector of ['[data-tool-card="1"]', "[data-point]"]) {
+    const target = page.locator(selector).first();
+    const before = await target.evaluate((element) => getComputedStyle(element).boxShadow);
+    await target.hover();
+    await expect.poll(() => target.evaluate((element) => getComputedStyle(element).boxShadow)).toContain(`${rgb} 0px 0px 0px 2px inset`);
+    expect(before).not.toContain(`${rgb} 0px 0px 0px 2px inset`);
+    await page.mouse.move(0, 0);
+  }
+});
+
+test("the Show all button of a cut third-party text is 24 px high at least", async ({ page }) => {
+  const view = reportView("orange") as { result: { source: { name: string } } };
+  view.result.source.name = `${"long-package-name-".repeat(15)}end`;
+  await serveAnalysis(page, [view]);
+  await page.goto(`/analyses/${ID}`);
+  const button = page.getByRole("button", { name: "Show all" }).first();
+  await expect(button).toBeVisible();
+  const box = await button.boundingBox();
+  expect(box?.height).toBeGreaterThanOrEqual(24);
+  expect(box?.width).toBeGreaterThanOrEqual(24);
+});

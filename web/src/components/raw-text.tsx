@@ -46,8 +46,8 @@ function ToggleButton({ expanded, onToggle, tall }: { expanded: boolean; onToggl
       aria-expanded={expanded}
       onClick={onToggle}
       className={cn(
-        "ml-1 rounded-sm font-sans text-sm font-semibold text-accent underline underline-offset-4 hover:text-accent-hover",
-        tall && "inline-flex min-h-11 items-center",
+        "ml-1 inline-flex min-h-6 items-center rounded-sm px-1 font-sans text-sm font-semibold text-accent underline underline-offset-4 hover:text-accent-hover",
+        tall && "min-h-11",
       )}
     >
       {label}
