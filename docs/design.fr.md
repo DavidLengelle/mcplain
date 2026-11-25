@@ -163,8 +163,13 @@ Tous les textes respectent 4,5:1 sur leur fond, et 3:1 pour les gros titres. Un 
 panneau et la page, dans les deux thèmes (WCAG 1.4.11). Les autres bordures (boutons secondaires, filets) ne changent pas.
 
 **Les fonds de survol** (`--row-hover`, `--card-hover`) gardent `--faint`, `--red`, `--gray`, `--green` et `--accent` à 4,5:1
-au moins. En clair, ils sont à 1,06:1 contre le panneau, comme le survol des lignes en sombre ; la carte d'outil monte aussi de
-2 px au survol. Le test des jetons vérifie ces paires et l'écart avec le panneau.
+au moins. En clair, ils sont à 1,06:1 contre le panneau, comme le survol des lignes en sombre. Le survol a donc un second signe,
+qui ne dépend pas du fond : un anneau intérieur de 2 px en `--muted` (5,96:1 contre le panneau en clair, 7,56:1 en sombre ; 5,62
+et 6,89:1 au moins contre les fonds de survol) sur les cartes d'outil (sauf la carte sélectionnée, qui garde son anneau), les
+lignes d'alerte, les lignes de la liste de serveurs, les entrées du menu du compte et les pastilles du sommaire. La carte d'outil
+monte aussi de 2 px. Le test des jetons vérifie ces paires et l'écart avec le panneau.
+
+**Les cibles** font 24 px au moins, y compris le bouton « Afficher tout » d'un texte de tiers coupé (CSS de RawText seulement).
 
 **Exception validée par David le 6 octobre 2026.** En thème clair, le grand mot « À VÉRIFIER » est en orange
 clair `#E8892E` sur `--panel` : 2,2:1, sous le minimum de 3:1. C'est accepté parce que la jauge (zone du
@@ -185,7 +190,8 @@ l'horizontale). La requête est écrite une fois dans `globals.css` (variantes `
 `web/src/lib/phone-mode.ts` ; un test vérifie qu'elles sont identiques. Dans ce mode, l'en-tête collé est une barre de 64 px :
 logo, analyses restantes (« 2/3 », la phrase entière pour les lecteurs d'écran), bouton NOUVELLE ANALYSE et bouton Menu. Le menu
 contient la ligne complète du compteur, le thème, la langue et le compte. Le champ de saisie reste en haut de la page, mais défile
-avec elle. Partout, `scroll-padding-top` vaut la hauteur réelle de la partie collée de l'en-tête (WCAG 2.4.11).
+avec elle. Partout, `scroll-padding-top` vaut la hauteur réelle de la partie collée de l'en-tête plus 8 px (WCAG 2.4.11) : un
+élément atteint au clavier s'arrête sous l'en-tête avec son anneau de focus (3 px, décalé de 2 px) entier.
 
 ## Écarts assumés avec la maquette
 

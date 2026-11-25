@@ -345,6 +345,11 @@ ci-dessous).
       affirme donc « son code n'allume aucun voyant » alors que son code n'a pas été lu. Un débutant peut croire l'outil sans
       effet. À régler dans le moteur (`lamps.py`) ou dans les textes de la carte et de la fiche, avec l'accord de David.
 
+- [ ] Les tests de pile ne doivent effacer que leurs propres lignes (`stack/admin.spec.ts` vide `signup_counts`). Constaté le
+      25 novembre 2026 sur la pile locale : ce test vide toute la table `signup_counts` (`resetSignups` de
+      `web/tests/e2e/stack/helpers.ts`), laisse 2 lignes dans `admin_actions` (blocage et déblocage par l'admin de test), 2 jetons
+      `2fa-*` dans `auth.verification` (ils expirent seuls) et envoie ses visites à Umami (pas de Do Not Track).
+
 ## RETOUCHES DE TEXTES (avec l'accord de David)
 
 Relevées en séance 10a, non corrigées en 10b (textes de l'API, du moteur ou validés).
